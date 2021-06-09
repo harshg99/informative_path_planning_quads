@@ -16,7 +16,7 @@ represented in lower resolution. The aggregated feature design is only used to a
 policy search, but the robot action is still defined at the grid-cell level. For further details, please check out 
 our papers [SSRR2018](http://www.cim.mcgill.ca/~mrl/pubs/sandeep/SSRR2018.pdf) and [ISER2018](http://www.cim.mcgill.ca/~mrl/pubs/sandeep/ISER2018.pdf).
 
-<img src="imgs/aggregation.png" alt="alt text" width="250" height="250"><img src="imgs/eqs.png" alt="alt text" width="600" height="250">
+<img src="imgs/aggregation.png" alt="alt text" width="150" height="150">  <img src="imgs/eqs.png" alt="alt text" width="300" height="150">  <img src="imgs/eqn1.png" alt="alt text" width="150" height="150">
 
 # Libraries Required:
 		-numpy
@@ -51,9 +51,11 @@ python ../scripts/pg_path_generator.py
 # Below are some examples:
 
 ## Example Runs:
-<img src="result_images/test2_mirror.png" alt="alt text" width="200" height="200"><img src="result_images/score_map_test2.png" alt="alt text" width="200" height="200"><img src="result_images/reef_pg_test2.png" alt="alt text" width="200" height="200">
-<img src="result_images/test3_mirror.png" alt="alt text" width="200" height="200"><img src="result_images/score_map_test3.png" alt="alt text" width="200" height="200"><img src="result_images/reef_pg_test3.png" alt="alt text" width="200" height="200">
-<img src="result_images/field.png" alt="alt text" width="200" height="200"><img src="result_images/scoremap.png" alt="alt text" width="200" height="200"><img src="result_images/path_taken_robot.png" alt="alt text" width="200" height="200">
+<img src="result_images/test2_mirror.png" alt="alt text" width="200" height="200">    <img src="result_images/score_map_test2.png" alt="alt text" width="200" height="200">    <img src="result_images/reef_pg_test2.png" alt="alt text" width="200" height="200">
+
+<img src="result_images/test3_mirror.png" alt="alt text" width="200" height="200">    <img src="result_images/score_map_test3.png" alt="alt text" width="200" height="200">    <img src="result_images/reef_pg_test3.png" alt="alt text" width="200" height="200">
+
+<img src="result_images/field.png" alt="alt text" width="200" height="200">    <img src="result_images/scoremap.png" alt="alt text" width="200" height="200">    <img src="result_images/path_taken_robot.png" alt="alt text" width="200" height="200">
 
 # References:
 
