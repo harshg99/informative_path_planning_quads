@@ -27,7 +27,7 @@ fileNm = "totreward_5x5_200_base"
 #Discount factor gamma
 gamma = 0.5
 #Learning rate
-Eta = 0#float(sys.argv[3])#0.0015
+Eta = float(sys.argv[3])#0.0015
 
 def makeFig():
     plt.plot(xList,traj_reward_list)
@@ -409,9 +409,12 @@ if __name__ == '__main__':
     curr_pos = np.array([reward_map_size,reward_map_size])
     print worldmap
     Tau = generate_trajectories(num_traj,worldmap,curr_pos,theta,isPrint=False,maxPolicy=True,rand_start=False)
+    
     #COMMENTED FOR NOW
-    if(len(sys.argv)>1):
-        pickle.dump([rewardmap, gamma, Eta, num_trajectories, Tau_horizon, num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list, discount_reward_list, (float(tot_time)/num_iterations)],open(sys.argv[1]+'.pkl',"w"))
+    #Saving the trained data
+    #if(len(sys.argv)>1):
+    #    pickle.dump([rewardmap, gamma, Eta, num_trajectories, Tau_horizon, num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list, discount_reward_list, (float(tot_time)/num_iterations)],open(sys.argv[1]+'.pkl',"w"))
+    
     #pickle.dump([rewardmap, gamma, Eta, num_trajectories, Tau_horizon, num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list],open(fileNm+'.pkl',"w"))
     #plot_theta(theta)
     for i in range(num_traj):
