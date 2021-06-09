@@ -51,9 +51,9 @@ python ../scripts/pg_path_generator.py
 # Below are some examples:
 
 ## Example Runs:
-<img src="result_images/test2_mirror.png" alt="alt text" width="300" height="300"><img src="result_images/score_map_test2.png" alt="alt text" width="300" height="300"><img src="result_images/reef_pg_test2.png" alt="alt text" width="300" height="300">
-<img src="result_images/test3_mirror.png" alt="alt text" width="300" height="300"><img src="result_images/score_map_test3.png" alt="alt text" width="300" height="300"><img src="result_images/reef_pg_test3.png" alt="alt text" width="300" height="300">
-<img src="result_images/field.png" alt="alt text" width="300" height="300"><img src="result_images/scoremap.png" alt="alt text" width="300" height="300"><img src="result_images/path_taken_robot.png" alt="alt text" width="300" height="300">
+<img src="result_images/test2_mirror.png" alt="alt text" width="200" height="200"><img src="result_images/score_map_test2.png" alt="alt text" width="200" height="200"><img src="result_images/reef_pg_test2.png" alt="alt text" width="200" height="200">
+<img src="result_images/test3_mirror.png" alt="alt text" width="200" height="200"><img src="result_images/score_map_test3.png" alt="alt text" width="200" height="200"><img src="result_images/reef_pg_test3.png" alt="alt text" width="200" height="200">
+<img src="result_images/field.png" alt="alt text" width="200" height="200"><img src="result_images/scoremap.png" alt="alt text" width="200" height="200"><img src="result_images/path_taken_robot.png" alt="alt text" width="200" height="200">
 
 # References:
 
