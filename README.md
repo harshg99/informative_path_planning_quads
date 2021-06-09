@@ -1,10 +1,10 @@
-# Policy Search with Non-uniform Feature Aggregation for Street Networks
+# Active Sampling with Non-uniform Feature Aggregation with motion primitives
 
 This project presents an adaptive sampling technique that generates paths to efficiently measure and 
 then mathematically model a scalar field by performing non-uniform measurements in a given street network. 
 The system is trained to achieve paths that preferentially cover hotspots at the earlier stages of the exploration. 
 These learned parameters then define a policy π (in the sense of reinforcement learning) that is then used on the 
-input street network to generate an explicit action plan.
+scoremap to generate an explicit action plan.
 
 # Feature Aggregation:
 
@@ -16,7 +16,7 @@ represented in lower resolution. The aggregated feature design is only used to a
 policy search, but the robot action is still defined at the grid-cell level. For further details, please check out 
 our papers [SSRR2018](http://www.cim.mcgill.ca/~mrl/pubs/sandeep/SSRR2018.pdf) and [ISER2018](http://www.cim.mcgill.ca/~mrl/pubs/sandeep/ISER2018.pdf).
 
-<img src="https://github.com/monicaMRL/t6-deliverables/blob/master/pg_sampling/imgs/aggregation.png" alt="alt text" width="250" height="250"><img src="https://github.com/monicaMRL/t6-deliverables/blob/master/pg_sampling/imgs/eqs.png" alt="alt text" width="600" height="250">
+<img src="imgs/aggregation.png" alt="alt text" width="250" height="250"><img src="imgs/eqs.png" alt="alt text" width="600" height="250">
 
 # Libraries Required:
 		-numpy
@@ -31,7 +31,7 @@ Currently in the provided examples, the learning rate Eta=0.015.
 
 # Command to run the path generator code in street network:
 
-python ../scripts/pg_path_generator.py <pklFile_with_streetMap>
+python ../scripts/pg_path_generator.py
 
 # Example files provided:
 	
@@ -47,17 +47,13 @@ python ../scripts/pg_path_generator.py <pklFile_with_streetMap>
 
 		4. cShaped_test3.pkl - Test distribution generated with a mixture of Gaussian and a C-shaped distribution.
 
-		5. streetMap1.pkl and streetMap2.pkl - Example streetMaps for testing.
 
 # Below are some examples:
 
-## Example StreetMaps:
-<img src="https://github.com/monicaMRL/t6-deliverables/blob/master/pg_sampling/result_images/streetMap2.png" alt="alt text" width="250" height="250"> <img src="https://github.com/monicaMRL/t6-deliverables/blob/master/pg_sampling/result_images/streetMap1.png" alt="alt text" width="250" height="250"><img src="https://github.com/monicaMRL/t6-deliverables/blob/master/pg_sampling/result_images/streetMap3.png" alt="alt text" width="250" height="250">
-
 ## Example Runs:
-<img src="https://github.com/monicaMRL/t6-deliverables/blob/master/pg_sampling/result_images/testcase3_1.png" alt="alt text" width="350" height="300"><img src="https://github.com/monicaMRL/t6-deliverables/blob/master/pg_sampling/result_images/testcase3_2.png" alt="alt text" width="350" height="300">
-<img src="https://github.com/monicaMRL/t6-deliverables/blob/master/pg_sampling/result_images/testcase3_gridStreet_1.png" alt="alt text" width="350" height="300"><img src="https://github.com/monicaMRL/t6-deliverables/blob/master/pg_sampling/result_images/testcase3_gridStreet_2.png" alt="alt text" width="350" height="300">
-<img src="https://github.com/monicaMRL/t6-deliverables/blob/master/pg_sampling/result_images/testcase3_gridStreet3_1.png" alt="alt text" width="350" height="300"><img src="https://github.com/monicaMRL/t6-deliverables/blob/master/pg_sampling/result_images/testcase3_gridStreet3_2.png" alt="alt text" width="350" height="300">
+<img src="result_images/test2_mirror.png" alt="alt text" width="300" height="300"><img src="result_images/score_map_test2.png" alt="alt text" width="300" height="300"><img src="result_images/reef_pg_test2.png" alt="alt text" width="300" height="300">
+<img src="result_images/test3_mirror.png" alt="alt text" width="300" height="300"><img src="result_images/score_map_test3.png" alt="alt text" width="300" height="300"><img src="result_images/reef_pg_test3.png" alt="alt text" width="300" height="300">
+<img src="result_images/field.png" alt="alt text" width="300" height="300"><img src="result_images/scoremap.png" alt="alt text" width="300" height="300"><img src="result_images/path_taken_robot.png" alt="alt text" width="300" height="300">
 
 # References:
 
