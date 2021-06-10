@@ -27,7 +27,7 @@ fileNm = "totreward_5x5_200_base"
 # Discount factor gamma
 gamma = 0.5
 # Learning rate
-Eta = float(sys.argv[3])  # 0.0015
+Eta = 0.0015  # float(sys.argv[3])
 
 
 def makeFig():
@@ -334,8 +334,8 @@ def get_maximum_path_reward(worldmap, curr_pos, theta, path_max_reward_list, dis
         # print 'The trajectory wise max reward = '+str(traj_max_reward)
     max_path_reward = max_path_reward / num_traj
     discount_reward = discount_reward / num_traj
-    print 'The Maximum reward with trajectory = '+str(max_path_reward)
-    print 'The discounted reward = '+str(discount_reward)
+    print(f'The Maximum reward with trajectory = {max_path_reward}')
+    print(f'The discounted reward = {discount_reward}')
     path_max_reward_list.append(max_path_reward)
     discount_reward_list.append(discount_reward)
 
@@ -352,11 +352,11 @@ if __name__ == '__main__':
     # Initializing parameters and training data #
     #*******************************************#
 
-    Eta = float(sys.argv[2])
+    # Eta = float(sys.argv[2])
     get_phi_prime = 'get_phi_prime_'+str(num_features)+'_feat'
     param_len = num_features*num_actions
 
-    rewardmap = pickle.load(open('../trainingData/gaussian_mixture_training_data.pkl', "r"))
+    rewardmap = pickle.load(open('../trainingData/gaussian_mixture_training_data.pkl', "rb"), encoding='latin1')
 
     maximum_reward = sum(-np.sort(-np.reshape(rewardmap, (1, reward_map_size**2))[0])[0:Tau_horizon])
     worldmap = np.zeros((world_map_size, world_map_size))
@@ -419,7 +419,7 @@ if __name__ == '__main__':
         theta = theta + Eta*g_T
         # plotting the total reward vs. no. of iterations
         if plot == True:  # and iterations%10==0:
-            print "total accumulated reward = "+str(tot_reward)
+            print(f"total accumulated reward = {tot_reward}")
             xList.append(iterations)
             traj_reward_list.append(tot_reward)
             max_reward_list.append(maximum_reward)
@@ -440,7 +440,7 @@ if __name__ == '__main__':
     worldmap = None
     worldmap = np.copy(orig_worldmap)
     curr_pos = np.array([reward_map_size, reward_map_size])
-    print worldmap
+    print(worldmap)
     Tau = generate_trajectories(num_traj, worldmap, curr_pos, theta, isPrint=False, maxPolicy=True, rand_start=False)
 
     # COMMENTED FOR NOW
@@ -452,4 +452,4 @@ if __name__ == '__main__':
     # plot_theta(theta)
     for i in range(num_traj):
         for j in range(Tau_horizon):
-            print Tau[i][j]
+            print(Tau[i][j])

@@ -21,20 +21,20 @@ Y = np.array([[15], [7.5], [11.25], [13.5]])
 m = GPy.models.SparseGPRegression(X, Y, num_inducing=10)
 m.rbf.variance = 1
 m.rbf.lengthscale = 3
-print m.rbf
+print(m.rbf)
 # m.optimize()
 
 x = np.array([np.linspace(0, 29, 30), np.linspace(0, 29, 30)]).T  # np.random.uniform(-3.,3.,(200,2))
 
 x1Mesh, x2Mesh = np.meshgrid(x[:, 0:1], x[:, 1:2])
-xPred = np.array([np.reshape(x1Mesh, 900, 1), np.reshape(x2Mesh, 900, 1)]).T
+xPred = np.array([np.reshape(x1Mesh, (900,)), np.reshape(x2Mesh, (900,))]).T
 
 yPred, Var = m.predict(xPred)
 x1len = math.floor(np.max(x[:, 0:1]) - np.min(x[:, 0:1]))+1
 x2len = math.floor(np.max(x[:, 1:2]) - np.min(x[:, 1:2]))+1
 
 yMesh = np.reshape(yPred, (np.size(x, 0), np.size(x, 0))).T
-print yMesh.shape
+print(yMesh.shape)
 levels = np.linspace(np.min(yMesh), np.max(yMesh), 1000)
 levels1 = np.linspace(np.min(yMesh), np.max(yMesh), 10)
 plt.contourf(x1Mesh, x2Mesh, yMesh, levels, cmap='viridis')
@@ -42,4 +42,4 @@ plt.contourf(x1Mesh, x2Mesh, yMesh, levels, cmap='viridis')
 plt.colorbar()
 plt.show()
 
-pickle.dump(yMesh, open('../trainingData/gaussian_mixture_training_data.pkl', "w"))
+pickle.dump(yMesh, open('../trainingData/gaussian_mixture_training_data.pkl', "wb"))

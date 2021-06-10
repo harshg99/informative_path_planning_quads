@@ -238,7 +238,7 @@ class Trajectory:
 
 def generate_trajectories(num_trajectories, worldmap, curr_pos, theta, isPrint=False, maxPolicy=False, rand_start=True):
     # Array of trajectories starting from current position.
-    print "In trajectory generation"
+    print("In trajectory generation")
     global is_action_valid
     copy_worldmap = np.copy(worldmap)
     Tau = np.ndarray(shape=(num_trajectories, Tau_horizon), dtype=object)

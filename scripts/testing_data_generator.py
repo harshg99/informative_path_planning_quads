@@ -19,7 +19,7 @@ data = sio.loadmat('../matlab_data/banana_testset_30x30_2.mat')
 samples = np.floor(data['Y']).astype('int')
 unique, counts = np.unique(samples, return_counts=True, axis=0)
 num_samples = samples.shape[0]
-print num_samples
+print(num_samples)
 prob = np.zeros((30, 30))
 for i in range(counts.size):
     prob[unique[i][0], unique[i][1]] = float(counts[i])/num_samples
@@ -28,7 +28,7 @@ for i in range(counts.size):
 # pickle.dump(prob,open('../testingData/gaussian_mixture_test1.pkl',"w"))
 pickle.dump(prob, open('../testingData/cShaped_test3.pkl', "w"))
 
-print np.sum(prob)
+print(np.sum(prob))
 
 plt.figure(figsize=(8, 6))
 x = np.linspace(0, 29, 30)
