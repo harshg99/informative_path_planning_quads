@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from os import path
 import numpy as np
 import matplotlib.pyplot as plt
 import math
@@ -154,7 +155,7 @@ class LearnPolicyGradientParams:
         phi = np.transpose(phi)
         return phi
 
-    def get_pi(self, worldmap, pos, act, theta, isPrint=False):
+    def get_pi(self, worldmap, pos, act, theta):
 
         phi = []
         dot = []
@@ -179,7 +180,7 @@ class LearnPolicyGradientParams:
 
         return (exp_act/exp_sum)
 
-    def sample_action(self, worldmap, pos, prev_action, theta, isprint=False, maxPolicy=False):
+    def sample_action(self, worldmap, pos, theta, maxPolicy=False):
         # Sample an action given current state and theta
         phi = []
         dot = []
@@ -236,7 +237,7 @@ class LearnPolicyGradientParams:
 
         return next_pos
 
-    def generate_trajectories(self, worldmap, curr_pos, theta, isPrint=False, maxPolicy=False, rand_start=True):
+    def generate_trajectories(self, worldmap, curr_pos, theta, maxPolicy=False, rand_start=True):
         # Array of trajectories starting from current position.
         # Generate multiple trajectories (<action, state> pairs) using the current Theta.
         copy_worldmap = np.copy(worldmap)
@@ -256,7 +257,7 @@ class LearnPolicyGradientParams:
             worldmap = None
             worldmap = np.copy(copy_worldmap)
             for j in range(self.Tau_horizon):
-                curr_action = self.sample_action(worldmap, curr_pos, theta, isPrint, maxPolicy)
+                curr_action = self.sample_action(worldmap, curr_pos, theta, maxPolicy)
                 next_pos = self.get_next_state(worldmap, curr_pos, curr_action)
                 if self.is_action_valid:
                     curr_reward = worldmap[next_pos[1], next_pos[0]]
@@ -283,9 +284,9 @@ class LearnPolicyGradientParams:
         num_traj = 1
         max_path_reward = 0
         discount_reward = 0
-        Tau = self.generate_trajectories(num_traj, worldmap, curr_pos, theta, maxPolicy=True, rand_start=False)
+        Tau = self.generate_trajectories(worldmap, curr_pos, theta, maxPolicy=True, rand_start=False)
         for i in range(num_traj):
-            #traj_max_reward = 0
+            # traj_max_reward = 0
             for j in range(self.Tau_horizon):
                 # print Tau[i][j]
                 max_path_reward = max_path_reward + Tau[i][j].curr_reward
@@ -298,6 +299,7 @@ class LearnPolicyGradientParams:
         print(f'The discounted reward = {discount_reward}')
         path_max_reward_list.append(max_path_reward)
         discount_reward_list.append(discount_reward)
+        return path_max_reward_list, discount_reward_list
 
     def run_training(self, rewardmap):
         maximum_reward = sum(-np.sort(-np.reshape(rewardmap, (1, self.reward_map_size**2))[0])[0:self.Tau_horizon])
@@ -368,14 +370,17 @@ class LearnPolicyGradientParams:
                 curr_pos1 = np.array([self.reward_map_size, self.reward_map_size])
                 worldmap1 = np.copy(orig_worldmap)
                 theta1 = np.copy(theta)
-                self.get_maximum_path_reward(worldmap1, curr_pos1, theta1, path_max_reward_list, discount_reward_list)
-                # makeFig()
-                # plt.draw()
-                # plt.pause(0.00001)
+                path_max_reward_list, discount_reward_list = self.get_maximum_path_reward(
+                    worldmap1, curr_pos1, theta1, path_max_reward_list, discount_reward_list)
+                # plt.plot(xList, traj_reward_list)
+                plt.plot(xList, max_reward_list)
+                plt.plot(xList, path_max_reward_list)
+                plt.draw()
+                plt.pause(0.00001)
 
             end = time.time()
-            tot_time = tot_time + (end-start)
-            print(end-start)
+            tot_time += (end-start)
+            print(f'Computation Time: {end-start}')
 
         # print theta
         num_traj = 1
@@ -383,24 +388,18 @@ class LearnPolicyGradientParams:
         worldmap = np.copy(orig_worldmap)
         curr_pos = np.array([self.reward_map_size, self.reward_map_size])
         print(worldmap)
-        Tau = self.generate_trajectories(worldmap, curr_pos, theta, isPrint=False, maxPolicy=True, rand_start=False)
+        Tau = self.generate_trajectories(worldmap, curr_pos, theta, maxPolicy=True, rand_start=False)
 
         # COMMENTED FOR NOW
         # Saving the trained data
         # if(len(sys.argv)>1):
         #    pickle.dump([rewardmap, gamma, Eta, num_trajectories, Tau_horizon, num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list, discount_reward_list, (float(tot_time)/num_iterations)],open(sys.argv[1]+'.pkl',"w"))
 
-        #pickle.dump([rewardmap, gamma, Eta, num_trajectories, Tau_horizon, num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list],open(fileNm+'.pkl',"w"))
+        # pickle.dump([rewardmap, gamma, Eta, num_trajectories, Tau_horizon, num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list],open(fileNm+'.pkl',"w"))
         # plot_theta(theta)
         for i in range(num_traj):
             for j in range(self.Tau_horizon):
                 print(Tau[i][j])
-
-
-def makeFig():
-    plt.plot(xList, traj_reward_list)
-    plt.plot(xList, max_reward_list)
-    plt.plot(xList, path_max_reward_list)
 
 
 class Trajectory:

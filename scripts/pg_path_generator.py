@@ -8,7 +8,6 @@ import cv2
 import numpy as np
 import pickle
 from matplotlib import pyplot as plt
-from scipy.interpolate import spline
 import matplotlib
 import matplotlib.collections as mcoll
 import matplotlib.path as mpath
@@ -52,7 +51,7 @@ pg.num_features = data[6].shape[0]/4
 pg.Tau_horizon = 250
 pg.gamma = data[1]
 
-print "the rewardmap size = "+str(pg.reward_map_size)
+print ("the rewardmap size = {pg.reward_map_size}")
 
 total_reward = []
 discounted_reward = []
@@ -98,9 +97,9 @@ x = np.array([np.linspace(0, pg.reward_map_size-1, pg.reward_map_size),
 x1Mesh, x2Mesh = np.meshgrid(x[:, 0:1], x[:, 1:2])
 levels = np.linspace(np.min(rewardmap), np.max(rewardmap), 100)
 
-print "Maximum reward possible = "+str(maximum_reward)
-print tot
-print dis_tot
+print("Maximum reward possible = {maximum_reward}")
+print(tot)
+print(dis_tot)
 
 
 plt.figure(figsize=(7, 6))
