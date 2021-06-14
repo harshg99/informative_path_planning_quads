@@ -172,7 +172,7 @@ def get_pi(worldmap,pos,act,theta,isPrint=False):
 
     return (exp_act/exp_sum)
 
-def sample_action(worldmap,pos,prev_action,theta,isprint=False,maxPolicy=False):
+def sample_action(worldmap,pos,theta,isprint=False,maxPolicy=False):
     #Sample an action given current state and theta
     phi = []
     dot = []
