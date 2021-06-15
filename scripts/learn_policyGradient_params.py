@@ -31,7 +31,7 @@ class LearnPolicyGradientParams:
         # Discount factor gamma
         self.gamma = 0.5
         # Learning rate
-        self.Eta = 0.0015  # float(sys.argv[3])
+        self.Eta = 0.015  # float(sys.argv[3])
 
     def get_phi_prime_24_feat(self, worldmap, curr_pos):
         wmap = np.copy(worldmap)
@@ -156,58 +156,72 @@ class LearnPolicyGradientParams:
         return phi
 
     def get_pi(self, worldmap, pos, act, theta):
+        phi_left = self.get_phi(worldmap,pos,0)
+        phi_up = self.get_phi(worldmap,pos,1)
+        phi_right = self.get_phi(worldmap,pos,2)
+        phi_down = self.get_phi(worldmap,pos,3)
 
-        phi = []
-        dot = []
-        for i in range(self.num_actions):
-            phi.append(self.get_phi(worldmap, pos, i))
-            dot.append(np.dot(np.transpose(theta), phi[i])[0, 0])
+        dot_l = np.dot(np.transpose(theta),phi_left)[0,0]
+        dot_u = np.dot(np.transpose(theta),phi_up)[0,0]
+        dot_r = np.dot(np.transpose(theta),phi_right)[0,0]
+        dot_d = np.dot(np.transpose(theta),phi_down)[0,0]
 
-        # Making sure the range for numpy.exp
-        dot_max = np.max(dot)
-        exp = []
 
-        for i in range(self.num_actions):
-            dot[i] = dot[i] - dot_max
-            exp.append(np.exp(dot[i]))
+        #Making sure the range for numpy.exp
+        dot_max = np.max([dot_l,dot_u,dot_r,dot_d])
+        dot_l = dot_l - dot_max
+        dot_u = dot_u - dot_max
+        dot_r = dot_r - dot_max
+        dot_d = dot_d - dot_max
+        
+        #if (np.isinf(dot_l) or np.isinf(dot_u) or np.isinf(dot_r) or np.isinf(dot_d)):
 
-        exp_sum = np.sum(exp)
+        exp_l = np.exp(dot_l)
+        exp_u = np.exp(dot_u)
+        exp_r = np.exp(dot_r)
+        exp_d = np.exp(dot_d)
+        exp_sum = exp_l + exp_u + exp_r + exp_d
 
-        phi_act = self.get_phi(worldmap, pos, act)
-        dot_act = np.dot(np.transpose(theta), phi_act)
+        phi_act = self.get_phi(worldmap,pos,act)
+        dot_act = np.dot(np.transpose(theta),phi_act)
         dot_act = dot_act - dot_max
         exp_act = np.exp(dot_act)
 
         return (exp_act/exp_sum)
 
     def sample_action(self, worldmap, pos, theta, maxPolicy=False):
-        # Sample an action given current state and theta
-        phi = []
-        dot = []
+        phi_left = self.get_phi(worldmap,pos,0)
+        phi_up = self.get_phi(worldmap,pos,1)
+        phi_right = self.get_phi(worldmap,pos,2)
+        phi_down = self.get_phi(worldmap,pos,3)
 
-        for i in range(self.num_actions):
-            phi.append(self.get_phi(worldmap, pos, i))
-            dot.append(np.dot(np.transpose(theta), phi[i])[0, 0])
+        dot_l = np.dot(np.transpose(theta),phi_left)[0,0]
+        dot_u = np.dot(np.transpose(theta),phi_up)[0,0]
+        dot_r = np.dot(np.transpose(theta),phi_right)[0,0]
+        dot_d = np.dot(np.transpose(theta),phi_down)[0,0]
 
-        # Making sure the range for numpy.exp
-        dot_max = np.max(dot)
-        exp = []
+        #Making sure the range for numpy.exp
+        dot_max = np.max([dot_l,dot_u,dot_r,dot_d])
+        dot_l = dot_l - dot_max
+        dot_u = dot_u - dot_max
+        dot_r = dot_r - dot_max
+        dot_d = dot_d - dot_max
+        
+        exp_l = np.exp(dot_l)
+        exp_u = np.exp(dot_u)
+        exp_r = np.exp(dot_r)
+        exp_d = np.exp(dot_d)
+        exp_sum = exp_l + exp_u + exp_r + exp_d
 
-        for i in range(self.num_actions):
-            dot[i] = dot[i] - dot_max
-            exp.append(np.exp(dot[i]))
-
-        exp_sum = np.sum(exp)
-        prob = []
-        for i in range(self.num_actions):
-            prob.append(exp[i] / exp_sum)
-
-        p = prob
+        prob_l = exp_l / exp_sum
+        prob_u = exp_u / exp_sum
+        prob_r = exp_r / exp_sum
+        prob_d = exp_d / exp_sum
 
         if maxPolicy:
-            next_action = np.argmax(p)
+            next_action = np.argmax([prob_l,prob_u,prob_r,prob_d])
         else:
-            next_action = np.random.choice(self.num_actions, 1, p)[0]
+            next_action = np.random.choice(self.num_actions,1,p=[prob_l,prob_u,prob_r,prob_d])[0]
         return next_action
 
     def get_next_state(self, worldmap, curr_pos, curr_action):
@@ -372,7 +386,7 @@ class LearnPolicyGradientParams:
                 theta1 = np.copy(theta)
                 path_max_reward_list, discount_reward_list = self.get_maximum_path_reward(
                     worldmap1, curr_pos1, theta1, path_max_reward_list, discount_reward_list)
-                # plt.plot(xList, traj_reward_list)
+                plt.plot(xList, traj_reward_list)
                 plt.plot(xList, max_reward_list)
                 plt.plot(xList, path_max_reward_list)
                 plt.draw()
@@ -392,8 +406,8 @@ class LearnPolicyGradientParams:
 
         # COMMENTED FOR NOW
         # Saving the trained data
-        # if(len(sys.argv)>1):
-        #    pickle.dump([rewardmap, gamma, Eta, num_trajectories, Tau_horizon, num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list, discount_reward_list, (float(tot_time)/num_iterations)],open(sys.argv[1]+'.pkl',"w"))
+        if(len(sys.argv)>1):
+           pickle.dump([rewardmap, self.gamma, self.Eta, self.num_trajectories, self.Tau_horizon, self.num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list, discount_reward_list, (float(tot_time)/self.num_iterations)],open(sys.argv[1]+'.pkl',"wb"))
 
         # pickle.dump([rewardmap, gamma, Eta, num_trajectories, Tau_horizon, num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list],open(fileNm+'.pkl',"w"))
         # plot_theta(theta)
