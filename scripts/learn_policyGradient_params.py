@@ -22,12 +22,9 @@ Tau_horizon = 400
 is_action_valid = True
 rand_start_pos = True
 plot = True
-fileNm = "totreward_5x5_200_base"
 
 #Discount factor gamma
 gamma = 0.5
-#Learning rate
-Eta = float(sys.argv[3])#0.0015
 
 def makeFig():
     plt.plot(xList,traj_reward_list)
@@ -148,22 +145,38 @@ def get_phi(worldmap,curr_pos,curr_action):
     return phi
 
 def get_pi(worldmap,pos,act,theta,isPrint=False):
+    phi_left = get_phi(worldmap,pos,0)
+    phi_up = get_phi(worldmap,pos,1)
+    phi_right = get_phi(worldmap,pos,2)
+    phi_down = get_phi(worldmap,pos,3)
 
-    phi = []
-    dot = []
-    for i in range(num_actions):
-        phi.append(get_phi(worldmap,pos,i))
-        dot.append(np.dot(np.transpose(theta),phi[i])[0,0])
+    dot_l = np.dot(np.transpose(theta),phi_left)[0,0]
+    dot_u = np.dot(np.transpose(theta),phi_up)[0,0]
+    dot_r = np.dot(np.transpose(theta),phi_right)[0,0]
+    dot_d = np.dot(np.transpose(theta),phi_down)[0,0]
+
 
     #Making sure the range for numpy.exp
-    dot_max = np.max(dot)
-    exp = []
+    dot_max = np.max([dot_l,dot_u,dot_r,dot_d])
+    dot_l = dot_l - dot_max
+    dot_u = dot_u - dot_max
+    dot_r = dot_r - dot_max
+    dot_d = dot_d - dot_max
+    
+    #if (np.isinf(dot_l) or np.isinf(dot_u) or np.isinf(dot_r) or np.isinf(dot_d)):
+    if isPrint:
+        print dot_l
+        print dot_u
+        print dot_r
+        print dot_d
+        print theta
+        sys.exit()
 
-    for i in range(num_actions):
-        dot[i] = dot[i] - dot_max
-        exp.append(np.exp(dot[i]))
-
-    exp_sum = np.sum(exp)
+    exp_l = np.exp(dot_l)
+    exp_u = np.exp(dot_u)
+    exp_r = np.exp(dot_r)
+    exp_d = np.exp(dot_d)
+    exp_sum = exp_l + exp_u + exp_r + exp_d
 
     phi_act = get_phi(worldmap,pos,act)
     dot_act = np.dot(np.transpose(theta),phi_act)
@@ -171,35 +184,49 @@ def get_pi(worldmap,pos,act,theta,isPrint=False):
     exp_act = np.exp(dot_act)
 
     return (exp_act/exp_sum)
+ 
 
 def sample_action(worldmap,pos,theta,isprint=False,maxPolicy=False):
-    #Sample an action given current state and theta
-    phi = []
-    dot = []
+    phi_left = get_phi(worldmap,pos,0)
+    phi_up = get_phi(worldmap,pos,1)
+    phi_right = get_phi(worldmap,pos,2)
+    phi_down = get_phi(worldmap,pos,3)
 
-    for i in range(num_actions):
-        phi.append(get_phi(worldmap,pos,i))
-        dot.append(np.dot(np.transpose(theta),phi[i])[0,0])
+    dot_l = np.dot(np.transpose(theta),phi_left)[0,0]
+    dot_u = np.dot(np.transpose(theta),phi_up)[0,0]
+    dot_r = np.dot(np.transpose(theta),phi_right)[0,0]
+    dot_d = np.dot(np.transpose(theta),phi_down)[0,0]
 
     #Making sure the range for numpy.exp
-    dot_max = np.max(dot)
-    exp = []
+    dot_max = np.max([dot_l,dot_u,dot_r,dot_d])
+    dot_l = dot_l - dot_max
+    dot_u = dot_u - dot_max
+    dot_r = dot_r - dot_max
+    dot_d = dot_d - dot_max
+    
+    exp_l = np.exp(dot_l)
+    exp_u = np.exp(dot_u)
+    exp_r = np.exp(dot_r)
+    exp_d = np.exp(dot_d)
+    exp_sum = exp_l + exp_u + exp_r + exp_d
 
-    for i in range(num_actions):
-        dot[i] = dot[i] - dot_max
-        exp.append(np.exp(dot[i]))
+    prob_l = exp_l / exp_sum
+    prob_u = exp_u / exp_sum
+    prob_r = exp_r / exp_sum
+    prob_d = exp_d / exp_sum
 
-    exp_sum = np.sum(exp)
-    prob = []
-    for i in range(num_actions):
-        prob.append(exp[i] / exp_sum)
-
-    p = prob
+    if isprint:
+        print "Position:"+str(pos)
+        print prob_l
+        print prob_u
+        print prob_r
+        print prob_d
 
     if maxPolicy:
-        next_action = np.argmax(p)
+        next_action = np.argmax([prob_l,prob_u,prob_r,prob_d])
     else:
-        next_action = np.random.choice(num_actions,1,p)[0]
+        next_action = np.random.choice(num_actions,1,p=[prob_l,prob_u,prob_r,prob_d])[0]
+    #print next_action
     return next_action
 
 def get_next_state(worldmap,curr_pos,curr_action):
@@ -318,7 +345,11 @@ if __name__ == '__main__':
     #*******************************************#
     # Initializing parameters and training data #
     #*******************************************#
+    if(len(sys.argv)<3):
+        print "USAGE: python learn_policyGradient_params.py <fileNm_to_save_learnt_params> <learning_rate_Eta>"
+        sys.exit()
     
+    fileNm = sys.argv[1]+'.pkl'
     Eta = float(sys.argv[2])
     get_phi_prime = 'get_phi_prime_'+str(num_features)+'_feat'
     param_len = num_features*num_actions
@@ -412,10 +443,7 @@ if __name__ == '__main__':
     
     #COMMENTED FOR NOW
     #Saving the trained data
-    #if(len(sys.argv)>1):
-    #    pickle.dump([rewardmap, gamma, Eta, num_trajectories, Tau_horizon, num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list, discount_reward_list, (float(tot_time)/num_iterations)],open(sys.argv[1]+'.pkl',"w"))
-    
-    #pickle.dump([rewardmap, gamma, Eta, num_trajectories, Tau_horizon, num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list],open(fileNm+'.pkl',"w"))
+    pickle.dump([rewardmap, gamma, Eta, num_trajectories, Tau_horizon, num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list, discount_reward_list, (float(tot_time)/num_iterations)],open(fileNm,"w"))
     #plot_theta(theta)
     for i in range(num_traj):
         for j in range(Tau_horizon):
