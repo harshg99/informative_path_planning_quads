@@ -18,7 +18,6 @@ class LearnPolicyGradientParams:
         self.curr_r_pad = (self.curr_r_map_size-1)/2
         self.num_actions = 4
         self.num_features = 24
-        self.param_len = self.num_features*self.num_actions
 
         self.num_iterations = 200
         self.num_trajectories = 20
@@ -129,99 +128,38 @@ class LearnPolicyGradientParams:
             avg = 1
         phi_prime.append(np.sum(temp)/avg)
 
-        phi_prime = np.array([phi_prime])
+        phi_prime = np.squeeze(np.array([phi_prime]))
         return phi_prime
 
     def get_phi(self, worldmap, curr_pos, curr_action):
         # Actions: 0 - LEFT, 1 - UP, 2 - RIGHT, and 3 - DOWN
-        identity_left = np.zeros(self.num_features)
-        identity_up = np.zeros(self.num_features)
-        identity_right = np.zeros(self.num_features)
-        identity_down = np.zeros(self.num_features)
-
-        if curr_action == 0:
-            identity_left = np.ones(self.num_features)
-        elif curr_action == 1:
-            identity_up = np.ones(self.num_features)
-        elif curr_action == 2:
-            identity_right = np.ones(self.num_features)
-        else:
-            identity_down = np.ones(self.num_features)
-
-        identity = np.concatenate((identity_left, identity_up, identity_right, identity_down))
         phi_prime = self.get_phi_prime_24_feat(worldmap, curr_pos)
-        phi = np.tile(phi_prime, self.num_actions)
-        phi = np.multiply(phi, identity)
-        phi = np.transpose(phi)
+        phi = np.zeros((self.num_features, self.num_actions))
+        phi[:, curr_action] = phi_prime
         return phi
 
+    def compute_softmax(self, worldmap, pos, theta):
+        phi_prime = self.get_phi_prime_24_feat(worldmap, pos)
+        theta_dot_phi = np.zeros(self.num_actions)
+        for i in range(self.num_actions):
+            theta_dot_phi[i] = theta[:, i] @ phi_prime
+        theta_dot_phi -= np.max(theta_dot_phi)
+        exp_theta_dot_phi = np.exp(theta_dot_phi)
+        prob = exp_theta_dot_phi/np.sum(exp_theta_dot_phi)
+        return prob
+
     def get_pi(self, worldmap, pos, act, theta):
-        phi_left = self.get_phi(worldmap,pos,0)
-        phi_up = self.get_phi(worldmap,pos,1)
-        phi_right = self.get_phi(worldmap,pos,2)
-        phi_down = self.get_phi(worldmap,pos,3)
-
-        dot_l = np.dot(np.transpose(theta),phi_left)[0,0]
-        dot_u = np.dot(np.transpose(theta),phi_up)[0,0]
-        dot_r = np.dot(np.transpose(theta),phi_right)[0,0]
-        dot_d = np.dot(np.transpose(theta),phi_down)[0,0]
-
-
-        #Making sure the range for numpy.exp
-        dot_max = np.max([dot_l,dot_u,dot_r,dot_d])
-        dot_l = dot_l - dot_max
-        dot_u = dot_u - dot_max
-        dot_r = dot_r - dot_max
-        dot_d = dot_d - dot_max
-        
-        #if (np.isinf(dot_l) or np.isinf(dot_u) or np.isinf(dot_r) or np.isinf(dot_d)):
-
-        exp_l = np.exp(dot_l)
-        exp_u = np.exp(dot_u)
-        exp_r = np.exp(dot_r)
-        exp_d = np.exp(dot_d)
-        exp_sum = exp_l + exp_u + exp_r + exp_d
-
-        phi_act = self.get_phi(worldmap,pos,act)
-        dot_act = np.dot(np.transpose(theta),phi_act)
-        dot_act = dot_act - dot_max
-        exp_act = np.exp(dot_act)
-
-        return (exp_act/exp_sum)
+        prob = self.compute_softmax(worldmap, pos, theta)
+        pi = prob[act]
+        return pi
 
     def sample_action(self, worldmap, pos, theta, maxPolicy=False):
-        phi_left = self.get_phi(worldmap,pos,0)
-        phi_up = self.get_phi(worldmap,pos,1)
-        phi_right = self.get_phi(worldmap,pos,2)
-        phi_down = self.get_phi(worldmap,pos,3)
-
-        dot_l = np.dot(np.transpose(theta),phi_left)[0,0]
-        dot_u = np.dot(np.transpose(theta),phi_up)[0,0]
-        dot_r = np.dot(np.transpose(theta),phi_right)[0,0]
-        dot_d = np.dot(np.transpose(theta),phi_down)[0,0]
-
-        #Making sure the range for numpy.exp
-        dot_max = np.max([dot_l,dot_u,dot_r,dot_d])
-        dot_l = dot_l - dot_max
-        dot_u = dot_u - dot_max
-        dot_r = dot_r - dot_max
-        dot_d = dot_d - dot_max
-        
-        exp_l = np.exp(dot_l)
-        exp_u = np.exp(dot_u)
-        exp_r = np.exp(dot_r)
-        exp_d = np.exp(dot_d)
-        exp_sum = exp_l + exp_u + exp_r + exp_d
-
-        prob_l = exp_l / exp_sum
-        prob_u = exp_u / exp_sum
-        prob_r = exp_r / exp_sum
-        prob_d = exp_d / exp_sum
+        prob = self.compute_softmax(worldmap, pos, theta)
 
         if maxPolicy:
-            next_action = np.argmax([prob_l,prob_u,prob_r,prob_d])
+            next_action = np.argmax(prob)
         else:
-            next_action = np.random.choice(self.num_actions,1,p=[prob_l,prob_u,prob_r,prob_d])[0]
+            next_action = np.random.choice(self.num_actions, size=1, p=prob)[0]
         return next_action
 
     def get_next_state(self, worldmap, curr_pos, curr_action):
@@ -321,7 +259,7 @@ class LearnPolicyGradientParams:
         worldmap[self.pad_size:self.pad_size+self.reward_map_size, self.pad_size:self.pad_size+self.reward_map_size] = rewardmap
         curr_pos = np.array([self.reward_map_size, self.reward_map_size])
 
-        theta = np.random.rand(self.param_len, 1)*0.1
+        theta = np.random.rand(self.num_features, self.num_actions)*0.1
         plt.ion()
         xList = list()
         traj_reward_list = list()
@@ -406,8 +344,9 @@ class LearnPolicyGradientParams:
 
         # COMMENTED FOR NOW
         # Saving the trained data
-        if(len(sys.argv)>1):
-           pickle.dump([rewardmap, self.gamma, self.Eta, self.num_trajectories, self.Tau_horizon, self.num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list, discount_reward_list, (float(tot_time)/self.num_iterations)],open(sys.argv[1]+'.pkl',"wb"))
+        if(len(sys.argv) > 1):
+            pickle.dump([rewardmap, self.gamma, self.Eta, self.num_trajectories, self.Tau_horizon, self.num_iterations, theta, Tau, xList, traj_reward_list,
+                         max_reward_list, path_max_reward_list, discount_reward_list, (float(tot_time)/self.num_iterations)], open(sys.argv[1]+'.pkl', "wb"))
 
         # pickle.dump([rewardmap, gamma, Eta, num_trajectories, Tau_horizon, num_iterations, theta, Tau, xList, traj_reward_list, max_reward_list, path_max_reward_list],open(fileNm+'.pkl',"w"))
         # plot_theta(theta)
