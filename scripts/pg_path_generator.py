@@ -30,7 +30,7 @@ for j in range(pg.Tau_horizon):
 
 print(f"Maximum reward possible = {pg.maximum_reward}")
 print(f"Trajectory Reward= {tot}")
-print(f"Dicounted Trajectory Reward= {dis_tot}")
+print(f"Discounted Trajectory Reward= {dis_tot}")
 
 plt.figure(figsize=(7, 6))
 plt.imshow(pg.rewardmap, cmap='viridis')
