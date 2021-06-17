@@ -110,11 +110,11 @@ class LearnPolicyGradientParams:
         else:
             return curr_pos, is_action_valid
 
-    def generate_trajectories(self, curr_pos, theta, maxPolicy=False, rand_start=True):
+    def generate_trajectories(self, num_trajectories, curr_pos, theta, maxPolicy=False, rand_start=True):
         # Array of trajectories starting from current position.
         # Generate multiple trajectories (<action, state> pairs) using the current Theta.
-        Tau = np.ndarray(shape=(self.num_trajectories, self.Tau_horizon), dtype=object)
-        for i in range(self.num_trajectories):
+        Tau = np.ndarray(shape=(num_trajectories, self.Tau_horizon), dtype=object)
+        for i in range(num_trajectories):
             p = []
             for prob in range(self.reward_map_size):
                 p.append(1.0/self.reward_map_size)
@@ -144,20 +144,14 @@ class LearnPolicyGradientParams:
         return delta
 
     def get_maximum_path_reward(self, curr_pos, theta):
-        num_traj = 1
         max_path_reward = 0
         discount_reward = 0
-        Tau = self.generate_trajectories(curr_pos, theta, maxPolicy=True, rand_start=False)
-        for i in range(num_traj):
-            # traj_max_reward = 0
-            for j in range(self.Tau_horizon):
-                # print Tau[i][j]
-                max_path_reward = max_path_reward + Tau[i][j].curr_reward
-                discount_reward = discount_reward + (self.gamma**j)*Tau[i][j].curr_reward
-            #    traj_max_reward = traj_max_reward + Tau[i][j].curr_reward
-            # print 'The trajectory wise max reward = '+str(traj_max_reward)
-        max_path_reward = max_path_reward / num_traj
-        discount_reward = discount_reward / num_traj
+        Tau = self.generate_trajectories(1, curr_pos, theta, maxPolicy=True, rand_start=False)
+        for j in range(self.Tau_horizon):
+            max_path_reward = max_path_reward + Tau[0][j].curr_reward
+            discount_reward = discount_reward + (self.gamma**j)*Tau[0][j].curr_reward
+        max_path_reward = max_path_reward 
+        discount_reward = discount_reward
         print(f'The Maximum reward with trajectory = {max_path_reward}')
         print(f'The discounted reward = {discount_reward}')
         self.path_max_reward_list.append(max_path_reward)
@@ -186,7 +180,7 @@ class LearnPolicyGradientParams:
         for iterations in range(self.num_iterations):
             start = time.time()
             # Generate multiple trajectories (<action, state> pairs) using the current Theta.
-            Tau = self.generate_trajectories(curr_pos, theta, rand_start=self.rand_start_pos)
+            Tau = self.generate_trajectories(self.num_trajectories, curr_pos, theta, rand_start=self.rand_start_pos)
             g_T = 0
             tot_reward = 0
             sum_R_t = np.zeros(self.Tau_horizon)
@@ -231,12 +225,10 @@ class LearnPolicyGradientParams:
             print(f'Computation Time: {end-start}')
 
         # print theta
-        num_traj = 1
         curr_pos = np.array([self.reward_map_size, self.reward_map_size])
-        Tau = self.generate_trajectories(curr_pos, theta, maxPolicy=True, rand_start=False)
-        for i in range(num_traj):
-            for j in range(self.Tau_horizon):
-                print(Tau[i][j])
+        Tau = self.generate_trajectories(1,curr_pos, theta, maxPolicy=True, rand_start=False)
+        for j in range(self.Tau_horizon):
+            print(Tau[0][j])
 
         # Saving the trained data
         self.rewardmap = rewardmap

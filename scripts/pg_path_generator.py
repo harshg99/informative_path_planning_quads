@@ -15,20 +15,18 @@ pg = pickle.load(open('totreward_5x5_200_base.pkl', "rb"), encoding='latin1')
 print(f"the rewardmap size = {pg.reward_map_size}")
 
 curr_pos = np.array([pg.reward_map_size, pg.reward_map_size])
-pg.num_trajectories = 1
-Tau = pg.generate_trajectories(curr_pos, pg.theta, maxPolicy=True, rand_start=False)
+Tau = pg.generate_trajectories(1, curr_pos, pg.theta, maxPolicy=True, rand_start=False)
 tot = 0
 dis_tot = 0
 
 px = []
 py = []
 
-for i in range(pg.num_trajectories):
-    for j in range(pg.Tau_horizon):
-        px.append(Tau[i][j].curr_pos[0]-(pg.reward_map_size-1))
-        py.append(Tau[i][j].curr_pos[1]-(pg.reward_map_size-1))
-        tot += Tau[i][j].curr_reward
-        dis_tot += (pg.gamma**j)*Tau[i][j].curr_reward
+for j in range(pg.Tau_horizon):
+    px.append(Tau[0][j].curr_pos[0]-(pg.reward_map_size-1))
+    py.append(Tau[0][j].curr_pos[1]-(pg.reward_map_size-1))
+    tot += Tau[0][j].curr_reward
+    dis_tot += (pg.gamma**j)*Tau[0][j].curr_reward
 
 print(f"Maximum reward possible = {pg.maximum_reward}")
 print(f"Trajectory Reward= {tot}")
