@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Code to test run from the learnt parameters
 # The output of this code is the path for the robot to cover high rewarding regions
 # Author : Sandeep Manjanna (McGill University)
@@ -14,7 +16,7 @@ print(f"the rewardmap size = {pg.reward_map_size}")
 
 curr_pos = np.array([pg.reward_map_size, pg.reward_map_size])
 pg.num_trajectories = 1
-Tau = pg.generate_trajectories(pg.orig_worldmap, curr_pos, pg.theta, maxPolicy=True, rand_start=False)
+Tau = pg.generate_trajectories(curr_pos, pg.theta, maxPolicy=True, rand_start=False)
 tot = 0
 dis_tot = 0
 
