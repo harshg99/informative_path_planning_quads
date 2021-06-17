@@ -6,6 +6,7 @@ import math
 import GPy
 import numpy as np
 import pickle
+import os
 
 testSamples = 5
 X = np.random.uniform(-3., 3., (testSamples, 2))
@@ -42,4 +43,5 @@ plt.contourf(x1Mesh, x2Mesh, yMesh, levels, cmap='viridis')
 plt.colorbar()
 plt.show()
 
-pickle.dump(yMesh, open('../trainingData/gaussian_mixture_training_data.pkl', "wb"))
+script_dir = os.path.dirname(__file__)
+pickle.dump(yMesh, open(f'{script_dir}/trainingData/gaussian_mixture_training_data.pkl', "wb"))

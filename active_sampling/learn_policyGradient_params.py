@@ -22,7 +22,7 @@ class LearnPolicyGradientParams:
         self.Tau_horizon = 400
         self.rand_start_pos = True
         self.plot = False
-        self.fileNm = "totreward_5x5_200_base"
+        self.fileNm = "lpgp"
         if(len(sys.argv) > 1):
             self.fileNm = sys.argv[1]
 
@@ -251,7 +251,9 @@ class Trajectory:
 
 if __name__ == '__main__':
 
+    import os
     lpgp = LearnPolicyGradientParams()
-
-    rewardmap = pickle.load(open('../trainingData/gaussian_mixture_training_data.pkl', "rb"), encoding='latin1')
+    
+    script_dir = os.path.dirname(__file__)
+    rewardmap = pickle.load(open(f'{script_dir}/trainingData/gaussian_mixture_training_data.pkl', "rb"), encoding='latin1')
     lpgp.run_training(rewardmap)

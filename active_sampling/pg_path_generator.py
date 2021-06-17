@@ -8,9 +8,11 @@ from active_sampling import LearnPolicyGradientParams, Trajectory
 import numpy as np
 import pickle
 from matplotlib import pyplot as plt
+import os
 
 # pickle file with the learnt parameters (Theta):
-pg = pickle.load(open('totreward_5x5_200_base.pkl', "rb"), encoding='latin1')
+script_dir = os.path.dirname(__file__)
+pg = pickle.load(open(f'{script_dir}/testingData/lpgp.pkl', "rb"), encoding='latin1')
 
 print(f"the rewardmap size = {pg.reward_map_size}")
 
