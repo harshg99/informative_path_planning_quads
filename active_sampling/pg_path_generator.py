@@ -4,7 +4,7 @@
 # The output of this code is the path for the robot to cover high rewarding regions
 # Author : Sandeep Manjanna (McGill University)
 
-from learn_policyGradient_params import LearnPolicyGradientParams, Trajectory
+from active_sampling import LearnPolicyGradientParams, Trajectory
 import numpy as np
 import pickle
 from matplotlib import pyplot as plt
