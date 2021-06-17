@@ -16,13 +16,12 @@ class LearnPolicyGradientParams:
         self.world_map_size = self.reward_map_size + 2*(self.pad_size)
         self.curr_r_map_size = self.reward_map_size + self.pad_size
         self.curr_r_pad = (self.curr_r_map_size-1)/2
-        self.num_actions = 4
+        self.num_actions = 4  # Actions: 0 - LEFT, 1 - UP, 2 - RIGHT, and 3 - DOWN
         self.num_features = 24
 
         self.num_iterations = 200
         self.num_trajectories = 20
         self.Tau_horizon = 400
-        self.is_action_valid = True
         self.rand_start_pos = True
         self.plot = True
         self.fileNm = "totreward_5x5_200_base"
@@ -33,106 +32,31 @@ class LearnPolicyGradientParams:
         self.Eta = 0.015  # float(sys.argv[3])
 
     def get_phi_prime_24_feat(self, worldmap, curr_pos):
-        wmap = np.copy(worldmap)
+        def phi_from_map_coords(r, c):
+            map_section = worldmap[r[0]:r[1], c[0]:c[1]]
+            size = np.size(map_section)
+            if size == 0:
+                size = 1
+            return np.sum(map_section)/size
+
         r = curr_pos[1]
         c = curr_pos[0]
         phi_prime = []
-        phi_prime.append(wmap[r, c-1])
-        phi_prime.append(wmap[r-1, c-1])
-        phi_prime.append(wmap[r-1, c])
-        phi_prime.append(wmap[r-1, c+1])
-        phi_prime.append(wmap[r, c+1])
-        phi_prime.append(wmap[r+1, c+1])
-        phi_prime.append(wmap[r+1, c])
-        phi_prime.append(wmap[r+1, c-1])
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if not (i == 0 and j == 0):
+                    phi_prime.append(worldmap[r+i, c+j])
+                    phi_prime.append(phi_from_map_coords((r-1+3*i, r-1+3*(i+1)), (c-1+3*j, c-1+3*(j+1))))
 
-        temp = np.copy(wmap[r-1:r-1+3, c-4:c-4+3])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[r-4:r-4+3, c-4:c-4+3])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[r-4:r-4+3, c-1:c-1+3])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[r-4:r-4+3, c+2:c+2+3])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[r-1:r-1+3, c+2:c+2+3])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[r+2:r+2+3, c+2:c+2+3])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[r+2:r+2+3, c-1:c-1+3])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[r+2:r+2+3, c-4:c-4+3])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-
-        temp = np.copy(wmap[r-4:r-4+9, 0:c-4])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[0:r-4, 0:c-4])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[0:r-4, c-4:c-4+9])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[0:r-4, c-4+9:])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[r-4:r-4+9, c-4+9:])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[r-4+9:, c-4+9:])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[r-4+9:, c-4:c-4+9])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-        temp = np.copy(wmap[r-4+9:, 0:c-4])
-        avg = np.size(temp)
-        if(avg == 0):
-            avg = 1
-        phi_prime.append(np.sum(temp)/avg)
-
+        for i in ((0, r-4), (r-4, r+5), (r+5, self.world_map_size)):
+            for j in ((0, c-4), (c-4, c+5), (c+5, self.world_map_size)):
+                if not (i == (r-4, r+5) and j == (c-4, c+5)):
+                    phi_prime.append(phi_from_map_coords(i, j))
+                    
         phi_prime = np.squeeze(np.array([phi_prime]))
         return phi_prime
 
     def get_phi(self, worldmap, curr_pos, curr_action):
-        # Actions: 0 - LEFT, 1 - UP, 2 - RIGHT, and 3 - DOWN
         phi_prime = self.get_phi_prime_24_feat(worldmap, curr_pos)
         phi = np.zeros((self.num_features, self.num_actions))
         phi[:, curr_action] = phi_prime
@@ -164,8 +88,10 @@ class LearnPolicyGradientParams:
 
     def get_next_state(self, worldmap, curr_pos, curr_action):
         # Given the current state and action, return the next state
-        global is_action_valid
-        next_pos = list(curr_pos)
+
+        next_pos = np.copy(curr_pos)
+        is_action_valid = True
+
         if(curr_action == 0):
             if(curr_pos[0]-(self.curr_r_pad+1) > -1):
                 next_pos[0] = curr_pos[0]-1
@@ -186,37 +112,29 @@ class LearnPolicyGradientParams:
                 next_pos[1] = curr_pos[1]+1
             else:
                 is_action_valid = False
-
-        return next_pos
+        return next_pos, is_action_valid
 
     def generate_trajectories(self, worldmap, curr_pos, theta, maxPolicy=False, rand_start=True):
         # Array of trajectories starting from current position.
         # Generate multiple trajectories (<action, state> pairs) using the current Theta.
         copy_worldmap = np.copy(worldmap)
         Tau = np.ndarray(shape=(self.num_trajectories, self.Tau_horizon), dtype=object)
-        start_pos = list(curr_pos)
-        self.is_action_valid = False
         for i in range(self.num_trajectories):
             p = []
             for prob in range(self.reward_map_size):
                 p.append(1.0/self.reward_map_size)
-            pos1 = np.random.choice(range(self.reward_map_size), 1, p)[0]+self.pad_size
-            pos2 = np.random.choice(range(self.reward_map_size), 1, p)[0]+self.pad_size
-            curr_pos = np.array([pos1, pos2])
-            if not rand_start:
-                curr_pos = []
-                curr_pos = list(start_pos)
+            if rand_start:
+                curr_pos = np.random.choice(range(self.reward_map_size), 2, p)
             worldmap = None
             worldmap = np.copy(copy_worldmap)
             for j in range(self.Tau_horizon):
                 curr_action = self.sample_action(worldmap, curr_pos, theta, maxPolicy)
-                next_pos = self.get_next_state(worldmap, curr_pos, curr_action)
-                if self.is_action_valid:
+                next_pos, is_action_valid = self.get_next_state(worldmap, curr_pos, curr_action)
+                if is_action_valid:
                     curr_reward = worldmap[next_pos[1], next_pos[0]]
                     worldmap[curr_pos[1], curr_pos[0]] = 0
                 else:
                     curr_reward = -2
-                    self.is_action_valid = True
                 t = Trajectory(curr_pos, curr_action, curr_reward)
                 Tau[i][j] = t
                 curr_pos = next_pos
@@ -357,7 +275,7 @@ class LearnPolicyGradientParams:
 
 class Trajectory:
     def __init__(self, curr_pos, curr_act, curr_reward):
-        self.curr_pos = list(curr_pos)
+        self.curr_pos = curr_pos
         self.curr_act = curr_act
         self.curr_reward = curr_reward
 
