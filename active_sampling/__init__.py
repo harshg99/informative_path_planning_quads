@@ -1,1 +1,2 @@
 from active_sampling.learn_policyGradient_params import LearnPolicyGradientParams, Trajectory
+from active_sampling.learn_policyGradient_params_mp import LearnPolicyGradientParamsMP

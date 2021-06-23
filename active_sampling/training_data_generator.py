@@ -14,7 +14,7 @@ np.shape(X)
 Y = np.sin(X[:, 0:1]) * np.sin(X[:, 1:2])+np.random.randn(testSamples, 1)*0.05
 np.shape(Y)
 
-# Sub-test to check the gaussian with very sparce data
+# Sub-test to check the gaussian with very sparse data
 X = np.array([[6, 6], [24, 24], [9, 9], [10, 20]])
 Y = np.array([[15], [7.5], [11.25], [13.5]])
 
@@ -38,6 +38,7 @@ yMesh = np.reshape(yPred, (np.size(x, 0), np.size(x, 0))).T
 print(yMesh.shape)
 levels = np.linspace(np.min(yMesh), np.max(yMesh), 1000)
 levels1 = np.linspace(np.min(yMesh), np.max(yMesh), 10)
+# yMesh[:] = 0.5
 plt.contourf(x1Mesh, x2Mesh, yMesh, levels, cmap='viridis')
 #plt.contour(x1Mesh, x2Mesh, yMesh, levels1, colors='k')
 plt.colorbar()

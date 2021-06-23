@@ -4,7 +4,7 @@
 # The output of this code is the path for the robot to cover high rewarding regions
 # Author : Sandeep Manjanna (McGill University)
 
-from active_sampling import LearnPolicyGradientParams, Trajectory
+from active_sampling import LearnPolicyGradientParams, LearnPolicyGradientParamsMP, Trajectory
 import numpy as np
 import pickle
 from matplotlib import pyplot as plt
@@ -13,6 +13,8 @@ import os
 # pickle file with the learnt parameters (Theta):
 script_dir = os.path.dirname(__file__)
 pg = pickle.load(open(f'{script_dir}/testingData/lpgp.pkl', "rb"), encoding='latin1')
+if type(pg) is LearnPolicyGradientParamsMP:
+    pg.load_graph()
 
 print(f"the rewardmap size = {pg.reward_map_size}")
 
@@ -40,4 +42,6 @@ plt.plot(px, py, 'k-', linewidth=3)
 plt.plot(px[0], py[0], 'ro', markersize=12)
 plt.plot(px[-1], py[-1], 'go', markersize=12)
 plt.colorbar()
+if not pg.traj_reward_list==[]:
+    pg.makeFig(pg.num_iterations)
 plt.show()
