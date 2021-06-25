@@ -20,21 +20,18 @@ class LearnPolicyGradientParams:
 
         self.num_iterations = 50
         self.num_trajectories = 20
-        self.Tau_horizon = 400
-        self.rand_start = True
-        self.rand_start_pos = np.random.choice(range(self.reward_map_size), 2) + \
-            np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32)
+        self.Tau_horizon = 20
         self.plot = False
         self.fileNm = "lpgp"
-        if(len(sys.argv) > 1):
-            self.fileNm = sys.argv[1]
+        if(len(sys.argv) > 2):
+            self.fileNm = sys.argv[2]
 
         # Discount factor gamma
         self.gamma = 0.5
         # Learning rate
         self.Eta = 0.015
-        if(len(sys.argv) > 2):
-            self.Eta = float(sys.argv[2])
+        if(len(sys.argv) > 1):
+            self.Eta = float(sys.argv[1])
 
     def get_phi_prime(self, worldmap, curr_pos):
         def phi_from_map_coords(r, c):
@@ -113,7 +110,8 @@ class LearnPolicyGradientParams:
         Tau = np.ndarray(shape=(num_trajectories, self.Tau_horizon), dtype=object)
         for i in range(num_trajectories):
             if rand_start:
-                curr_pos = self.rand_start_pos
+                curr_pos = np.random.choice(range(self.reward_map_size), 2) + \
+                    np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32)
             local_worldmap = np.copy(self.orig_worldmap)
             for j in range(self.Tau_horizon):
                 curr_action = self.sample_action(local_worldmap, curr_pos, theta, maxPolicy)
@@ -172,7 +170,7 @@ class LearnPolicyGradientParams:
         for iterations in range(self.num_iterations):
             start = time.time()
             # Generate multiple trajectories (<action, state> pairs) using the current Theta.
-            Tau = self.generate_trajectories(self.num_trajectories, curr_pos, theta, rand_start=self.rand_start)
+            Tau = self.generate_trajectories(self.num_trajectories, curr_pos, theta, rand_start=True)
             g_T = 0
             tot_reward = 0
             sum_R_t = np.zeros(self.Tau_horizon)
@@ -201,7 +199,7 @@ class LearnPolicyGradientParams:
             theta = theta + self.Eta*g_T
 
             print(f"Iteration {iterations+1}/{self.num_iterations}")
-            print(f"total accumulated reward = {tot_reward}")
+            print(f"total accumulated reward = {tot_reward:.2f} / {self.maximum_reward:.2f}")
 
             if self.plot == True:
                 self.traj_reward_list.append(tot_reward)
@@ -211,7 +209,7 @@ class LearnPolicyGradientParams:
 
             end = time.time()
             self.tot_time += (end-start)
-            print(f'Computation Time: {end-start}')
+            print(f'Computation Time: {(end-start):.2f}')
 
         # print theta
         curr_pos = np.array([self.reward_map_size, self.reward_map_size])
@@ -225,6 +223,8 @@ class LearnPolicyGradientParams:
         self.Tau = Tau
         self.mp_graph = None
         script_dir = os.path.dirname(__file__)
+        self.mp_graph = None
+        self.minimum_action_mp_graph = None
         pickle.dump(self, open(f'{script_dir}/testingData/{self.fileNm}.pkl', "wb"))
 
     def makeFig(self, iterations):
