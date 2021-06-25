@@ -25,8 +25,7 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
     def load_graph(self):
         self.mp_graph = MotionPrimitiveLattice.load(self.mp_graph_file_name)
 
-    def get_next_state(self, worldmap, curr_pos, curr_action):
-        # print(curr_pos)
+    def get_next_state(self, curr_pos, curr_action):
         reset_map_index = int(np.floor(self.curr_node_index / self.mp_graph.num_tiles))
         mp = deepcopy(self.mp_graph.edges[curr_action, reset_map_index])
         if mp is not None:
@@ -34,7 +33,7 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
             self.curr_node_index = reset_map_index
             self.curr_state = mp.end_state
             worldmap_pos = np.rint(self.curr_state[:self.spatial_dim]).astype(np.int32)
-            is_valid = mp.is_valid and (np.array(worldmap_pos + (self.curr_r_pad)) < worldmap.shape).all() and (np.array(worldmap_pos - self.curr_r_pad) > -1).all()
+            is_valid = mp.is_valid and self.isValidPos(worldmap_pos)
             if is_valid:
                 return worldmap_pos, is_valid
         return curr_pos, False
@@ -46,7 +45,7 @@ if __name__ == '__main__':
     rospack = rospkg.RosPack()
     pkg_path = rospack.get_path('motion_primitives')
     pkg_path = f'{pkg_path}/motion_primitives_py/'
-    mpl_file =  f"{pkg_path}data/lattices/lattice_test.json"
+    mpl_file = f"{pkg_path}data/lattices/lattice_test.json"
 
     import os
     lpgp = LearnPolicyGradientParamsMP(mpl_file)

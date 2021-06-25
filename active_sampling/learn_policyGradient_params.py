@@ -7,6 +7,7 @@ import pickle
 import time
 import os
 
+
 class LearnPolicyGradientParams:
     def __init__(self):
         self.reward_map_size = 30
@@ -21,7 +22,8 @@ class LearnPolicyGradientParams:
         self.num_trajectories = 20
         self.Tau_horizon = 400
         self.rand_start = True
-        self.rand_start_pos = np.random.choice(range(self.reward_map_size), 2) + np.array([self.curr_r_pad,self.curr_r_pad]).astype(np.int32)
+        self.rand_start_pos = np.random.choice(range(self.reward_map_size), 2) + \
+            np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32)
         self.plot = False
         self.fileNm = "lpgp"
         if(len(sys.argv) > 1):
@@ -33,13 +35,11 @@ class LearnPolicyGradientParams:
         self.Eta = 0.015
         if(len(sys.argv) > 2):
             self.Eta = float(sys.argv[2])
-        
+
     def get_phi_prime(self, worldmap, curr_pos):
         def phi_from_map_coords(r, c):
             map_section = worldmap[r[0]:r[1], c[0]:c[1]]
-            size = np.size(map_section)
-            if size == 0:  # TODO ask about this
-                size = 1
+            size = (r[1]-r[0])*(c[1]-c[0])
             return np.sum(map_section)/size
 
         r = curr_pos[1]
@@ -89,18 +89,19 @@ class LearnPolicyGradientParams:
             next_action = np.random.choice(self.num_actions, size=1, p=prob)[0]
         return next_action
 
-    def get_next_state(self, worldmap, curr_pos, curr_action):
+    def isValidPos(self, pos):
+        is_valid = (np.array(pos-self.curr_r_pad) > -1).all()
+        is_valid = is_valid and (np.array(pos + self.curr_r_pad) < self.orig_worldmap.shape).all()
+        return is_valid
+
+    def get_next_state(self, curr_pos, curr_action):
         """
         Given the current state and action, return the next state
         Ensures that next_pos is still in the reward map area
         """
-        def isValidPos(pos,action):
-            is_valid = (np.array(pos-self.curr_r_pad) > -1).all()
-            is_valid = is_valid and (np.array(pos + self.curr_r_pad) < worldmap.shape).all()
-            return is_valid
         actions = [(-1, 0), (0, -1), (1, 0), (0, 1)]
         next_pos = curr_pos + actions[curr_action]
-        is_action_valid = isValidPos(next_pos, curr_action)
+        is_action_valid = self.isValidPos(next_pos)
         if is_action_valid:
             return next_pos, is_action_valid
         else:
@@ -110,13 +111,13 @@ class LearnPolicyGradientParams:
         # Array of trajectories starting from current position.
         # Generate multiple trajectories (<action, state> pairs) using the current Theta.
         Tau = np.ndarray(shape=(num_trajectories, self.Tau_horizon), dtype=object)
-        for i in range(num_trajectories): #TODO multiprocessing
+        for i in range(num_trajectories):
             if rand_start:
                 curr_pos = self.rand_start_pos
             local_worldmap = np.copy(self.orig_worldmap)
             for j in range(self.Tau_horizon):
                 curr_action = self.sample_action(local_worldmap, curr_pos, theta, maxPolicy)
-                next_pos, is_action_valid = self.get_next_state(local_worldmap, curr_pos, curr_action)
+                next_pos, is_action_valid = self.get_next_state(curr_pos, curr_action)
                 if is_action_valid:
                     curr_reward = local_worldmap[next_pos[1], next_pos[0]]
                     local_worldmap[curr_pos[1], curr_pos[0]] = 0
@@ -143,8 +144,6 @@ class LearnPolicyGradientParams:
         for j in range(self.Tau_horizon):
             max_path_reward = max_path_reward + Tau[0][j].curr_reward
             discount_reward = discount_reward + (self.gamma**j)*Tau[0][j].curr_reward
-        max_path_reward = max_path_reward 
-        discount_reward = discount_reward
         print(f'The Maximum reward with trajectory = {max_path_reward}')
         print(f'The discounted reward = {discount_reward}')
         self.path_max_reward_list.append(max_path_reward)
@@ -216,7 +215,7 @@ class LearnPolicyGradientParams:
 
         # print theta
         curr_pos = np.array([self.reward_map_size, self.reward_map_size])
-        Tau = self.generate_trajectories(1,curr_pos, theta, maxPolicy=True, rand_start=False)
+        Tau = self.generate_trajectories(1, curr_pos, theta, maxPolicy=True, rand_start=False)
         for j in range(self.Tau_horizon):
             print(Tau[0][j])
 
@@ -228,19 +227,20 @@ class LearnPolicyGradientParams:
         script_dir = os.path.dirname(__file__)
         pickle.dump(self, open(f'{script_dir}/testingData/{self.fileNm}.pkl', "wb"))
 
-    def makeFig(self,iterations):
+    def makeFig(self, iterations):
         plt.plot(np.arange(iterations+1), self.traj_reward_list)
         plt.plot(np.arange(iterations+1), [self.maximum_reward]*(iterations+1))
         plt.plot(np.arange(iterations+1), self.path_max_reward_list)
         plt.draw()
         plt.pause(0.00001)
 
+
 class Trajectory:
     def __init__(self, curr_pos, curr_act, curr_reward):
         self.curr_pos = curr_pos
         self.curr_act = curr_act
         self.curr_reward = curr_reward
-        
+
     def __str__(self):
         return f"{self.curr_pos} {self.curr_act} {self.curr_reward}"
 
@@ -248,7 +248,7 @@ class Trajectory:
 if __name__ == '__main__':
 
     lpgp = LearnPolicyGradientParams()
-    
+
     script_dir = os.path.dirname(__file__)
     rewardmap = pickle.load(open(f'{script_dir}/trainingData/gaussian_mixture_training_data.pkl', "rb"), encoding='latin1')
     lpgp.run_training(rewardmap)
