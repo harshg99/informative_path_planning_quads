@@ -16,7 +16,7 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
         self.load_graph()
         self.spatial_dim = 2
         self.Tau_horizon = 400
-        self.num_iterations = 30
+        self.num_iterations = 10
         self.num_trajectories = 5
 
     def load_graph(self):
@@ -46,6 +46,8 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
                 next_index = self.lookup_dictionary[index, action]
                 next_index = int(np.floor(next_index/self.mp_graph.num_tiles))
                 return worldmap_pos, next_index, is_valid
+        else:
+            print('Warning: invalid MP is being selected')
         return pos, index, False
 
 

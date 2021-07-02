@@ -18,11 +18,7 @@ if type(pg) is LearnPolicyGradientParamsMP:
 
 print(f"the rewardmap size = {pg.reward_map_size}")
 
-curr_pos = np.array([pg.reward_map_size, pg.reward_map_size])
-curr_pos = np.random.choice(range(pg.reward_map_size), 2) + \
-    np.array([pg.curr_r_pad, pg.curr_r_pad]).astype(np.int32)
-
-Tau = pg.generate_trajectories(1, curr_pos, pg.theta, maxPolicy=True, rand_start=False)
+Tau = pg.generate_trajectories(1, maxPolicy=True, rand_start=False)
 tot = 0
 dis_tot = 0
 
@@ -30,10 +26,10 @@ px = []
 py = []
 
 for j in range(pg.Tau_horizon):
-    px.append(Tau[0][j].curr_pos[0]-(pg.reward_map_size-1))
-    py.append(Tau[0][j].curr_pos[1]-(pg.reward_map_size-1))
-    tot += Tau[0][j].curr_reward
-    dis_tot += (pg.gamma**j)*Tau[0][j].curr_reward
+    px.append(Tau[0][j].pos[0]-(pg.reward_map_size-1))
+    py.append(Tau[0][j].pos[1]-(pg.reward_map_size-1))
+    tot += Tau[0][j].reward
+    dis_tot += (pg.gamma**j)*Tau[0][j].reward
 
 for i in range(len(Tau[0])):
     print(Tau[0][i])

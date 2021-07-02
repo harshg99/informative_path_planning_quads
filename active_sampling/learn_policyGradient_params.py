@@ -19,7 +19,7 @@ class LearnPolicyGradientParams:
         self.num_features = 24
         self.num_other_states = 1
 
-        self.num_iterations = 50
+        self.num_iterations = 10
         self.num_trajectories = 5
         self.Tau_horizon = 400
         self.plot = False
@@ -105,7 +105,7 @@ class LearnPolicyGradientParams:
         else:
             return pos, 0, is_action_valid
 
-    def generate_trajectories(self, num_trajectories, pos, maxPolicy=False, rand_start=True):
+    def generate_trajectories(self, num_trajectories, maxPolicy=False, rand_start=True):
         # Array of trajectories starting from current position.
         # Generate multiple trajectories (<action, state> pairs) using the current Theta.
         Tau = np.ndarray(shape=(num_trajectories, self.Tau_horizon), dtype=object)
@@ -113,7 +113,9 @@ class LearnPolicyGradientParams:
             if rand_start:
                 pos = np.random.choice(range(self.reward_map_size), 2) + \
                     np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32)
-                index = 0
+            else:
+                pos = np.array([self.reward_map_size, self.reward_map_size])
+            index = 0
             local_worldmap = np.copy(self.orig_worldmap)
             for j in range(self.Tau_horizon):
                 action = self.sample_action(local_worldmap, pos, index, maxPolicy)
@@ -139,10 +141,10 @@ class LearnPolicyGradientParams:
         delta = phi - sum_b
         return delta
 
-    def get_maximum_path_reward(self, pos):
+    def get_maximum_path_reward(self):
         max_path_reward = 0
         discount_reward = 0
-        Tau = self.generate_trajectories(1, pos, maxPolicy=True, rand_start=False)
+        Tau = self.generate_trajectories(1, maxPolicy=True, rand_start=False)
         for j in range(self.Tau_horizon):
             max_path_reward = max_path_reward + Tau[0][j].reward
             discount_reward = discount_reward + (self.gamma**j)*Tau[0][j].reward
@@ -177,7 +179,7 @@ class LearnPolicyGradientParams:
         for iterations in range(self.num_iterations):
             start = time.time()
             # Generate multiple trajectories (<action, state> pairs) using the current Theta.
-            Tau = self.generate_trajectories(self.num_trajectories, pos, rand_start=True)
+            Tau = self.generate_trajectories(self.num_trajectories, rand_start=True)
             g_T = 0
             tot_reward = 0
             sum_R_t = np.zeros(self.Tau_horizon)
@@ -210,8 +212,7 @@ class LearnPolicyGradientParams:
 
             if self.plot == True:
                 self.traj_reward_list.append(tot_reward)
-                pos1 = np.array([self.reward_map_size, self.reward_map_size])
-                self.get_maximum_path_reward(pos1)
+                self.get_maximum_path_reward()
                 self.makeFig(iterations)
 
             end = time.time()
@@ -220,7 +221,7 @@ class LearnPolicyGradientParams:
 
         # print theta
         pos = np.array([self.reward_map_size, self.reward_map_size])
-        Tau = self.generate_trajectories(1, pos, maxPolicy=True, rand_start=False)
+        Tau = self.generate_trajectories(1, maxPolicy=True, rand_start=False)
         for j in range(self.Tau_horizon):
             print(Tau[0][j])
 
