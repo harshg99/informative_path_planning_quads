@@ -16,8 +16,9 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
         self.load_graph()
         self.spatial_dim = 2
         self.Tau_horizon = 400
-        self.num_iterations = 10
+        self.num_iterations = 20
         self.num_trajectories = 5
+        self.Eta = .3
 
     def load_graph(self):
         self.mp_graph = MotionPrimitiveLattice.load(self.mp_graph_file_name)
@@ -45,7 +46,7 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
             if is_valid:
                 next_index = self.lookup_dictionary[index, action]
                 next_index = int(np.floor(next_index/self.mp_graph.num_tiles))
-                return worldmap_pos, next_index, is_valid
+                return mp.end_state[:self.spatial_dim], next_index, is_valid
         else:
             print('Warning: invalid MP is being selected')
         return pos, index, False

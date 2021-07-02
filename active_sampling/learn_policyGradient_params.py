@@ -118,14 +118,16 @@ class LearnPolicyGradientParams:
             index = 0
             local_worldmap = np.copy(self.orig_worldmap)
             for j in range(self.Tau_horizon):
-                action = self.sample_action(local_worldmap, pos, index, maxPolicy)
+                worldmap_pos = np.rint(pos).astype(np.int32)
+                action = self.sample_action(local_worldmap, worldmap_pos, index, maxPolicy)
                 next_pos, next_index, is_action_valid = self.get_next_state(pos, action, index)
+                worldmap_next_pos =  np.rint(next_pos).astype(np.int32)
                 if is_action_valid:
-                    curr_reward = local_worldmap[next_pos[1], next_pos[0]]
-                    local_worldmap[pos[1], pos[0]] = 0
+                    curr_reward = local_worldmap[worldmap_next_pos[1], worldmap_next_pos[0]]
+                    local_worldmap[worldmap_pos[1], worldmap_pos[0]] = 0
                 else:
                     curr_reward = -2
-                Tau[i][j] = Trajectory(pos, action, curr_reward, index)
+                Tau[i][j] = Trajectory(worldmap_pos, pos, action, curr_reward, index)
                 pos = next_pos
                 index = next_index
         return Tau
@@ -243,14 +245,15 @@ class LearnPolicyGradientParams:
 
 
 class Trajectory:
-    def __init__(self, pos, action, reward, index):
+    def __init__(self, pos, exact_pos, action, reward, index):
         self.pos = pos
+        self.exact_pos = exact_pos
         self.action = action
         self.reward = reward
         self.index = index
 
     def __str__(self):
-        return f"{self.pos} {self.action} {self.reward}"
+        return f"{self.pos} {self.exact_pos} {self.index} {self.action} {self.reward}"
 
 
 if __name__ == '__main__':
