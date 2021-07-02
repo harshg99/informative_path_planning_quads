@@ -19,6 +19,9 @@ if type(pg) is LearnPolicyGradientParamsMP:
 print(f"the rewardmap size = {pg.reward_map_size}")
 
 curr_pos = np.array([pg.reward_map_size, pg.reward_map_size])
+curr_pos = np.random.choice(range(pg.reward_map_size), 2) + \
+    np.array([pg.curr_r_pad, pg.curr_r_pad]).astype(np.int32)
+
 Tau = pg.generate_trajectories(1, curr_pos, pg.theta, maxPolicy=True, rand_start=False)
 tot = 0
 dis_tot = 0
@@ -32,6 +35,8 @@ for j in range(pg.Tau_horizon):
     tot += Tau[0][j].curr_reward
     dis_tot += (pg.gamma**j)*Tau[0][j].curr_reward
 
+for i in range(len(Tau[0])):
+    print(Tau[0][i])
 print(f"Maximum reward possible = {pg.maximum_reward}")
 print(f"Trajectory Reward= {tot}")
 print(f"Discounted Trajectory Reward= {dis_tot}")
@@ -39,9 +44,10 @@ print(f"Discounted Trajectory Reward= {dis_tot}")
 plt.figure(figsize=(7, 6))
 plt.imshow(pg.rewardmap, cmap='viridis')
 plt.plot(px, py, 'k-', linewidth=3)
-plt.plot(px[0], py[0], 'ro', markersize=12)
-plt.plot(px[-1], py[-1], 'go', markersize=12)
+plt.plot(px, py, 'w.')
+plt.plot(px[0], py[0], 'go', markersize=12)
+plt.plot(px[-1], py[-1], 'ro', markersize=12)
 plt.colorbar()
-if not pg.traj_reward_list==[]:
+if not pg.traj_reward_list == []:
     pg.makeFig(pg.num_iterations)
 plt.show()

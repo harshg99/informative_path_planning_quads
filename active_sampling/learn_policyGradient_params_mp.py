@@ -14,13 +14,10 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
         super(LearnPolicyGradientParamsMP, self).__init__()
         self.mp_graph_file_name = mp_graph_file_name
         self.load_graph()
-        # self.num_actions = self.mp_graph.edges.shape[0]
-        self.curr_node_index = 0
         self.spatial_dim = 2
-        self.curr_state = np.zeros(self.mp_graph.n)
-        self.Tau_horizon = 20
-        self.num_iterations = 100
-        self.num_trajectories = 10
+        self.Tau_horizon = 400
+        self.num_iterations = 30
+        self.num_trajectories = 5
 
     def load_graph(self):
         self.mp_graph = MotionPrimitiveLattice.load(self.mp_graph_file_name)
@@ -36,23 +33,28 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
                     self.lookup_dictionary[i,k] = j
                     k+=1
         self.num_vertices = len(self.mp_graph.vertices)
+        self.num_other_states = self.minimum_action_mp_graph.shape[0]
 
-    def get_next_state(self, curr_pos, curr_action):
-        self.curr_state[:self.spatial_dim] = curr_pos
-        reset_map_index = int(np.floor(self.curr_node_index / self.mp_graph.num_tiles))
-        mp = deepcopy(self.minimum_action_mp_graph[reset_map_index, curr_action])
-        # mp = deepcopy(self.mp_graph.edges[reset_map_index, curr_action])
-        # print(self.minimum_action_mp_graph[self.curr_node_index,:])
+    def get_next_state(self, pos, action, index):
+        # reset_map_index = int(np.floor(self.curr_state_index / self.mp_graph.num_tiles))
+        mp = deepcopy(self.minimum_action_mp_graph[index, action])
         if mp is not None:
-            mp.translate_start_position(curr_pos)
+            mp.translate_start_position(pos)
             worldmap_pos = np.rint(mp.end_state[:self.spatial_dim]).astype(np.int32)
             is_valid = mp.is_valid and self.isValidPos(worldmap_pos)
             if is_valid:
-                self.curr_node_index = self.lookup_dictionary[reset_map_index, curr_action]
-                self.curr_state = mp.end_state
-                return worldmap_pos, is_valid
-        return curr_pos, False
+                next_index = self.lookup_dictionary[index, action]
+                next_index = int(np.floor(next_index/self.mp_graph.num_tiles))
+                return worldmap_pos, next_index, is_valid
+        return pos, index, False
 
+
+    def set_up_training(self):
+        self.theta = np.random.rand(self.num_features, self.num_other_states, self.num_actions)*0.1
+        for i in range(self.num_other_states):
+            for j in range(self.num_actions):
+                if self.minimum_action_mp_graph[i,j] is None:
+                    self.theta[:,i,j] = -1E8
 
 if __name__ == '__main__':
     import rospkg
