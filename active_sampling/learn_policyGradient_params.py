@@ -101,9 +101,9 @@ class LearnPolicyGradientParams:
         next_pos = pos + actions[action]
         is_action_valid = self.isValidPos(next_pos)
         if is_action_valid:
-            return next_pos, 0, is_action_valid, next_pos.reshape(2,1)
+            return next_pos, 0, is_action_valid, next_pos.reshape(2,1), 0
         else:
-            return pos, 0, is_action_valid, pos
+            return pos, 0, is_action_valid, None, None
 
     def generate_trajectories(self, num_trajectories, maxPolicy=False, rand_start=True):
         # Array of trajectories starting from current position.
@@ -120,12 +120,13 @@ class LearnPolicyGradientParams:
             for j in range(self.Tau_horizon):
                 worldmap_pos = np.rint(pos).astype(np.int32)
                 action = self.sample_action(local_worldmap, worldmap_pos, index, maxPolicy)
-                next_pos, next_index, is_action_valid, visited_states = self.get_next_state(pos, action, index)
+                next_pos, next_index, is_action_valid, visited_states, traj_cost = self.get_next_state(pos, action, index)
                 # worldmap_next_pos =  np.rint(next_pos).astype(np.int32)
                 curr_reward = 0
                 if is_action_valid:
                     for state in visited_states.T:
                         curr_reward += local_worldmap[state[1], state[0]]
+                        curr_reward -= traj_cost*.1
                         local_worldmap[state[1], state[0]] = 0
                 else:
                     curr_reward = -2

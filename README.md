@@ -1,3 +1,18 @@
+# Installation
+```
+git clone git@github.com:ljarin/motion_primitives.git
+cd motion_primitives
+pip install -e .
+cd ..
+git clone git@github.com:SandeepManjanna/Active-sampling-with-motion-primitives.git 
+cd Active-sampling-with-motion-primitives
+pip install -e .
+```
+
+Run:
+```
+python3 active_sampling/learn_policyGradient_params_mp.py
+```
 # Active Sampling with Non-uniform Feature Aggregation with motion primitives
 
 This project presents an adaptive sampling technique that generates paths to efficiently measure and 

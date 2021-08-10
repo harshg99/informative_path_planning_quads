@@ -16,8 +16,8 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
         self.load_graph()
         self.spatial_dim = self.mp_graph.num_dims
         self.Tau_horizon = 200
-        self.num_iterations = 20
-        self.num_trajectories = 5
+        self.num_iterations = 50
+        self.num_trajectories = 20
         self.Eta = .3
 
     def load_graph(self):
@@ -48,10 +48,10 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
             if is_valid:
                 next_index = self.lookup_dictionary[index, action]
                 next_index = int(np.floor(next_index/self.mp_graph.num_tiles))
-                return mp.end_state[:self.spatial_dim], next_index, is_valid, visited_states
+                return mp.end_state[:self.spatial_dim], next_index, is_valid, visited_states, mp.cost
         else:
             print('Warning: invalid MP is being selected')
-        return pos, index, False, pos.reshape(self.spatial_dim, 1)
+        return pos, index, False, None, None
 
     def set_up_training(self):
         self.theta = np.random.rand(self.num_features, self.num_other_states, self.num_actions)*0.1
