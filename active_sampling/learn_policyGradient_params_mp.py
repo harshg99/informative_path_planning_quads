@@ -49,8 +49,8 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
                 next_index = self.lookup_dictionary[index, action]
                 next_index = int(np.floor(next_index/self.mp_graph.num_tiles))
                 return mp.end_state[:self.spatial_dim], next_index, is_valid, visited_states, mp.cost
-        else:
-            print('Warning: invalid MP is being selected')
+        # else:
+        #     print('Warning: invalid MP is being selected')
         return pos, index, False, None, None
 
     def set_up_training(self):
@@ -60,14 +60,13 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
                 if self.minimum_action_mp_graph[i, j] is None:
                     self.theta[:, i, j] = -1E8
 
-
 if __name__ == '__main__':
     import rospkg
 
     rospack = rospkg.RosPack()
     pkg_path = rospack.get_path('motion_primitives')
     pkg_path = f'{pkg_path}/motion_primitives_py/'
-    mpl_file = f"{pkg_path}data/lattices/lattice_test2.json"
+    mpl_file = f"{pkg_path}data/lattices/lattice_test.json"
 
     import os
     lpgp = LearnPolicyGradientParamsMP(mpl_file)

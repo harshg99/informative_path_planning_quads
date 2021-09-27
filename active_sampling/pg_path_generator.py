@@ -47,9 +47,10 @@ plt.colorbar()
 if isinstance(pg,LearnPolicyGradientParamsMP):
     for pt in Tau[0]:
         mp = pg.minimum_action_mp_graph[pt.index, pt.action]
-        mp.translate_start_position(pt.exact_pos - [pg.reward_map_size-1]*pg.spatial_dim )
-        mp.plot(position_only=True, step_size = .01)
-        plt.plot(pt.exact_pos[0]-(pg.reward_map_size-1),pt.exact_pos[1]-(pg.reward_map_size-1), 'w.')
+        if mp is not None:
+            mp.translate_start_position(pt.exact_pos - [pg.reward_map_size-1]*pg.spatial_dim )
+            mp.plot(position_only=True, step_size = .01)
+            plt.plot(pt.exact_pos[0]-(pg.reward_map_size-1),pt.exact_pos[1]-(pg.reward_map_size-1), 'w.')
         # print(mp.start_state[pg.spatial_dim:pg.spatial_dim*2])
 else:
     plt.plot(px, py, 'w.')
