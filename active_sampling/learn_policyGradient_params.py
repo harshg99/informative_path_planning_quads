@@ -80,7 +80,8 @@ class LearnPolicyGradientParams:
 
     def sample_action(self, worldmap, pos, index, maxPolicy=False):
         prob = self.compute_softmax(worldmap, pos, index)
-
+        prob[self.num_actions_per_state[index]:] =0
+        prob = prob/sum(prob)
         if maxPolicy:
             next_action = np.argmax(prob)
         else:

@@ -17,8 +17,8 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
         self.mp_graph_file_name = mp_graph_file_name
         self.load_graph()
         self.spatial_dim = self.mp_graph.num_dims
-        # self.Tau_horizon = 20
-        # self.num_iterations = 5
+        self.Tau_horizon = 100
+        self.num_iterations = 50
         # self.num_trajectories = 5
         # self.Eta = .3
 
@@ -37,6 +37,7 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
                     k += 1
         self.num_vertices = len(self.mp_graph.vertices)
         self.num_other_states = self.minimum_action_mp_graph.shape[0]
+        self.num_actions_per_state = [len([j for j in i if j != None]) for i in self.minimum_action_mp_graph]
 
     def get_next_state(self, pos, action, index):
         # reset_map_index = int(np.floor(self.curr_state_index / self.mp_graph.num_tiles))
