@@ -126,7 +126,7 @@ class LearnPolicyGradientParams:
                 if is_action_valid:
                     for state in visited_states.T:
                         curr_reward += local_worldmap[state[1], state[0]]
-                        curr_reward -= traj_cost*.1
+                        # curr_reward -= traj_cost*.1
                         local_worldmap[state[1], state[0]] = 0
                 else:
                     curr_reward = -2

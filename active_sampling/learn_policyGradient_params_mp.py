@@ -7,6 +7,8 @@ from active_sampling import LearnPolicyGradientParams, Trajectory
 from motion_primitives_py import MotionPrimitiveLattice
 from copy import deepcopy
 
+import active_sampling
+
 
 class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
 
@@ -15,10 +17,10 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
         self.mp_graph_file_name = mp_graph_file_name
         self.load_graph()
         self.spatial_dim = self.mp_graph.num_dims
-        self.Tau_horizon = 200
-        self.num_iterations = 50
-        self.num_trajectories = 20
-        self.Eta = .3
+        # self.Tau_horizon = 20
+        # self.num_iterations = 5
+        # self.num_trajectories = 5
+        # self.Eta = .3
 
     def load_graph(self):
         self.mp_graph = MotionPrimitiveLattice.load(self.mp_graph_file_name)
@@ -55,18 +57,21 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
 
     def set_up_training(self):
         self.theta = np.random.rand(self.num_features, self.num_other_states, self.num_actions)*0.1
-        for i in range(self.num_other_states):
-            for j in range(self.num_actions):
-                if self.minimum_action_mp_graph[i, j] is None:
-                    self.theta[:, i, j] = -1E8
+        # for i in range(self.num_other_states):
+        #     for j in range(self.num_actions):
+        #         if self.minimum_action_mp_graph[i, j] is None:
+        #             self.theta[:, i, j] = -1E8
+
 
 if __name__ == '__main__':
     import rospkg
+    import os
 
-    rospack = rospkg.RosPack()
-    pkg_path = rospack.get_path('motion_primitives')
-    pkg_path = f'{pkg_path}/motion_primitives_py/'
-    mpl_file = f"{pkg_path}data/lattices/lattice_test.json"
+    # rospack = rospkg.RosPack()
+    # pkg_path = rospack.get_path('motion_primitives')
+    # pkg_path = f'{pkg_path}/motion_primitives_py/'
+    # mpl_file = f"{pkg_path}data/lattices/lattice_test.json"
+    mpl_file = f'{os.path.dirname(active_sampling.__file__)}/latticeData/lattice_test.json'
 
     import os
     lpgp = LearnPolicyGradientParamsMP(mpl_file)
