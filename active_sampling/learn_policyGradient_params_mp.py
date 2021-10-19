@@ -75,10 +75,11 @@ if __name__ == '__main__':
     # pkg_path = rospack.get_path('motion_primitives')
     # pkg_path = f'{pkg_path}/motion_primitives_py/'
     # mpl_file = f"{pkg_path}data/lattices/lattice_test.json"
-    mpl_file = f'{os.path.dirname(active_sampling.__file__)}/latticeData/lattice_test.json'
+    mpl_file = f'{os.path.dirname(active_sampling.__file__)}/latticeData/8_actions.json'
 
     import os
     lpgp = LearnPolicyGradientParamsMP(mpl_file)
-    script_dir = os.path.dirname(__file__)
+    script_dir = os.path.dirname(active_sampling.__file__)
+    print(script_dir)
     rewardmap = pickle.load(open(f'{script_dir}/trainingData/gaussian_mixture_training_data.pkl', "rb"), encoding='latin1')
     lpgp.run_training(rewardmap)
