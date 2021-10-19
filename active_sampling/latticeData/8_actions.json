@@ -1,5 +1,5 @@
 {
-    "mp_type": "ETHMotionPrimitive",
+    "mp_type": "PolynomialMotionPrimitive",
     "control_space_q": 3,
     "num_dims": 2,
     "tiling": true,
