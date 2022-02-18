@@ -35,7 +35,7 @@ entropy_weight = 0.01
 
 
 #Logging Params
-MODEL_NAME = 'VanillaAC_v1'
+MODEL_NAME = 'VanillaAC_v2'
 DESCRIPTION = 'ACV1'
 TRAIN_PATH = 'data/train/'+MODEL_NAME+'_'+DESCRIPTION
 MODEL_PATH = 'data/models/'+MODEL_NAME+'_'+DESCRIPTION
