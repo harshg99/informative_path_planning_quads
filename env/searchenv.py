@@ -3,10 +3,11 @@ import time
 import numpy as np
 from gym.envs.classic_control import rendering
 from enum import Enum
-from render import circle,rectangle
+from env.render import *
 import math
 import matplotlib.pyplot as plt
 import GPy
+from params import *
 '''
 Reward Class
 '''
@@ -14,7 +15,7 @@ class REWARD(Enum):
     STEP        = -1.0
     STEPDIAGONAL= -1.0*np.sqrt(2)
     STAY      = -0.5
-    MAP  = +1.0
+    MAP  = +1000
     TARGET  = +15.0
     COLLISION = -2.0
 
@@ -22,30 +23,31 @@ class REWARD(Enum):
 Constant Envrionment Variables for rendering
 '''
 ACTIONS = [(-1, 0), (0, -1), (1, 0), (0, 1)]
-ZEROREWARDCOLOR = [0.,0.,0.1]
-MAXREWARDCOLOR = [0.,1.,1.0]
-AGENT_MINCOL = [0.,0.,0.]
-AGENT_MAXCOL = [1.,0.,0.]
+ZEROREWARDCOLOR = (0.05,0.1,0.1)
+MAXREWARDCOLOR = (0.8,1.0,1.0)
+AGENT_MINCOL = (0.5,0.3,0.3)
+AGENT_MAXCOL = (1.,0.3,0.3)
 
 '''
 Environment DEbug Variables
 '''
-DEBUG = True
-
+DEBUG = False
+SET_SEED = True
 class Agent():
     def __init__(self,ID,row,col,map_size,pad,world_size):
         self.ID = ID
-        self.pos = (row,col)
+        self.pos = np.array([row,col])
         self.reward_map_size = map_size
         self.pad = pad
         self.world_size = world_size
         self.worldMap = None
 
+
     def updateMap(self,worldMap):
         self.worldMap= worldMap
 
     def updatePos(self,action):
-        next_pos = self.pos + action
+        next_pos = self.pos + np.array(action)
         is_action_valid = self.isValidPos(next_pos)
         if is_action_valid:
             self.pos = next_pos
@@ -53,16 +55,26 @@ class Agent():
 
     def isValidPos(self, pos):
         is_valid = (np.array(pos - self.pad) > -1).all()
-        is_valid = is_valid and (np.array(pos + self.pad) < self.world_size.shape).all()
+        is_valid = is_valid and (np.array(pos + self.pad) < self.world_size).all()
         return is_valid
 
 
 class SearchEnv(gym.Env):
-    def __init__(self,numAgents=None,rewardMap=None,initialPos=None,num_centers = [5,10],max_var = [10.0],mapSize = 30,seed = 45):
-        self.worldMap = rewardMap
+
+    '''
+    Initialising the gym environemnt:
+
+    @params
+    numAgents: Number of agents
+    numCentres: number of random gaussian centres for the reward map
+    max_var = Maximum vairance for the gaussians
+    min_var = Minumum variance for the gaussians
+    mapSize: size of the reward map
+    seed: environemnt seed to reproduce the training results if necessary
+    '''
+    def __init__(self,numAgents=None,num_centers = [5,10],max_var = 25.0,min_var = 5.0, mapSize = 30,seed = 45):
+
         self.numAgents = numAgents
-
-
         self.worldMap = None
         self.rewardMap = None
         self.trajMap = None
@@ -71,73 +83,160 @@ class SearchEnv(gym.Env):
         # Parameters to create training maps
         self.centers = num_centers
         self.max_var = max_var
+        self.min_var = min_var
         self.reward_map_size = mapSize
         self.pad_size = mapSize - 1  # TODO clean up these
         self.world_map_size = self.reward_map_size + 2 * (self.pad_size)
         self.curr_r_map_size = self.reward_map_size + self.pad_size
         self.curr_r_pad = (self.curr_r_map_size - 1) / 2
         self.seed = seed
+        self.viewer = None
 
+        self.input_size = 24
+
+    '''
+    Adds a Gaussian
+    '''
+    def Gaussian(self,mean,cov):
+        x = np.array([np.linspace(0, self.reward_map_size - 1, self.reward_map_size),
+                      np.linspace(0, self.reward_map_size - 1, self.reward_map_size)]).T
+
+        x1Mesh, x2Mesh = np.meshgrid(x[:, 0:1], x[:, 1:2])
+        # Making the gaussians circular
+
+        cov1 = np.copy(cov)
+        cov[0][0] = np.clip(cov[0][0], self.min_var, self.max_var)
+        cov[1][1] = np.clip(cov[1][1], self.min_var, self.max_var)
+        cov[0][1] = np.clip(cov[0][1],0, self.min_var / 2)
+        cov[1][0] = cov[0][1]
+
+        if np.linalg.det(cov)<0:
+            cov[0][0] = np.clip(cov1[0][1], self.min_var, self.max_var)
+            cov[1][1] = np.clip(cov1[1][0], self.min_var, self.max_var)
+            cov[0][1] = np.clip(cov1[1][1], self.min_var / 2, self.max_var / 2)
+            cov[1][0] = cov[0][1]
+        elif np.linalg.det(cov)==0:
+            cov[0][0] = np.clip(cov1[0][1]+np.random.rand(1), self.min_var, self.max_var)
+            cov[1][1] = np.clip(cov1[1][0]+np.random.rand(1), self.min_var, self.max_var)
+
+
+        xPred = np.array([np.reshape(x1Mesh, (900,)), np.reshape(x2Mesh, (900,))])
+        gaussian = np.diag(1/np.sqrt(2*np.pi*np.abs(np.linalg.det(cov)))*\
+                           np.exp(-(xPred - mean.reshape((mean.shape[0],1))).T@np.linalg.inv(cov)@\
+                                  (xPred-mean.reshape((mean.shape[0],1)))))
+        gaussian = gaussian.reshape((self.reward_map_size,self.reward_map_size))
+        return gaussian
+
+    '''
+    Creates a reward map based on the number of Gaussians
+    '''
+    def createRewardMap(self,X,var):
+        # Sub-test to check the gaussian with very sparse data
+        gaussians = np.array([self.Gaussian(X[j],var[j]) for j in range(X.shape[0])])
+        rewardMap  = np.sum(gaussians,axis = 0)
+        rewardMap/=rewardMap.sum()
+        return rewardMap
+        # m = GPy.models.GPRegression(X,Y
+
+    '''
+    Reward Map from Gpy framework based on measurements and expected locations of sources
+    '''
+    def createRewardMapGP(self,X,var):
+
+        m = GPy.models.SparseGPRegression(X, var, num_inducing=10)
+        m.rbf.variance = 1
+        m.rbf.lengthscale = 3
+        #print(m.rbf)
+        # m.optimize()
+
+        x = np.array([np.linspace(0, self.reward_map_size-1,self.reward_map_size), np.linspace(0,self.reward_map_size-1, self.reward_map_size)])  # np.random.uniform(-3.,3.,(200,2))
+
+        x1Mesh, x2Mesh = np.meshgrid(x[:, 0:1], x[:, 1:2])
+        xPred = np.array([np.reshape(x1Mesh, (900,)), np.reshape(x2Mesh, (900,))])
+
+        yPred, Var = m.predict(xPred)
+        x1len = math.floor(np.max(x[:, 0:1]) - np.min(x[:, 0:1])) + 1
+        x2len = math.floor(np.max(x[:, 1:2]) - np.min(x[:, 1:2])) + 1
+
+        yMesh = np.reshape(yPred, (np.size(x, 0), np.size(x, 0))).T
+        #print(yMesh.shape)
+        levels = np.linspace(np.min(yMesh), np.max(yMesh), 1000)
+        levels1 = np.linspace(np.min(yMesh), np.max(yMesh), 10)
+        # yMesh[:] = 0.5
+        rewardMap = yMesh
+
+
+    '''
+    Creates the world with reward map and agents
+    '''
     def createWorld(self,rewardMap=None):
         if rewardMap is None:
             #Create random multimodels gaussian here
-
-
-
             # Sub-test to check the gaussian with very sparse data
             X = []
             Y = []
             self.seed+=1
-            np.random.seed(self.seed)
+            if SET_SEED:
+                np.random.seed(self.seed)
             num_centers = np.random.randint(self.centers[0], self.centers[1])
 
             for j in range(num_centers):
                 X.append([np.random.randint(0,self.reward_map_size),np.random.randint(0,self.reward_map_size)])
-                Y.append(np.random.rand(1)*self.max_var)
+                y = np.zeros((2,2))
+                y[0][0] = np.random.rand(1)*self.max_var
+                y[1][1] = np.random.rand(1)*self.max_var
+                y[0][1] = np.random.rand(1)*self.min_var/2
+                y[1][0] = y[0][1]
+                Y.append(y)
 
             X = np.array(X)
-            Y = np.clip(np.array(Y),1,self.max_var)
+            # Y = np.clip(np.array(Y),self.min_var,self.max_var)
+            rewardMap = self.createRewardMap(X,Y)
+            #Using GPy for Maps, deosnt work
                        # m = GPy.models.GPRegression(X,Y)
-            m = GPy.models.SparseGPRegression(X, Y, num_inducing=10)
-            m.rbf.variance = 1
-            m.rbf.lengthscale = 3
-            #print(m.rbf)
-            # m.optimize()
 
-            x = np.array([np.linspace(0, self.reward_map_size-1,self.reward_map_size), np.linspace(0,self.reward_map_size-1, self.reward_map_size)]).T  # np.random.uniform(-3.,3.,(200,2))
-
-            x1Mesh, x2Mesh = np.meshgrid(x[:, 0:1], x[:, 1:2])
-            xPred = np.array([np.reshape(x1Mesh, (900,)), np.reshape(x2Mesh, (900,))]).T
-
-            yPred, Var = m.predict(xPred)
-            x1len = math.floor(np.max(x[:, 0:1]) - np.min(x[:, 0:1])) + 1
-            x2len = math.floor(np.max(x[:, 1:2]) - np.min(x[:, 1:2])) + 1
-
-            yMesh = np.reshape(yPred, (np.size(x, 0), np.size(x, 0))).T
-            print(yMesh.shape)
-            levels = np.linspace(np.min(yMesh), np.max(yMesh), 1000)
-            levels1 = np.linspace(np.min(yMesh), np.max(yMesh), 10)
-            # yMesh[:] = 0.5
-            rewardMap = yMesh
+            # if DEBUG:
+            #     plt.contourf(x1Mesh, x2Mesh, yMesh, levels, cmap='viridis')
             if DEBUG:
+                x = np.array([np.linspace(0, self.reward_map_size - 1, self.reward_map_size),
+                              np.linspace(0, self.reward_map_size - 1,
+                                          self.reward_map_size)]).T  # np.random.uniform(-3.,3.,(200,2))
+
+                x1Mesh, x2Mesh = np.meshgrid(x[:, 0:1], x[:, 1:2])
+                yMesh = rewardMap
+                levels = np.linspace(0, np.max(yMesh), 1000)
                 plt.contourf(x1Mesh, x2Mesh, yMesh, levels, cmap='viridis')
 
-        self.worldmap = np.zeros((self.world_map_size, self.world_map_size))
-        self.worldmap[self.pad_size:self.pad_size + self.reward_map_size,\
+        self.worldMap = np.zeros((self.world_map_size, self.world_map_size))
+        self.worldMap[self.pad_size:self.pad_size + self.reward_map_size,\
         self.pad_size:self.pad_size + self.reward_map_size] = rewardMap # capped b/w 0 and 1
-        self.orig_worldmap = np.copy(self.worldMap)
+        self.orig_worldMap = np.copy(self.worldMap)
         self.rewardMap = rewardMap
 
         # Creating the agents
-        self.agents = [Agent(j,self.reward_map_size,self.reward_map_size,self.reward_map_size,self.pad_size,self.world_map_size) for j in range(self.numAgents)]
+        if SPAWN_RANDOM_AGENTS:
+            row = np.random.randint(self.pad_size,self.reward_map_size+self.pad_size,(self.numAgents,))
+            col = np.random.randint(self.pad_size, self.reward_map_size + self.pad_size, (self.numAgents,))
+            self.agents = [
+                Agent(j, row[j],col[j], \
+                      self.reward_map_size, self.pad_size, self.world_map_size) for j in range(self.numAgents)]
+        else:
+            self.agents = [Agent(j,self.reward_map_size+int(j/(int(j/2))),self.reward_map_size+(j%(int(j/2))),\
+                                 self.reward_map_size,self.pad_size,self.world_map_size) for j in range(self.numAgents)]
 
-    def reset(self, state):
+        # For rendering
+        self.maxDensity = self.worldMap.max()
+
+    '''
+    resets the world for a new reward map and new training epoch
+    '''
+    def reset(self, state=None):
         self.createWorld()
 
-    def stepall(self,action_dict):
+    def step_all(self,action_dict):
         rewards = []
         for j in range(self.numAgents):
-            r = self.step(agentID=j,action=action_dict[j])
+            r = self.step(agentID=j,action=ACTIONS[action_dict[j]])
             rewards.append(r)
         return rewards
 
@@ -148,22 +247,22 @@ class SearchEnv(gym.Env):
         """
         valid = self.agents[agentID].updatePos(action)
         reward = 0
-        reward += REWARD.MAP*self.worldMap[self.agents[agentID].pos[0],self.agents[agentID].pos[1]]
+        reward += REWARD.MAP.value*self.worldMap[self.agents[agentID].pos[0],self.agents[agentID].pos[1]]
         if valid:
-            reward+=REWARD.STEP
+            reward+=REWARD.STEP.value
         else:
-            reward+=REWARD.COLLISION
+            reward+=REWARD.COLLISION.value
 
         self.worldMap[self.agents[agentID].pos[0],self.agents[agentID].pos[1]] = 0
         self.agents[agentID].updateMap(self.worldMap)
         return reward
 
     def phi_from_map_coords(self,r, c):
-        map_section = self.worldmap[r[0]:r[1], c[0]:c[1]]
+        map_section = self.worldMap[r[0]:r[1], c[0]:c[1]]
         size = (r[1] - r[0]) * (c[1] - c[0])
         return np.sum(map_section) / size
 
-    def get_obs(self,agentID):
+    def get_obs_tiled(self,agentID):
 
         r = self.agents[agentID].pos[1]
         c = self.agents[agentID].pos[0]
@@ -171,7 +270,7 @@ class SearchEnv(gym.Env):
         for i in range(-1, 2):
             for j in range(-1, 2):
                 if not (i == 0 and j == 0):
-                    phi_prime.append(self.worldmap[r + i, c + j])
+                    phi_prime.append(self.worldMap[r + i, c + j])
                     phi_prime.append(self.phi_from_map_coords((r - 1 + 3 * i, r - 1 + 3 * (i + 1)),
                                                          (c - 1 + 3 * j, c - 1 + 3 * (j + 1))))
 
@@ -183,19 +282,39 @@ class SearchEnv(gym.Env):
         phi_prime = np.squeeze(np.array([phi_prime]))
         return phi_prime
 
-    def render(self, mode='visualise',W=400, H=400):
-        self.viewer = rendering.Viewer(W, H)
+    def get_obs_all(self):
+        obs = []
+        for j in range(self.numAgents):
+            obs.append(self.get_obs_tiled(agentID=j))
+        return np.array([obs])
+
+    def get_obs_full(self,agentID):
+        r = self.agents[agentID].pos[1]
+        c = self.agents[agentID].pos[0]
+
+    def get_obs_ranged(self):
+        pass
+
+    def render(self, mode='visualise',W=800, H=800):
+
+        if self.viewer is None:
+            self.viewer = rendering.Viewer(W, H)
         size_x = W/self.worldMap.shape[0]
         size_y = H/self.worldMap.shape[1]
+        min = self.worldMap
         for i in range(self.worldMap.shape[0]):
             for j in range(self.worldMap.shape[1]):
                 # rending the infoMap
-                shade = ZEROREWARDCOLOR + (MAXREWARDCOLOR-ZEROREWARDCOLOR)*self.worldMap[i,j]
-                self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, shade, False))
-                for agentID in range(self.num_agents):
-                    agentColor = AGENT_MINCOL + (AGENT_MAXCOL-AGENT_MINCOL)*((agentID+1)/self.numAgents)
+                shade = np.array(ZEROREWARDCOLOR) + (np.array(MAXREWARDCOLOR)-np.array(ZEROREWARDCOLOR))*(self.worldMap[i,j]/self.maxDensity)
+                isAgent  = False
+                for agentID in range(self.numAgents):
+                    agentColor = np.array(AGENT_MINCOL) + (np.array(AGENT_MAXCOL)-np.array(AGENT_MINCOL))*(float(agentID+1)/float(self.numAgents))
                     if i == self.agents[agentID].pos[0] and j ==self.agents[agentID].pos[1]:
                         self.viewer.add_onetime(circle(i * size_x, j * size_y, size_x, size_y, agentColor))
+                        isAgent = True
+                if not isAgent:
+                    self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, shade, False))
+
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
