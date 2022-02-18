@@ -33,7 +33,6 @@ value_weight = 0.05
 policy_weight = 1.0
 entropy_weight = 0.01
 
-
 #Logging Params
 MODEL_NAME = 'VanillaAC_v2'
 DESCRIPTION = 'ACV1'
