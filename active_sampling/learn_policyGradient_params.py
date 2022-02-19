@@ -6,6 +6,7 @@ import sys
 import pickle
 import time
 import os
+from copy import deepcopy
 
 
 class LearnPolicyGradientParams:
@@ -21,9 +22,9 @@ class LearnPolicyGradientParams:
 
         self.num_iterations = 10
         self.num_trajectories = 5
-        self.Tau_horizon = 400
+        self.Tau_horizon = 200
         self.plot = False
-        self.fileNm = "lpgp"
+        self.fileNm = "trial_lpgp_short_015"
         if(len(sys.argv) > 2):
             self.fileNm = sys.argv[2]
 
@@ -33,7 +34,7 @@ class LearnPolicyGradientParams:
         self.Eta = 0.015
         if(len(sys.argv) > 1):
             self.Eta = float(sys.argv[1])
-    
+
     def get_phi_prime(self, worldmap, pos):
         def phi_from_map_coords(r, c):
             map_section = worldmap[r[0]:r[1], c[0]:c[1]]
@@ -67,7 +68,7 @@ class LearnPolicyGradientParams:
         phi_prime = self.get_phi_prime(worldmap, pos)
         theta_dot_phi = np.zeros(self.num_actions)
         for i in range(self.num_actions):
-            theta_dot_phi[i] = self.theta[:,index, i] @ phi_prime
+            theta_dot_phi[i] = self.theta[:, index, i] @ phi_prime
         theta_dot_phi -= np.max(theta_dot_phi)
         exp_theta_dot_phi = np.exp(theta_dot_phi)
         prob = exp_theta_dot_phi/np.sum(exp_theta_dot_phi)
@@ -80,7 +81,7 @@ class LearnPolicyGradientParams:
 
     def sample_action(self, worldmap, pos, index, maxPolicy=False):
         prob = self.compute_softmax(worldmap, pos, index)
-        prob[self.num_actions_per_state[index]:] =0
+        prob[self.num_actions_per_state[index]:] = 0
         prob = prob/sum(prob)
         if maxPolicy:
             next_action = np.argmax(prob)
@@ -89,8 +90,8 @@ class LearnPolicyGradientParams:
         return next_action
 
     def isValidPos(self, pos):
-        is_valid = (np.array(pos-self.curr_r_pad) > -1).all()
-        is_valid = is_valid and (np.array(pos + self.curr_r_pad) < self.orig_worldmap.shape).all()
+        is_valid = (np.array(pos - (self.curr_r_pad-1)) > -1).all()
+        is_valid = is_valid and (np.array(pos + (self.curr_r_pad-1)) < self.orig_worldmap.shape).all()
         return is_valid
 
     def get_next_state(self, pos, action, index):
@@ -102,7 +103,7 @@ class LearnPolicyGradientParams:
         next_pos = pos + actions[action]
         is_action_valid = self.isValidPos(next_pos)
         if is_action_valid:
-            return next_pos, 0, is_action_valid, next_pos.reshape(2,1), 0
+            return next_pos, 0, is_action_valid, next_pos.reshape(2, 1), 0
         else:
             return pos, 0, is_action_valid, None, None
 
@@ -122,16 +123,15 @@ class LearnPolicyGradientParams:
                 worldmap_pos = np.rint(pos).astype(np.int32)
                 action = self.sample_action(local_worldmap, worldmap_pos, index, maxPolicy)
                 next_pos, next_index, is_action_valid, visited_states, traj_cost = self.get_next_state(pos, action, index)
-                # worldmap_next_pos =  np.rint(next_pos).astype(np.int32)
                 curr_reward = 0
                 if is_action_valid:
                     for state in visited_states.T:
                         curr_reward += local_worldmap[state[1], state[0]]
-                        # curr_reward -= traj_cost*.1
                         local_worldmap[state[1], state[0]] = 0
+                    curr_reward -= traj_cost*.1
                 else:
                     curr_reward = -2
-                Tau[i][j] = Trajectory(worldmap_pos, pos, action, curr_reward, index)
+                Tau[i][j] = Trajectory(worldmap_pos, pos, action, curr_reward, index, visited_states)
                 pos = next_pos
                 index = next_index
         return Tau
@@ -225,6 +225,12 @@ class LearnPolicyGradientParams:
             self.tot_time += (end-start)
             print(f'Computation Time: {(end-start):.2f}')
 
+            x = deepcopy(self)
+            script_dir = os.path.dirname(__file__)
+            x.mp_graph = None
+            x.minimum_action_mp_graph = None
+            pickle.dump(x, open(f'{script_dir}/testingData/{self.fileNm}.pkl', "wb"))
+
         # print theta
         pos = np.array([self.reward_map_size, self.reward_map_size])
         Tau = self.generate_trajectories(1, maxPolicy=True, rand_start=False)
@@ -235,7 +241,6 @@ class LearnPolicyGradientParams:
         self.rewardmap = rewardmap
         self.Tau = Tau
         self.mp_graph = None
-        script_dir = os.path.dirname(__file__)
         self.mp_graph = None
         self.minimum_action_mp_graph = None
         pickle.dump(self, open(f'{script_dir}/testingData/{self.fileNm}.pkl', "wb"))
@@ -249,12 +254,13 @@ class LearnPolicyGradientParams:
 
 
 class Trajectory:
-    def __init__(self, pos, exact_pos, action, reward, index):
+    def __init__(self, pos, exact_pos, action, reward, index, visited_states):
         self.pos = pos
         self.exact_pos = exact_pos
         self.action = action
         self.reward = reward
         self.index = index
+        self.visited_states = visited_states
 
     def __str__(self):
         return f"{self.pos} {self.exact_pos} {self.index} {self.action} {self.reward}"

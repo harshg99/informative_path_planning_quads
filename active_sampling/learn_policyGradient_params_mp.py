@@ -17,10 +17,10 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
         self.mp_graph_file_name = mp_graph_file_name
         self.load_graph()
         self.spatial_dim = self.mp_graph.num_dims
-        self.Tau_horizon = 100
-        self.num_iterations = 10
-        # self.num_trajectories = 5
-        # self.Eta = .3
+        self.Tau_horizon = 200
+        self.num_iterations = 1000
+        self.num_trajectories = 10 
+        self.Eta = 0.015 
 
     def load_graph(self):
         self.mp_graph = MotionPrimitiveLattice.load(self.mp_graph_file_name)
@@ -49,23 +49,17 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
             worldmap_pos = np.rint(mp.end_state[:self.spatial_dim]).astype(np.int32)
             is_valid = mp.is_valid and self.isValidPos(worldmap_pos)
             _, sp = mp.get_sampled_position()
-            # visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
-            visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
+            visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
             if is_valid:
                 next_index = self.lookup_dictionary[index, action]
                 next_index = int(np.floor(next_index/self.mp_graph.num_tiles))
-                return mp.end_state[:self.spatial_dim], next_index, is_valid, visited_states, mp.cost
+                return mp.end_state[:self.spatial_dim], next_index, is_valid, visited_states, mp.cost/mp.subclass_specific_data.get('rho', 1000)
         # else:
         #     print('Warning: invalid MP is being selected')
         return pos, index, False, None, None
 
     def set_up_training(self):
         self.theta = np.random.rand(self.num_features, self.num_other_states, self.num_actions)*0.1
-        # for i in range(self.num_other_states):
-        #     for j in range(self.num_actions):
-        #         if self.minimum_action_mp_graph[i, j] is None:
-        #             self.theta[:, i, j] = -1E8
-
 
 if __name__ == '__main__':
     import rospkg
@@ -75,7 +69,7 @@ if __name__ == '__main__':
     # pkg_path = rospack.get_path('motion_primitives')
     # pkg_path = f'{pkg_path}/motion_primitives_py/'
     # mpl_file = f"{pkg_path}data/lattices/lattice_test.json"
-    mpl_file = f'{os.path.dirname(active_sampling.__file__)}/latticeData/8_actions.json'
+    mpl_file = f'{os.path.dirname(active_sampling.__file__)}/latticeData/10_short.json'
 
     import os
     lpgp = LearnPolicyGradientParamsMP(mpl_file)

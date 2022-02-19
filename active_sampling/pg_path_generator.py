@@ -12,12 +12,17 @@ import os
 
 # pickle file with the learnt parameters (Theta):
 script_dir = os.path.dirname(__file__)
-pg = pickle.load(open(f'{script_dir}/testingData/lpgp.pkl', "rb"), encoding='latin1')
+#pg = pickle.load(open(f'{script_dir}/testingData/lpgp.pkl', "rb"), encoding='latin1')
+pg = pickle.load(open(f'{script_dir}/testingData/lpgp_short_015.pkl', "rb"), encoding='latin1')
 if type(pg) is LearnPolicyGradientParamsMP:
     pg.load_graph()
 
-pg.rewardmap = pickle.load(open(f'{script_dir}/testingData/gaussian_mixture_test2.pkl', "rb"), encoding='latin1')
+#pg.rewardmap = pickle.load(open(f'{script_dir}/testingData/gaussian_mixture_test2.pkl', "rb"), encoding='latin1') * 1000
+pg.rewardmap = (pickle.load(open(f'{script_dir}/testingData/cShaped_test3.pkl', "rb"), encoding='latin1')) * 1000
 
+pg.orig_worldmap[pg.pad_size:pg.pad_size+pg.reward_map_size, pg.pad_size:pg.pad_size+pg.reward_map_size] = pg.rewardmap
+
+#pg.Tau_horizon = 500
 Tau = pg.generate_trajectories(1, maxPolicy=True, rand_start=True)
 tot = 0
 dis_tot = 0
@@ -40,7 +45,7 @@ print(f"Trajectory Reward= {tot}")
 print(f"Discounted Trajectory Reward= {dis_tot}")
 
 plt.figure(figsize=(7, 6))
-plt.imshow(pg.rewardmap, cmap='viridis')
+plt.imshow(pg.rewardmap, cmap='viridis',interpolation='spline36')
 plt.plot(px[0], py[0], 'go', markersize=12)
 plt.plot(px[-1], py[-1], 'ro', markersize=12)
 plt.colorbar()
