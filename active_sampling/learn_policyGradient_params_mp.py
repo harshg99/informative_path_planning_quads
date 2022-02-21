@@ -56,7 +56,7 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
                 return mp.end_state[:self.spatial_dim], next_index, is_valid, visited_states, mp.cost/mp.subclass_specific_data.get('rho', 1000)
         # else:
         #     print('Warning: invalid MP is being selected')
-        return pos, index, False, None, None
+        return pos, index, False, pos.reshape(2,1), None
 
     def set_up_training(self):
         self.theta = np.random.rand(self.num_features, self.num_other_states, self.num_actions)*0.1
