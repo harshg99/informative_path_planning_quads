@@ -71,9 +71,7 @@ if __name__ == '__main__':
     # mpl_file = f"{pkg_path}data/lattices/lattice_test.json"
     mpl_file = f'{os.path.dirname(active_sampling.__file__)}/latticeData/10_short.json'
 
-    import os
     lpgp = LearnPolicyGradientParamsMP(mpl_file)
-    script_dir = os.path.dirname(active_sampling.__file__)
-    print(script_dir)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     rewardmap = pickle.load(open(f'{script_dir}/trainingData/gaussian_mixture_training_data.pkl', "rb"), encoding='latin1')
     lpgp.run_training(rewardmap)

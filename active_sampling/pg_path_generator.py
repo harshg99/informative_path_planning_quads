@@ -11,9 +11,9 @@ from matplotlib import pyplot as plt
 import os
 
 # pickle file with the learnt parameters (Theta):
-script_dir = os.path.dirname(__file__)
+script_dir = os.path.dirname(os.path.abspath(__file__))
 #pg = pickle.load(open(f'{script_dir}/testingData/lpgp.pkl', "rb"), encoding='latin1')
-pg = pickle.load(open(f'{script_dir}/testingData/lpgp_short_015.pkl', "rb"), encoding='latin1')
+pg = pickle.load(open(f'{script_dir}/testingData/lpgp.pkl', "rb"), encoding='latin1')
 if type(pg) is LearnPolicyGradientParamsMP:
     pg.load_graph()
 

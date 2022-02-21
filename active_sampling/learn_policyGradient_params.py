@@ -24,10 +24,12 @@ class LearnPolicyGradientParams:
         self.num_trajectories = 5
         self.Tau_horizon = 200
         self.plot = False
-        self.fileNm = "lpgp_short_015_fast_NoVisited_2000"
+        self.fileNm = "lpgp"
         self.theta = None
         self.valid_action_pad = 1
         self.num_actions_per_state = None
+        self.mp_graph = None
+        self.minimum_action_mp_graph = None
         self.epsilon = 30
 
         if(len(sys.argv) > 2):
@@ -88,7 +90,8 @@ class LearnPolicyGradientParams:
 
     def sample_action(self, worldmap, pos, index, maxPolicy=False):
         prob = self.compute_softmax(worldmap, pos, index)
-        prob[self.num_actions_per_state[index]:] = 0
+        if self.num_actions_per_state is not None:
+            prob[self.num_actions_per_state[index]:] = 0
         prob = prob/sum(prob)
         if maxPolicy:
             next_action = np.argmax(prob)
@@ -202,7 +205,6 @@ class LearnPolicyGradientParams:
         worldmap = np.zeros((self.world_map_size, self.world_map_size))
         worldmap[self.pad_size:self.pad_size+self.reward_map_size, self.pad_size:self.pad_size+self.reward_map_size] = rewardmap
         self.orig_worldmap = np.copy(worldmap)
-        pos = np.array([self.reward_map_size, self.reward_map_size])
 
         plt.ion()
         self.traj_reward_list = list()
@@ -215,14 +217,13 @@ class LearnPolicyGradientParams:
         # num_trajectories --> No. of trajectries used for policy estimation
         # Tau_horizon --> Finite horizon of each trajectory
         #*******************************************************************#
-
+        script_dir = os.path.dirname(os.path.abspath(__file__))
         for iterations in range(self.num_iterations):
             start = time.time()
             # Generate multiple trajectories (<action, state> pairs) using the current Theta.
             Tau = self.generate_trajectories(self.num_trajectories, rand_start=True)
             g_T = 0
             tot_reward = 0
-            sum_R_t = np.zeros(self.Tau_horizon)
             pool = multiprocessing.Pool()
             mp_graph_backup = self.mp_graph
             minimum_action_mp_graph_backup = self.minimum_action_mp_graph
@@ -252,13 +253,11 @@ class LearnPolicyGradientParams:
             print(f'Computation Time: {(end-start):.2f}')
 
             x = deepcopy(self)
-            script_dir = os.path.dirname(__file__)
             x.mp_graph = None
             x.minimum_action_mp_graph = None
             pickle.dump(x, open(f'{script_dir}/testingData/{self.fileNm}.pkl', "wb"))
 
         # print theta
-        pos = np.array([self.reward_map_size, self.reward_map_size])
         Tau = self.generate_trajectories(1, maxPolicy=True, rand_start=False)
         for j in range(self.Tau_horizon):
             print(Tau[0][j])
@@ -296,6 +295,6 @@ if __name__ == '__main__':
 
     lpgp = LearnPolicyGradientParams()
 
-    script_dir = os.path.dirname(__file__)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     rewardmap = pickle.load(open(f'{script_dir}/trainingData/gaussian_mixture_training_data.pkl', "rb"), encoding='latin1')
     lpgp.run_training(rewardmap)
