@@ -117,7 +117,7 @@ class LearnPolicyGradientParams:
         else:
             return pos, 0, is_action_valid, pos.reshape(2, 1), None
 
-    def generate_trajectories(self, num_trajectories, maxPolicy=False, rand_start=True):
+    def generate_trajectories(self, num_trajectories, maxPolicy=False, rand_start=True, start_pos = None):
         # Array of trajectories starting from current position.
         # Generate multiple trajectories (<action, state> pairs) using the current Theta.
         Tau = np.ndarray(shape=(num_trajectories, self.Tau_horizon), dtype=object)
@@ -127,6 +127,8 @@ class LearnPolicyGradientParams:
                     np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32)
             else:
                 pos = np.array([self.reward_map_size, self.reward_map_size])
+                if start_pos is not None:
+                    pos += start_pos
             index = 0
             local_worldmap = np.copy(self.orig_worldmap)
             for j in range(self.Tau_horizon):
