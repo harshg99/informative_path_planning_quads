@@ -6,6 +6,7 @@ import sys
 import pickle
 import time
 import os
+from copy import deepcopy
 
 
 class LearnPolicyGradientParams:
@@ -80,7 +81,8 @@ class LearnPolicyGradientParams:
 
     def sample_action(self, worldmap, pos, index, maxPolicy=False):
         prob = self.compute_softmax(worldmap, pos, index)
-
+        prob[self.num_actions_per_state[index]:] =0
+        prob = prob/sum(prob)
         if maxPolicy:
             next_action = np.argmax(prob)
         else:
@@ -126,10 +128,10 @@ class LearnPolicyGradientParams:
                 if is_action_valid:
                     for state in visited_states.T:
                         curr_reward += local_worldmap[state[1], state[0]]
-                        curr_reward -= traj_cost*.1
+                        curr_reward -= traj_cost
                         local_worldmap[state[1], state[0]] = 0
                 else:
-                    curr_reward = -2
+                    curr_reward = -20
                 Tau[i][j] = Trajectory(worldmap_pos, pos, action, curr_reward, index)
                 pos = next_pos
                 index = next_index
@@ -167,7 +169,6 @@ class LearnPolicyGradientParams:
         worldmap = np.zeros((self.world_map_size, self.world_map_size))
         worldmap[self.pad_size:self.pad_size+self.reward_map_size, self.pad_size:self.pad_size+self.reward_map_size] = rewardmap
         self.orig_worldmap = np.copy(worldmap)
-        pos = np.array([self.reward_map_size, self.reward_map_size])
 
         plt.ion()
         self.traj_reward_list = list()
@@ -223,6 +224,12 @@ class LearnPolicyGradientParams:
             end = time.time()
             self.tot_time += (end-start)
             print(f'Computation Time: {(end-start):.2f}')
+            
+            x = deepcopy(self)
+            script_dir = os.path.dirname(__file__)
+            x.mp_graph = None
+            x.minimum_action_mp_graph = None
+            pickle.dump(x, open(f'{script_dir}/testingData/{self.fileNm}.pkl', "wb"))
 
         # print theta
         pos = np.array([self.reward_map_size, self.reward_map_size])
@@ -231,7 +238,6 @@ class LearnPolicyGradientParams:
             print(Tau[0][j])
 
         # Saving the trained data
-        self.rewardmap = rewardmap
         self.Tau = Tau
         self.mp_graph = None
         script_dir = os.path.dirname(__file__)
