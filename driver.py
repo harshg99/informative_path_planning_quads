@@ -13,6 +13,7 @@ from params import *
 from models.Vanilla import Vanilla
 from env.searchenv import *
 from tensorboardX import SummaryWriter
+from models.model_setter import model_setter
 
 def apply_gradients(global_model, gradients,device):
     global_model.optim.zero_grad()
@@ -23,10 +24,11 @@ def apply_gradients(global_model, gradients,device):
             global_param._grad = g
     global_model.optim.step()
 
-def init_ray(params_dict):
-    ray.init(num_gpus=int(params_dict['GPU']))
 
-def reinit_ray(jobList, meta_agents,params_dict):
+def init_ray():
+    ray.init(num_gpus=int(GPU))
+
+def reinit_ray(jobList, meta_agents):
     if jobList == []:
         print('REINITIALIZING RAY')
         ray.shutdown()
@@ -44,9 +46,10 @@ def init_jobs(agents, weights, curr_episode):
     return job_list, curr_episode
 
 if __name__=='__main__':
-    # Creating the gloabl model
+    # Creating the global model
     dummy_env = SearchEnv(numAgents=1)
-    global_model = Vanilla(dummy_env.input_size, len(ACTIONS), HIDDEN_SIZES)
+    global_model = model_setter.set_model(dummy_env.input_size, len(ACTIONS),MODEL_TYPE)
+    init_ray()
     global_model.share_memory()
     global_summary = SummaryWriter(TRAIN_PATH)
     curr_episode = 0
@@ -55,6 +58,8 @@ if __name__=='__main__':
     # Making the diectory
     if not os.path.isdir(MODEL_PATH):
         os.makedirs(MODEL_PATH)
+    if not os.path.isdir(GIFS_PATH):
+        os.makedirs(GIFS_PATH)
 
     if LOAD_MODEL:
         print('Loading Model')
@@ -62,7 +67,7 @@ if __name__=='__main__':
         global_model.load_state_dict(checkpoint['model_state_dict'])
         global_model.optim.load_state_dict(checkpoint['optimizer_state_dict'])
         curr_episode = checkpoint['epoch']
-        print('Model resules at Episode: {}'.format(curr_episode))
+        print('Model results at Episode: {}'.format(curr_episode))
 
     meta_agents = [Runner.remote(i)
                    for i in range(NUM_META_AGENTS)]
@@ -77,7 +82,7 @@ if __name__=='__main__':
         while curr_episode<MAX_EPISODES and joblist!=[]:
             done_id, joblist = ray.wait(joblist)
             # get the results of the task from the object store
-            jobResults, metrics, info = ray.get(done_id)[0]
+            jobResults, metrics, info,exp = ray.get(done_id)[0]
 
             tensorboard_writer.update(metrics, curr_episode, neptune_run)
             if JOB_TYPE == JOB_TYPES.getGradient:
@@ -85,6 +90,8 @@ if __name__=='__main__':
                 for gradients in jobResults[0]:
                     apply_gradients(global_model, gradients, device)
 
+            if global_model.scheduler:
+                global_model.scheduler.step()
             elif JOB_TYPE == JOB_TYPES.getExperience:
                 pass
             else:

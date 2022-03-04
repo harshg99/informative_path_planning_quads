@@ -8,13 +8,14 @@ from env.searchenv import *
 from Worker import Worker
 from models.Vanilla import Vanilla
 from params import *
+from models.model_setter import model_setter
 
 @ray.remote(num_cpus=1,num_gpus=int(GPU)/(NUM_META_AGENTS+1))
 class Runner(object):
     def __init__(self,id):
         self.ID= id
         self.env = SearchEnv(numAgents=1)
-        self.model = Vanilla(self.env.input_size,len(ACTIONS),HIDDEN_SIZES)
+        self.model =  model_setter.set_model(self.env.input_size, len(ACTIONS),MODEL_TYPE)
         self.worker = Worker(self.ID,self.model,self.env)
 
     def job(self,glob_weights,episode_num):
@@ -22,7 +23,7 @@ class Runner(object):
         if TRAINING_TYPE == TRAINING_OPTIONS.singleThreaded:
             jobresults,metrics = self.singleThreadedJob(episode_num)
         info = self.ID
-        return jobresults,metrics,info
+        return jobresults,metrics,info,self.worker.train_buffer
 
     def singleThreadedJob(self,episode_num):
         jobResults = []
@@ -38,4 +39,4 @@ class Runner(object):
 
 if __name__ == '__main__':
     rs = Runner(0)
-    rs.singleThreadedJob(10)
+    rs.singleThreadedJob(500)

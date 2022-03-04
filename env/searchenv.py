@@ -12,10 +12,10 @@ from params import *
 Reward Class
 '''
 class REWARD(Enum):
-    STEP        = -1.0
-    STEPDIAGONAL= -1.0*np.sqrt(2)
+    STEP        = -0.1
+    STEPDIAGONAL= -0.1*np.sqrt(2)
     STAY      = -0.5
-    MAP  = +1000
+    MAP  = +100
     TARGET  = +15.0
     COLLISION = -2.0
 
@@ -32,7 +32,7 @@ AGENT_MAXCOL = (1.,0.3,0.3)
 Environment DEbug Variables
 '''
 DEBUG = False
-SET_SEED = True
+
 class Agent():
     def __init__(self,ID,row,col,map_size,pad,world_size):
         self.ID = ID
@@ -70,29 +70,41 @@ class SearchEnv(gym.Env):
     max_var = Maximum vairance for the gaussians
     min_var = Minumum variance for the gaussians
     mapSize: size of the reward map
-    seed: environemnt seed to reproduce the training results if necessary
+    seed: environemnt seed to reproduce the training results if necessary6
     '''
-    def __init__(self,numAgents=None,num_centers = [5,10],max_var = 25.0,min_var = 5.0, mapSize = 30,seed = 45):
+    def __init__(self,numAgents=None,num_centers = [5,10],max_var = 25.0,min_var = 5.0, mapSize = 60,rewardMapSize  =30,seed = 45):
 
         self.numAgents = numAgents
         self.worldMap = None
         self.rewardMap = None
         self.trajMap = None
         self.agentMap = None
+        self.obstacle_map = None
 
         # Parameters to create training maps
         self.centers = num_centers
         self.max_var = max_var
         self.min_var = min_var
-        self.reward_map_size = mapSize
-        self.pad_size = mapSize - 1  # TODO clean up these
+        self.reward_map_size = rewardMapSize
+        self.pad_size = int(0.5*(mapSize - self.reward_map_size))  # TODO clean up these
         self.world_map_size = self.reward_map_size + 2 * (self.pad_size)
         self.curr_r_map_size = self.reward_map_size + self.pad_size
         self.curr_r_pad = (self.curr_r_map_size - 1) / 2
-        self.seed = seed
+
+        if SET_SEED:
+            self.seed = seed
         self.viewer = None
 
-        self.input_size = 24
+        if OBSERVER == 'RANGE':
+            self.input_size = 4*RANGE*RANGE
+        elif OBSERVER =='TILED':
+            self.input_size = 24
+        elif OBSERVER == 'TILEDwOBS':
+            self.input_size = 48
+        elif OBSERVER == 'RANGEwOBS':
+            self.input_size = 8*RANGE*RANGE
+        elif OBSERVER == 'RANGEwOBSwNEIGH':
+            self.input_size = 8*(RANGE+1)*(RANGE+1)
 
     '''
     Adds a Gaussian
@@ -120,7 +132,8 @@ class SearchEnv(gym.Env):
             cov[1][1] = np.clip(cov1[1][0]+np.random.rand(1), self.min_var, self.max_var)
 
 
-        xPred = np.array([np.reshape(x1Mesh, (900,)), np.reshape(x2Mesh, (900,))])
+        xPred = np.array([np.reshape(x1Mesh, (self.reward_map_size*self.reward_map_size,))\
+                             , np.reshape(x2Mesh, (self.reward_map_size*self.reward_map_size,))])
         gaussian = np.diag(1/np.sqrt(2*np.pi*np.abs(np.linalg.det(cov)))*\
                            np.exp(-(xPred - mean.reshape((mean.shape[0],1))).T@np.linalg.inv(cov)@\
                                   (xPred-mean.reshape((mean.shape[0],1)))))
@@ -175,8 +188,8 @@ class SearchEnv(gym.Env):
             # Sub-test to check the gaussian with very sparse data
             X = []
             Y = []
-            self.seed+=1
-            if SET_SEED:
+            if not SAME_MAP:
+                self.seed+=1
                 np.random.seed(self.seed)
             num_centers = np.random.randint(self.centers[0], self.centers[1])
 
@@ -207,9 +220,12 @@ class SearchEnv(gym.Env):
                 levels = np.linspace(0, np.max(yMesh), 1000)
                 plt.contourf(x1Mesh, x2Mesh, yMesh, levels, cmap='viridis')
 
-        self.worldMap = np.zeros((self.world_map_size, self.world_map_size))
+        self.obstacle_map = np.zeros((self.world_map_size,self.world_map_size))+1
+        self.worldMap = np.zeros((self.world_map_size, self.world_map_size)) #for boundaries
         self.worldMap[self.pad_size:self.pad_size + self.reward_map_size,\
-        self.pad_size:self.pad_size + self.reward_map_size] = rewardMap # capped b/w 0 and 1
+        self.pad_size:self.pad_size + self.reward_map_size] = rewardMap*REWARD.MAP.value # capped b/w 0 and 1
+        self.obstacle_map[self.pad_size:self.pad_size + self.reward_map_size,\
+        self.pad_size:self.pad_size + self.reward_map_size]= np.zeros((self.reward_map_size,self.reward_map_size))
         self.orig_worldMap = np.copy(self.worldMap)
         self.rewardMap = rewardMap
 
@@ -238,7 +254,11 @@ class SearchEnv(gym.Env):
         for j in range(self.numAgents):
             r = self.step(agentID=j,action=ACTIONS[action_dict[j]])
             rewards.append(r)
-        return rewards
+        done=False
+        if np.all(np.abs(self.worldMap[self.pad_size:self.pad_size + self.reward_map_size, \
+        self.pad_size:self.pad_size + self.reward_map_size])<0.1):
+            done = True
+        return rewards,done
 
     def step(self,agentID,action):
 
@@ -247,7 +267,7 @@ class SearchEnv(gym.Env):
         """
         valid = self.agents[agentID].updatePos(action)
         reward = 0
-        reward += REWARD.MAP.value*self.worldMap[self.agents[agentID].pos[0],self.agents[agentID].pos[1]]
+        reward += self.worldMap[self.agents[agentID].pos[0],self.agents[agentID].pos[1]]
         if valid:
             reward+=REWARD.STEP.value
         else:
@@ -257,27 +277,60 @@ class SearchEnv(gym.Env):
         self.agents[agentID].updateMap(self.worldMap)
         return reward
 
-    def phi_from_map_coords(self,r, c):
-        map_section = self.worldMap[r[0]:r[1], c[0]:c[1]]
+    def phi_from_map_coords(self,r, c, map=None):
+        if map is None:
+            map = self.worldMap
+        map_section = map[r[0]:r[1], c[0]:c[1]]
         size = (r[1] - r[0]) * (c[1] - c[0])
         return np.sum(map_section) / size
 
-    def get_obs_tiled(self,agentID):
+    def phi_from_map_coords_max(self, r, c,map=None):
+        if map is None:
+            map = self.worldMap
+        map_section = map[r[0]:r[1], c[0]:c[1]]
+        size = (r[1] - r[0]) * (c[1] - c[0])
+        return np.max(map_section)
 
-        r = self.agents[agentID].pos[1]
-        c = self.agents[agentID].pos[0]
+    def get_obs_tiled_wobs(self,agentID):
+
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
         phi_prime = []
         for i in range(-1, 2):
             for j in range(-1, 2):
                 if not (i == 0 and j == 0):
                     phi_prime.append(self.worldMap[r + i, c + j])
+                    phi_prime.append(self.obstacle_map[r+i,c+j])
                     phi_prime.append(self.phi_from_map_coords((r - 1 + 3 * i, r - 1 + 3 * (i + 1)),
                                                          (c - 1 + 3 * j, c - 1 + 3 * (j + 1))))
+                    phi_prime.append(self.phi_from_map_coords((r - 1 + 3 * i, r - 1 + 3 * (i + 1)),
+                                                              (c - 1 + 3 * j, c - 1 + 3 * (j + 1)),map=self.obstacle_map))
 
         for i in ((0, r - 4), (r - 4, r + 5), (r + 5, self.world_map_size)):
             for j in ((0, c - 4), (c - 4, c + 5), (c + 5, self.world_map_size)):
                 if not (i == (r - 4, r + 5) and j == (c - 4, c + 5)):
                     phi_prime.append(self.phi_from_map_coords(i, j))
+                    phi_prime.append(self.phi_from_map_coords(i, j,map=self.obstacle_map))
+
+        phi_prime = np.squeeze(np.array([phi_prime]))
+        return phi_prime
+
+    def get_obs_tiled(self, agentID):
+
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
+        phi_prime = []
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if not (i == 0 and j == 0):
+                    phi_prime.append(self.worldMap[r + i, c + j])
+                    phi_prime.append(self.phi_from_map_coords_max((r - 1 + 3 * i, r - 1 + 3 * (i + 1)),
+                                                                  (c - 1 + 3 * j, c - 1 + 3 * (j + 1))))
+
+        for i in ((0, r - 4), (r - 4, r + 5), (r + 5, self.world_map_size)):
+            for j in ((0, c - 4), (c - 4, c + 5), (c + 5, self.world_map_size)):
+                if not (i == (r - 4, r + 5) and j == (c - 4, c + 5)):
+                    phi_prime.append(self.phi_from_map_coords_max(i, j))
 
         phi_prime = np.squeeze(np.array([phi_prime]))
         return phi_prime
@@ -285,15 +338,37 @@ class SearchEnv(gym.Env):
     def get_obs_all(self):
         obs = []
         for j in range(self.numAgents):
-            obs.append(self.get_obs_tiled(agentID=j))
+            if OBSERVER == 'TILED':
+                obs.append(self.get_obs_tiled(agentID=j))
+            elif OBSERVER == 'RANGE':
+                obs.append(self.get_obs_ranged(agentID=j))
+            elif OBSERVER == 'TILEDwOBS':
+                obs.append(self.get_obs_tiled_wobs(agentID=j))
+            elif OBSERVER == 'RANGEwOBS':
+                obs.append(self.get_obs_ranged_wobs(agentID=j))
+
         return np.array([obs])
 
-    def get_obs_full(self,agentID):
-        r = self.agents[agentID].pos[1]
-        c = self.agents[agentID].pos[0]
+    def get_obs_ranged(self,agentID):
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
+        min_x = r - RANGE
+        min_y = c - RANGE
+        max_x = r + RANGE
+        max_y = c + RANGE
+        return self.worldMap[min_x:max_x, min_y:max_y].reshape(-1)
 
-    def get_obs_ranged(self):
-        pass
+
+    def get_obs_ranged_wobs(self,agentID):
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
+        min_x = r - RANGE
+        min_y = c - RANGE
+        max_x = r + RANGE
+        max_y = c + RANGE
+        features = [self.worldMap[min_x:max_x, min_y:max_y].reshape(-1).tolist()]
+        features.append(self.obstacle_map[min_x:max_x,min_y:max_y].reshape(-1).tolist())
+        return np.array(features).reshape(-1)
 
     def render(self, mode='visualise',W=800, H=800):
 
@@ -318,4 +393,13 @@ class SearchEnv(gym.Env):
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
+
+class SearchEnvMP(SearchEnv):
+
+    '''
+    Handles the motion primitive search
+    '''
+    def __init__(self, numAgents=None, num_centers=[5, 10], max_var=25.0, min_var=5.0, mapSize=60, rewardMapSize=30,
+                 seed=45):
+        super().__init__(numAgents,num_centers,max_var,min_var,mapSize,rewardMapSize,seed)
 

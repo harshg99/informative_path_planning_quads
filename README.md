@@ -1,4 +1,4 @@
-# Installation
+git # Installation
 ```
 git clone git@github.com:ljarin/motion_primitives.git
 cd motion_primitives
