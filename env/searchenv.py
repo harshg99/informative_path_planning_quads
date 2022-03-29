@@ -8,6 +8,7 @@ import math
 import matplotlib.pyplot as plt
 import GPy
 from params import *
+
 '''
 Reward Class
 '''
@@ -72,9 +73,9 @@ class SearchEnv(gym.Env):
     mapSize: size of the reward map
     seed: environemnt seed to reproduce the training results if necessary6
     '''
-    def __init__(self,numAgents=None,num_centers = [5,10],max_var = 25.0,min_var = 5.0, mapSize = 60,rewardMapSize  =30,seed = 45):
+    def __init__(self,params_dict):
 
-        self.numAgents = numAgents
+        self.numAgents = params_dict['numAgents']
         self.worldMap = None
         self.rewardMap = None
         self.trajMap = None
@@ -82,17 +83,20 @@ class SearchEnv(gym.Env):
         self.obstacle_map = None
 
         # Parameters to create training maps
-        self.centers = num_centers
-        self.max_var = max_var
-        self.min_var = min_var
-        self.reward_map_size = rewardMapSize
+        self.centers = params_dict['num_centers']
+        self.max_var = params_dict['max_var']
+        self.min_var = params_dict['min_var']
+        self.reward_map_size = params_dict['rewardMapSize']
+        mapSize = params_dict['mapSize']
         self.pad_size = int(0.5*(mapSize - self.reward_map_size))  # TODO clean up these
         self.world_map_size = self.reward_map_size + 2 * (self.pad_size)
         self.curr_r_map_size = self.reward_map_size + self.pad_size
         self.curr_r_pad = (self.curr_r_map_size - 1) / 2
+        self.action_size = len(ACTIONS)
+        self.episode_length = params_dict['episode_length']
 
         if SET_SEED:
-            self.seed = seed
+            self.seed = params_dict['seed']
         self.viewer = None
 
         if OBSERVER == 'RANGE':
@@ -346,8 +350,10 @@ class SearchEnv(gym.Env):
                 obs.append(self.get_obs_tiled_wobs(agentID=j))
             elif OBSERVER == 'RANGEwOBS':
                 obs.append(self.get_obs_ranged_wobs(agentID=j))
-
-        return np.array([obs])
+        obs_dict = dict()
+        obs_dict['obs'] = obs
+        obs_dict['valids'] = None
+        return obs_dict
 
     def get_obs_ranged(self,agentID):
         r = self.agents[agentID].pos[0]
@@ -356,6 +362,7 @@ class SearchEnv(gym.Env):
         min_y = c - RANGE
         max_x = r + RANGE
         max_y = c + RANGE
+        print("%d %d %d %d".format(min_x,min_y,max_x,max_y))
         return self.worldMap[min_x:max_x, min_y:max_y].reshape(-1)
 
 
@@ -368,6 +375,7 @@ class SearchEnv(gym.Env):
         max_y = c + RANGE
         features = [self.worldMap[min_x:max_x, min_y:max_y].reshape(-1).tolist()]
         features.append(self.obstacle_map[min_x:max_x,min_y:max_y].reshape(-1).tolist())
+        #print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
         return np.array(features).reshape(-1)
 
     def render(self, mode='visualise',W=800, H=800):
@@ -393,13 +401,4 @@ class SearchEnv(gym.Env):
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
-
-class SearchEnvMP(SearchEnv):
-
-    '''
-    Handles the motion primitive search
-    '''
-    def __init__(self, numAgents=None, num_centers=[5, 10], max_var=25.0, min_var=5.0, mapSize=60, rewardMapSize=30,
-                 seed=45):
-        super().__init__(numAgents,num_centers,max_var,min_var,mapSize,rewardMapSize,seed)
 

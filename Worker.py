@@ -28,7 +28,7 @@ class Worker:
     def single_threaded_episode(self,episodeNum):
         action_dict = {}
         self.reset(episodeNum)
-        for j in range(NUM_AGENTS):
+        for j in range(self.env.numAgents):
             action_dict[j] = 0
         _ = self.env.step_all(action_dict)
         observation = self.env.get_obs_all()
@@ -40,14 +40,16 @@ class Worker:
         train_buffer['rewards'] = []
         train_buffer['next_obs'] = []
         train_buffer['values'] = []
+        train_buffer['valids'] = []
+        train_buffer['episode_length'] = self.env.episode_length
         episode_reward = 0
         control_cost = 0
         if RENDER_TRAINING:
             frames = []
-        while(episode_step <EPISODE_LENGTH):
+        while(episode_step <self.env.episode_length):
             train_buffer['obs'].append(observation)
             #print(observation)
-            policy,value = self.model.forward(torch.tensor(observation,dtype=torch.float32))
+            policy,value = self.model.forward_step(observation)
             policy = policy.detach().numpy()
             value = value.detach().numpy()
 
@@ -56,8 +58,10 @@ class Worker:
             train_buffer['values'].append(value[0])
             rewards,done = self.env.step_all(action_dict)
             train_buffer['rewards'].append(rewards)
+            train_buffer['valids'].append(observation['valids'])
             observation = self.env.get_obs_all()
             train_buffer['next_obs'] = observation
+
             episode_step+=1
             episode_reward += np.array(rewards).sum()
             if RENDER_TRAINING and episodeNum%RENDER_TRAINING_WINDOW==0:
@@ -70,7 +74,7 @@ class Worker:
             make_gif(np.array(frames),
                      '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(GIFS_PATH, episodeNum, 0, episode_reward))
 
-        policy_, value_ = self.model.forward(torch.tensor(observation,dtype=torch.float32))
+        policy_, value_ = self.model.forward_step(observation)
         train_buffer['bootstrap_value'] = value_.detach().numpy()[0]
 
         print('MetaAgent{} Episode {} Reward {} Control cost {} Length {}'.format(self.ID,episodeNum,episode_reward,control_cost,episode_step))

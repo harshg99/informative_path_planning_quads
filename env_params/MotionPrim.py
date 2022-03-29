@@ -1,0 +1,9 @@
+graph_file_name = 'latticeData/faster20.json'
+numAgents=1
+num_centers=[5, 10]
+max_var=25.0
+min_var=5.0
+mapSize=60
+rewardMapSize=30
+seed=45
+episode_length = 100

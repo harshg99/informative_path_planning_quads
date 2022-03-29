@@ -1,7 +1,6 @@
 # Training Parameters
 GPU=False
 NUM_META_AGENTS = 3
-EPISODE_LENGTH = 400
 MAX_EPISODES = 20000
 DISCOUNT = 0.9
 LR = 1e-3
@@ -29,19 +28,21 @@ DEVICE = 'cuda:0'
 RENDER_TRAINING = True
 RENDER_TRAINING_WINDOW = 300
 RAY_RESET_EPS = 1000
-SET_SEED = False # Sets seed to ensure similar form of training
-SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawned deterministically
+
+
 
 #Environment Parameters
-NUM_AGENTS = 1
 SPAWN_RANDOM_AGENTS = True
+SET_SEED = False # Sets seed to ensure similar form of training
+SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawned deterministically
+ENV_TYPE = 'MotionPrim' # Motion Prim or Discrete
 
 #MODEL TYPE
 MODEL_TYPE = 'ActorCritic2'
 
 #Logging Params
-MODEL_NAME = 'VanillaAC_v17'
-DESCRIPTION = 'RangewObs'
+MODEL_NAME = 'MPAC_v1'
+DESCRIPTION = 'MP_RangewObs'
 TRAIN_PATH = 'data/train/'+MODEL_NAME+'_'+DESCRIPTION
 MODEL_PATH = 'data/models/'+MODEL_NAME+'_'+DESCRIPTION
 GIFS_PATH = 'data/gifs/'+MODEL_NAME+'_'+DESCRIPTION

@@ -14,6 +14,7 @@ from models.Vanilla import Vanilla
 from env.searchenv import *
 from tensorboardX import SummaryWriter
 from models.model_setter import model_setter
+from env.env_setter import env_setter
 
 def apply_gradients(global_model, gradients,device):
     global_model.optim.zero_grad()
@@ -47,8 +48,8 @@ def init_jobs(agents, weights, curr_episode):
 
 if __name__=='__main__':
     # Creating the global model
-    dummy_env = SearchEnv(numAgents=1)
-    global_model = model_setter.set_model(dummy_env.input_size, len(ACTIONS),MODEL_TYPE)
+    dummy_env = env_setter.set_env(ENV_TYPE)
+    global_model = model_setter.set_model(dummy_env.input_size, dummy_env.action_size,MODEL_TYPE)
     init_ray()
     global_model.share_memory()
     global_summary = SummaryWriter(TRAIN_PATH)

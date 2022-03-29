@@ -5,6 +5,7 @@ import numpy as np
 import Utilities
 from models.Vanilla import Vanilla
 from torch.optim.lr_scheduler import ExponentialLR
+from models.Transformer import *
 
 class ActorCritic(Vanilla):
     def __init__(self,input_size,action_size,params_dict):
@@ -41,7 +42,13 @@ class ActorCritic(Vanilla):
         return layers
 
     def forward(self,input):
+        #print(input.shape)
         return self.policy_net(input),self.value_net(input)
+
+    def forward_step(self,input):
+        input = input['obs']
+        input = torch.tensor([input], dtype=torch.float32)
+        return self.forward(input)
 
     def reset(self,episodeNum):
         self.episodeNum = episodeNum
@@ -62,23 +69,32 @@ class ActorCritic(Vanilla):
 
         return train_buffer
 
-    def backward(self,train_buffer):
-        self.optim.zero_grad()
-
+    def compute_loss(self,train_buffer):
         advantages = train_buffer['advantages']
         target_v = train_buffer['discounted_rewards']
         a_batch = np.array(train_buffer['actions'])
-        obs = torch.tensor(np.array(train_buffer['obs']).squeeze(axis=1),dtype=torch.float32)
-        policy, value = self.forward(obs)
-        target_v = torch.tensor(target_v,dtype=torch.float32)
-        a_batch = torch.tensor(a_batch,dtype=torch.int64)
-        advantages = torch.tensor(advantages,dtype=torch.float32)
 
-        responsible_outputs = policy.gather(-1, a_batch.unsqueeze(-1))
+        obs = []
+        for j in train_buffer['obs']:
+            obs.append(j['obs'])
+
+        obs = torch.tensor(np.array(obs).squeeze(axis=1), dtype=torch.float32)
+        policy, value = self.forward(obs)
+        target_v = torch.tensor(target_v, dtype=torch.float32)
+        a_batch = torch.tensor(a_batch, dtype=torch.int64)
+        advantages = torch.tensor(advantages, dtype=torch.float32)
+
+        responsible_outputs = policy.gather(-1, a_batch)
         v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
         e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
-        p_l = -self.params_dict['policy_weight'] * torch.log(torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
+        p_l = -self.params_dict['policy_weight'] * torch.log(
+        torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
+        return v_l,p_l,e_l
 
+    def backward(self,train_buffer):
+        self.optim.zero_grad()
+
+        v_l,p_l,e_l = self.compute_loss(train_buffer)
 
         loss = v_l.sum() + p_l.sum() - e_l.sum()
         self.optim.zero_grad()
@@ -92,9 +108,10 @@ class ActorCritic(Vanilla):
         for local_param in self.parameters():
             gradient.append(local_param.grad)
         g_n = norm.detach().cpu().numpy().item()
-        train_metrics = {'Value Loss': v_l.sum().cpu().detach().numpy().item()/EPISODE_LENGTH,
-                         'Policy Loss': p_l.sum().cpu().detach().numpy().item()/EPISODE_LENGTH,
-                         'Entropy Loss': e_l.sum().cpu().detach().numpy().item()/EPISODE_LENGTH,
+        episode_length = train_buffer['episode_length']
+        train_metrics = {'Value Loss': v_l.sum().cpu().detach().numpy().item()/episode_length,
+                         'Policy Loss': p_l.sum().cpu().detach().numpy().item()/episode_length,
+                         'Entropy Loss': e_l.sum().cpu().detach().numpy().item()/episode_length,
                          'Grad Norm': g_n, 'Var Norm': v_n}
         return train_metrics, gradient
 
@@ -125,3 +142,74 @@ class ActorCritic2(ActorCritic):
 
         self.optim = torch.optim.Adam(self.parameters(),lr=params_dict['LR'],betas=(0.9,0.99))
         self.scheduler = ExponentialLR(self.optim,gamma=params_dict['DECAY'])
+
+# With valid losses
+class ActorCritic3(ActorCritic2):
+    def __init__(self,input_size,action_size,params_dict):
+        super(ActorCritic2,self).__init__()
+
+    def compute_loss(self, train_buffer):
+        advantages = train_buffer['advantages']
+        target_v = train_buffer['discounted_rewards']
+        a_batch = np.array(train_buffer['actions'])
+
+        obs = []
+        valids = []
+        for j in train_buffer['obs']:
+            obs.append(j['obs'])
+            valids.append(j['valids'])
+
+        valids = torch.tensor(np.array(valids),dtype=torch.float32)
+
+        obs = torch.tensor(np.array(obs).squeeze(axis=1), dtype=torch.float32)
+        policy, value = self.forward(obs)
+        target_v = torch.tensor(target_v, dtype=torch.float32)
+        a_batch = torch.tensor(a_batch, dtype=torch.int64)
+        advantages = torch.tensor(advantages, dtype=torch.float32)
+
+        responsible_outputs = policy.gather(-1, a_batch)
+        v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
+        e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
+        p_l = -self.params_dict['policy_weight'] * torch.log(
+            torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
+        valid_l = self.params_dict['valids_weight']* (valids*torch.log(policy)+ (1-valids)*torch.log(1 - policy))
+        return v_l, p_l, e_l,valid_l
+
+    def backward(self, train_buffer):
+        self.optim.zero_grad()
+
+        v_l, p_l, e_l,valid_l = self.compute_loss()
+
+        loss = v_l.sum() + p_l.sum() - e_l.sum()
+        self.optim.zero_grad()
+        loss.sum().backward()
+        # self.optimizer.step()
+        norm = torch.nn.utils.clip_grad_norm_(self.parameters(), 50)
+        v_n = torch.linalg.norm(
+            torch.stack(
+                [torch.linalg.norm(p.detach()).to("cpu") for p in self.parameters()])).detach().numpy().item()
+
+        gradient = []
+        for local_param in self.parameters():
+            gradient.append(local_param.grad)
+        g_n = norm.detach().cpu().numpy().item()
+        train_metrics = {'Value Loss': v_l.sum().cpu().detach().numpy().item() / EPISODE_LENGTH,
+                         'Policy Loss': p_l.sum().cpu().detach().numpy().item() / EPISODE_LENGTH,
+                         'Entropy Loss': e_l.sum().cpu().detach().numpy().item() / EPISODE_LENGTH,
+                         'Valid Loss': valid_l.sum().cpu().detach().numpy().item()/EPISODE_LENGTH,
+                         'Grad Norm': g_n, 'Var Norm': v_n}
+        return train_metrics, gradient
+
+
+class TransformerActorCritic(ActorCritic):
+
+    def __init__(self):
+        super(Vanilla, self).__init__()
+        self.hidden_sizes = params_dict['hidden_sizes']
+        self.input_size = input_size
+        self.action_size = action_size
+        self.params_dict = params_dict
+
+
+
+
