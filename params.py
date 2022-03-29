@@ -1,10 +1,11 @@
 # Training Parameters
 GPU=False
 NUM_META_AGENTS = 3
-MAX_EPISODES = 20000
+MAX_EPISODES = 50000
 DISCOUNT = 0.9
 LR = 1e-3
 DECAY = 1/MAX_EPISODES
+
 
 class JOB_TYPES:
     getExperience      = 1
@@ -38,11 +39,15 @@ SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawne
 ENV_TYPE = 'MotionPrim' # Motion Prim or Discrete
 
 #MODEL TYPE
-MODEL_TYPE = 'ActorCritic2'
+MODEL_TYPE = 'ActorCritic3'
+COMPUTE_VALIDS = True # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
+
+if MODEL_TYPE !='ActorCritic3':
+    COMPUTE_VALIDS = False
 
 #Logging Params
-MODEL_NAME = 'MPAC_v1'
-DESCRIPTION = 'MP_RangewObs'
+MODEL_NAME = 'MPAC_v2'
+DESCRIPTION = 'MP_RangewObs_validloss'
 TRAIN_PATH = 'data/train/'+MODEL_NAME+'_'+DESCRIPTION
 MODEL_PATH = 'data/models/'+MODEL_NAME+'_'+DESCRIPTION
 GIFS_PATH = 'data/gifs/'+MODEL_NAME+'_'+DESCRIPTION

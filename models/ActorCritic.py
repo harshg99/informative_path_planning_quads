@@ -18,8 +18,10 @@ class ActorCritic(Vanilla):
         self.policy_layers = self.mlp_block(self.input_size,self.hidden_sizes[0],dropout=False)
         for j in range(len(self.hidden_sizes)-1):
             self.policy_layers.extend(self.mlp_block(self.hidden_sizes[j],self.hidden_sizes[j+1],dropout=False,activation=nn.LeakyReLU))
-        self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size),nn.Softmax(dim=-1)])
+        self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size)])
         self.policy_net = nn.Sequential(*self.policy_layers)
+        self.softmax = nn.Softmax(dim=-1)
+        self.sigmoid = nn.Sigmoid()
 
         self.value_layers = self.mlp_block(self.input_size, self.hidden_sizes[0], dropout=False)
         for j in range(len(self.hidden_sizes) - 1):
@@ -43,7 +45,8 @@ class ActorCritic(Vanilla):
 
     def forward(self,input):
         #print(input.shape)
-        return self.policy_net(input),self.value_net(input)
+        policy = self.policy_net(input)
+        return self.softmax(policy),self.value_net(input)
 
     def forward_step(self,input):
         input = input['obs']
@@ -131,8 +134,10 @@ class ActorCritic2(ActorCritic):
         for j in range(2):
             self.policy_layers.extend(self.mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
 
-        self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size),nn.Softmax(dim=-1)])
+        self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size)])
         self.policy_net = nn.Sequential(*self.policy_layers)
+        self.softmax = nn.Softmax(dim=-1)
+        self.sigmoid = nn.Sigmoid()
 
         self.value_layers = self.layers.copy()
         for j in range(2):
@@ -146,7 +151,7 @@ class ActorCritic2(ActorCritic):
 # With valid losses
 class ActorCritic3(ActorCritic2):
     def __init__(self,input_size,action_size,params_dict):
-        super(ActorCritic2,self).__init__()
+        super(ActorCritic2,self).__init__(input_size,action_size,params_dict)
 
     def compute_loss(self, train_buffer):
         advantages = train_buffer['advantages']
@@ -163,6 +168,8 @@ class ActorCritic3(ActorCritic2):
 
         obs = torch.tensor(np.array(obs).squeeze(axis=1), dtype=torch.float32)
         policy, value = self.forward(obs)
+        valids_net = self.compute_valids(obs)
+
         target_v = torch.tensor(target_v, dtype=torch.float32)
         a_batch = torch.tensor(a_batch, dtype=torch.int64)
         advantages = torch.tensor(advantages, dtype=torch.float32)
@@ -172,13 +179,17 @@ class ActorCritic3(ActorCritic2):
         e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
         p_l = -self.params_dict['policy_weight'] * torch.log(
             torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
-        valid_l = self.params_dict['valids_weight']* (valids*torch.log(policy)+ (1-valids)*torch.log(1 - policy))
+        valid_l = self.params_dict['valids_weight']* (valids*torch.log(torch.clip(valids_net,1e-7,1))+ (1-valids)*torch.log(torch.clip(1 - valids_net,1e-7,1)))
         return v_l, p_l, e_l,valid_l
+
+    def compute_valids(self,input):
+        policy = self.policy_net(input)
+        return self.sigmoid(policy)
 
     def backward(self, train_buffer):
         self.optim.zero_grad()
 
-        v_l, p_l, e_l,valid_l = self.compute_loss()
+        v_l, p_l, e_l,valid_l = self.compute_loss(train_buffer)
 
         loss = v_l.sum() + p_l.sum() - e_l.sum()
         self.optim.zero_grad()
@@ -193,14 +204,15 @@ class ActorCritic3(ActorCritic2):
         for local_param in self.parameters():
             gradient.append(local_param.grad)
         g_n = norm.detach().cpu().numpy().item()
-        train_metrics = {'Value Loss': v_l.sum().cpu().detach().numpy().item() / EPISODE_LENGTH,
-                         'Policy Loss': p_l.sum().cpu().detach().numpy().item() / EPISODE_LENGTH,
-                         'Entropy Loss': e_l.sum().cpu().detach().numpy().item() / EPISODE_LENGTH,
-                         'Valid Loss': valid_l.sum().cpu().detach().numpy().item()/EPISODE_LENGTH,
+        episode_length = train_buffer['episode_length']
+        train_metrics = {'Value Loss': v_l.sum().cpu().detach().numpy().item() / episode_length,
+                         'Policy Loss': p_l.sum().cpu().detach().numpy().item() / episode_length,
+                         'Entropy Loss': e_l.sum().cpu().detach().numpy().item() / episode_length,
+                         'Valid Loss': valid_l.sum().cpu().detach().numpy().item()/episode_length,
                          'Grad Norm': g_n, 'Var Norm': v_n}
         return train_metrics, gradient
 
-
+#TODO Transformer Actor Critic with Keys as Actions and State Decoder
 class TransformerActorCritic(ActorCritic):
 
     def __init__(self):

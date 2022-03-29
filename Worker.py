@@ -50,6 +50,7 @@ class Worker:
             train_buffer['obs'].append(observation)
             #print(observation)
             policy,value = self.model.forward_step(observation)
+
             policy = policy.detach().numpy()
             value = value.detach().numpy()
 

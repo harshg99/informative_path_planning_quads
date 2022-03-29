@@ -13,8 +13,12 @@ class model_setter:
             import model_params.ActorCritic as parameters
             model_params_dict = model_setter.set_dict(parameters)
             return ActorCritic2(input_size,action_size,model_params_dict)
+        elif type == 'ActorCritic3':
+            import model_params.ActorCritic3 as parameters
+            model_params_dict = model_setter.set_dict(parameters)
+            return ActorCritic3(input_size, action_size, model_params_dict)
         elif type == 'DQN':
-            import model_params.ActorCritic as parameters
+            import model_params.ActorCritic3 as parameters
             model_params_dict = model_setter.set_dict(parameters)
             return DQN(input_size,action_size,model_params_dict)
 

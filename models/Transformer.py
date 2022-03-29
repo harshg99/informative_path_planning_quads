@@ -3,7 +3,7 @@ import torch.nn as nn
 
 class MHA(nn.Module):
     def __init__(self):
-        # NUmber of attention blocks
+        # Number of attention blocks
 
         # Concat and normalisation
 
