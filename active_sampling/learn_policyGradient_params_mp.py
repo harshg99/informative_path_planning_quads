@@ -76,4 +76,6 @@ if __name__ == '__main__':
     # lpgp = pickle.load(open(f'{script_dir}/testingData/{lpgp.fileNm}.pkl', "rb"), encoding='latin1')
     lpgp.load_graph()
     rewardmap = pickle.load(open(f'{script_dir}/trainingData/gaussian_mixture_training_data.pkl', "rb"), encoding='latin1')
+    rewardmap = np.load('airport.npy')
+    lpgp.xy_resolution = .1
     lpgp.run_training(rewardmap)

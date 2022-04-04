@@ -12,11 +12,6 @@ import multiprocessing
 
 class LearnPolicyGradientParams:
     def __init__(self):
-        self.reward_map_size = 30
-        self.pad_size = self.reward_map_size-1  # TODO clean up these
-        self.world_map_size = self.reward_map_size + 2*(self.pad_size)
-        self.curr_r_map_size = self.reward_map_size + self.pad_size
-        self.curr_r_pad = (self.curr_r_map_size-1)/2
         self.num_actions = 4  # Actions: 0 - LEFT, 1 - UP, 2 - RIGHT, and 3 - DOWN
         self.num_features = 24
         self.num_other_states = 1
@@ -43,6 +38,17 @@ class LearnPolicyGradientParams:
         if(len(sys.argv) > 1):
             self.Eta = float(sys.argv[1])
 
+    def set_up_rewardmap(self, rewardmap):
+        self.reward_map_size = rewardmap.shape[0]
+        self.pad_size = self.reward_map_size-1  # TODO clean up these
+        self.world_map_size = self.reward_map_size + 2*(self.pad_size)
+        self.curr_r_map_size = self.reward_map_size + self.pad_size
+        self.curr_r_pad = (self.curr_r_map_size-1)/2
+        self.maximum_reward = sum(-np.sort(-np.reshape(rewardmap, (1, self.reward_map_size**2))[0])[0:self.Tau_horizon])
+        worldmap = np.zeros((self.world_map_size, self.world_map_size))
+        worldmap[self.pad_size:self.pad_size+self.reward_map_size, self.pad_size:self.pad_size+self.reward_map_size] = rewardmap
+        self.orig_worldmap = np.copy(worldmap)
+        
     def get_phi_prime(self, worldmap, map_indices):
         def phi_from_map_coords(r, c):
             map_section = worldmap[r[0]:r[1], c[0]:c[1]]
@@ -210,13 +216,10 @@ class LearnPolicyGradientParams:
         return g_Tau, traj_reward
 
     def run_training(self, rewardmap):
+        self.set_up_rewardmap(rewardmap)
         if self.theta is None:
             print(f"Warning: resetting theta, pickle file name {self.fileNm}")
             self.set_up_training()
-        self.maximum_reward = sum(-np.sort(-np.reshape(rewardmap, (1, self.reward_map_size**2))[0])[0:self.Tau_horizon])
-        worldmap = np.zeros((self.world_map_size, self.world_map_size))
-        worldmap[self.pad_size:self.pad_size+self.reward_map_size, self.pad_size:self.pad_size+self.reward_map_size] = rewardmap
-        self.orig_worldmap = np.copy(worldmap)
 
         plt.ion()
         self.traj_reward_list = list()

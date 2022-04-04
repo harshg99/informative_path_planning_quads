@@ -23,14 +23,7 @@ if type(pg) is LearnPolicyGradientParamsMP:
 # pg.rewardmap = pickle.load(open(f'{script_dir}/testingData/gaussian_mixture_test2.pkl', "rb"), encoding='latin1') * 1000
 pg.rewardmap = (pickle.load(open(f'{script_dir}/testingData/cShaped_test3.pkl', "rb"), encoding='latin1')) * 1000
 # pg.rewardmap = np.load('airport.npy')*1000
-pg.reward_map_size = pg.rewardmap.shape[0]
-pg.pad_size = pg.reward_map_size-1  # TODO clean up these
-pg.world_map_size = pg.reward_map_size + 2*(pg.pad_size)
-pg.orig_worldmap = np.zeros((pg.world_map_size, pg.world_map_size))
-pg.orig_worldmap[pg.pad_size:pg.pad_size+pg.reward_map_size, pg.pad_size:pg.pad_size+pg.reward_map_size] = pg.rewardmap
-pg.curr_r_map_size = pg.reward_map_size + pg.pad_size
-pg.curr_r_pad = (pg.curr_r_map_size-1)/2
-pg.xy_resolution = 1
+pg.set_up_rewardmap(pg.rewardmap)
 
 pg.Tau_horizon = 50
 Tau = pg.generate_trajectories(1, maxPolicy=True, rand_start=True)
