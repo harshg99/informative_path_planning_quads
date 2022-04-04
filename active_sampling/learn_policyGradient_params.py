@@ -31,6 +31,7 @@ class LearnPolicyGradientParams:
         self.mp_graph = None
         self.minimum_action_mp_graph = None
         self.epsilon = 30
+        self.xy_resolution = 1
 
         if(len(sys.argv) > 2):
             self.fileNm = sys.argv[2]
@@ -42,14 +43,14 @@ class LearnPolicyGradientParams:
         if(len(sys.argv) > 1):
             self.Eta = float(sys.argv[1])
 
-    def get_phi_prime(self, worldmap, pos):
+    def get_phi_prime(self, worldmap, map_indices):
         def phi_from_map_coords(r, c):
             map_section = worldmap[r[0]:r[1], c[0]:c[1]]
             size = (r[1]-r[0])*(c[1]-c[0])
             return np.sum(map_section)/size
 
-        r = pos[1]
-        c = pos[0]
+        r = map_indices[1]
+        c = map_indices[0]
         phi_prime = []
         for i in range(-1, 2):
             for j in range(-1, 2):
@@ -72,9 +73,9 @@ class LearnPolicyGradientParams:
         phi[:, index, action] = phi_prime
         return phi
 
-    def compute_softmax(self, worldmap, pos, index, phi_prime=None):
+    def compute_softmax(self, worldmap, map_indices, index, phi_prime=None):
         if phi_prime is None:
-            phi_prime = self.get_phi_prime(worldmap, pos)
+            phi_prime = self.get_phi_prime(worldmap, map_indices)
         theta_dot_phi = np.zeros(self.num_actions)
         for i in range(self.num_actions):
             theta_dot_phi[i] = self.theta[:, index, i] @ phi_prime
@@ -88,8 +89,8 @@ class LearnPolicyGradientParams:
         pi = prob[act]
         return pi
 
-    def sample_action(self, worldmap, pos, index, maxPolicy=False):
-        prob = self.compute_softmax(worldmap, pos, index)
+    def sample_action(self, worldmap, map_indices, index, maxPolicy=False):
+        prob = self.compute_softmax(worldmap, map_indices, index)
         if self.num_actions_per_state is not None:
             prob[self.num_actions_per_state[index]:] = 0
         prob = prob/sum(prob)
@@ -117,37 +118,46 @@ class LearnPolicyGradientParams:
         else:
             return pos, 0, is_action_valid, pos.reshape(2, 1), None
 
-    def generate_trajectories(self, num_trajectories, maxPolicy=False, rand_start=True, start_pos = None):
+    def absolutePosToIndexPos(self, absolute_pos):
+        return np.rint(absolute_pos / self.xy_resolution).astype(np.int32) + np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32)
+
+    def indexPosToAbsolutePos(self, index_pos):
+        return (index_pos - np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32))*self.xy_resolution
+
+    def generate_trajectories(self, num_trajectories, maxPolicy=False, rand_start=True, start_pos=None):
         # Array of trajectories starting from current position.
         # Generate multiple trajectories (<action, state> pairs) using the current Theta.
         Tau = np.ndarray(shape=(num_trajectories, self.Tau_horizon), dtype=object)
         for i in range(num_trajectories):
             if rand_start:
-                pos = np.random.choice(range(self.reward_map_size), 2) + \
+                map_indices = np.random.choice(range(self.reward_map_size), 2) + \
                     np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32)
             else:
-                pos = np.array([self.reward_map_size, self.reward_map_size])
-                if start_pos is not None:
-                    pos += start_pos
-            index = 0
+                map_indices = np.array([self.reward_map_size, self.reward_map_size])
+                # if start_pos is not None:
+                #     pos += start_pos
+            action_index = 0
+            absolute_pos = self.indexPosToAbsolutePos(map_indices)
+
             local_worldmap = np.copy(self.orig_worldmap)
             for j in range(self.Tau_horizon):
-                worldmap_pos = np.rint(pos).astype(np.int32)
-                action = self.sample_action(local_worldmap, worldmap_pos, index, maxPolicy)
-                next_pos, next_index, is_action_valid, visited_states, traj_cost = self.get_next_state(pos, action, index)
-                # worldmap_next_pos =  np.print(next_pos).astype(np.int32)
+                # worldmap_pos = np.rint(pos).astype(np.int32)
+                action = self.sample_action(local_worldmap, map_indices, action_index, maxPolicy)
+                next_absolute_pos, next_action_index, is_action_valid, visited_map_indices, traj_cost = self.get_next_state(
+                    absolute_pos, map_indices, action, action_index)
                 curr_reward = 0
                 if is_action_valid:
-                    for state in visited_states.T:
+                    for k in range(visited_map_indices.shape[0]):
+                        state = visited_map_indices[k]
                         curr_reward += local_worldmap[state[1], state[0]]
                         local_worldmap[state[1], state[0]] = 0
                     curr_reward -= traj_cost*.1
                 else:
-                    curr_reward = -2
-
-                Tau[i][j] = Trajectory(worldmap_pos, pos, action, curr_reward, visited_states, index)
-                pos = next_pos
-                index = next_index
+                    curr_reward = -20
+                Tau[i][j] = Trajectory(map_indices, absolute_pos, action, curr_reward, visited_map_indices, action_index)
+                absolute_pos = next_absolute_pos
+                action_index = next_action_index
+                map_indices = self.absolutePosToIndexPos(absolute_pos)
         return Tau
 
     def get_derivative(self, Tau, worldmap):
