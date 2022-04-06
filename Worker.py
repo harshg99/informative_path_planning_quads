@@ -54,7 +54,7 @@ class Worker:
             policy = policy.detach().numpy()
             value = value.detach().numpy()
 
-            action_dict = Utilities.get_sampled_actions(policy)
+            action_dict = Utilities.sample_actions(policy)
             train_buffer['actions'].append([action_dict[k] for k in action_dict.keys()])
             train_buffer['values'].append(value[0])
             rewards,done = self.env.step_all(action_dict)

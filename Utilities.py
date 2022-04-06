@@ -3,75 +3,73 @@ import scipy.signal as signal
 from params import *
 import neptune.new as neptune
 
-def get_sampled_actions(policy):
-    action_dict = {}
+def sample_actions(policy):
+    actions= {}
     for k in range(policy.shape[1]):
         size = policy[0,k,:].shape[0]
         p = policy[0,k,:]
         a = np.random.choice(range(size), p=p.ravel())
-        action_dict[k] = a
-    return action_dict
+        actions[k] = a
+    return actions
 
 def discount(x, gamma):
     return signal.lfilter([1], [1, -gamma], x[::-1], axis=0)[::-1]
 
 def make_list_dict(metrics) :
-    tb_dict = {}
+    dict = {}
     for k,v in metrics.items() :
-        tb_dict[k] = {}
+        dict[k] = {}
         for k2,v2 in metrics[k].items() :
-            tb_dict[k][k2] = [v2]
-    return tb_dict
+            dict[k][k2] = [v2]
+    return dict
 
-def add_to_dict(tensorboardData,metrics):
+def append_dict(data,metrics):
     for k,v in metrics.items() :
         for k2,v2 in metrics[k].items() :
-            tensorboardData[k][k2].append(v2)
-    return tensorboardData
+            data[k][k2].append(v2)
+    return data
 
-def get_mean_dict(tensorboardData) :
-    for k,v in tensorboardData.items() :
-        for k2,v2 in tensorboardData[k].items() :
-            tensorboardData[k][k2] = np.nanmean(np.array(v2))
-    return tensorboardData
+def get_means(data) :
+    for k,v in data.items() :
+        for k2,v2 in data[k].items() :
+            data[k][k2] = np.nanmean(np.array(v2))
+    return data
 
 
 class Tensorboard():
     def __init__(self, global_summary):
         self.window_size = SUMMARY_WINDOW
         self.last_update = 0
-        self.tensorboardData = []
+        self.data = []
         self.global_summary = global_summary
         self.prev_metrics = None
 
     def update(self, metrics, currEpisode, run=None):
         if self.last_update == 0:
-            self.tensorboardData = make_list_dict(metrics)
+            self.data = make_list_dict(metrics)
         else:
-            self.tensorboardData = add_to_dict(self.tensorboardData, metrics)
+            self.data = append_dict(self.data, metrics)
         self.last_update += 1
 
         if self.last_update > self.window_size:
             self.writeToTensorBoard(currEpisode)
             self.writeToNeptune(run, currEpisode)
             self.last_update = 0
-            self.tensorboardData = []
+            self.data = []
 
     def writeToTensorBoard(self, currEpisode):
         # each row in tensorboardData represents an episode
         # each column is a specific metric
-        #TODO
-        mean_data = get_mean_dict(self.tensorboardData)
+        mean_data = get_means(self.data)
         counter = 0
         for k, v in mean_data.items():
             for k2, v2 in mean_data[k].items():
                 self.global_summary.add_scalar(tag='{}/{}'.format(k, k2), scalar_value=v2,global_step = currEpisode)
-
         return
 
     def writeToNeptune(self, run, currEpisode):
         if run is not None:
-            mean_data = get_mean_dict(self.tensorboardData)
+            mean_data = get_means(self.data)
             for k, v in mean_data.items():
                 for k2, v2 in mean_data[k].items():
                     run['training/{}/{}'.format(k, k2)].log(value=v2, step=currEpisode)

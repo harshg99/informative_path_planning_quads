@@ -1,0 +1,16 @@
+##### Run Dockerfile to create a docker before installing######
+##### Alternatively create conda environment with torch and cuda toolkits = 11.3 and install these requirements#####
+
+numpy
+gym == 0.21.0
+ray == 1.9.2
+sympy == 1.9
+scipy == 1.7.3
+neptune-client == 0.14.2
+pyglet == 1.5.23
+imageio
+matplotlib
+GPy
+
+
+#####Install motion primitives from https://github.com/ljarin/motion_primitives ######

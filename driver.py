@@ -29,22 +29,13 @@ def apply_gradients(global_model, gradients,device):
 def init_ray():
     ray.init(num_gpus=int(GPU))
 
-def reinit_ray(jobList, meta_agents):
-    if jobList == []:
-        print('REINITIALIZING RAY')
-        ray.shutdown()
-        ray.init(num_gpus=int(GPU))
-        meta_agents = [Runner.remote(i) for i in range(NUM_META_AGENTS)]
-        return True, meta_agents
-    else:
-        return False, meta_agents
 
 def init_jobs(agents, weights, curr_episode):
-    job_list = []
-    for i, agent in enumerate(agents):
-        job_list.append(agent.job.remote(weights, curr_episode))
+    jobs = []
+    for i in range(len(agents)):
+        jobs.append(agents[i].job.remote(weights, curr_episode))
         curr_episode += 1
-    return job_list, curr_episode
+    return jobs, curr_episode
 
 if __name__=='__main__':
     # Creating the global model
@@ -80,12 +71,14 @@ if __name__=='__main__':
     returns, best_return = [], -9999
 
     try:
-        while curr_episode<MAX_EPISODES and joblist!=[]:
-            done_id, joblist = ray.wait(joblist)
-            # get the results of the task from the object store
-            jobResults, metrics, info,exp = ray.get(done_id)[0]
+        while curr_episode<MAX_EPISODES and len(joblist)!=0:
+
+            id, joblist = ray.wait(joblist)
+
+            jobResults, metrics, info,exp = ray.get(id)[0]
 
             tensorboard_writer.update(metrics, curr_episode, neptune_run)
+
             if JOB_TYPE == JOB_TYPES.getGradient:
                 # apply gradient on the global network
                 for gradients in jobResults[0]:
@@ -101,7 +94,15 @@ if __name__=='__main__':
                 # get the updated weights from the global network
             weights = global_model.state_dict()
             if reinit_count > RAY_RESET_EPS:
-                reinitialize, meta_agents = reinit_ray(joblist, meta_agents)
+                if joblist == []:
+                    print('REINITIALIZING RAY')
+                    ray.shutdown()
+                    ray.init(num_gpus=int(GPU))
+                    meta_agents = [Runner.remote(i) for i in range(NUM_META_AGENTS)]
+                    reinitialize = True
+                else:
+                    reinitialize = False
+
                 if reinitialize:
                     reinit_count = NUM_META_AGENTS
                     joblist, curr_episode = init_jobs(meta_agents, weights, curr_episode)
