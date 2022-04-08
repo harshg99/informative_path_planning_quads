@@ -143,10 +143,12 @@ class LearnPolicyGradientParams:
                     map_indices = self.absolutePosToIndexPos(np.array([0, 0]))
                 else:
                     map_indices = self.absolutePosToIndexPos(start_pos)
+
             action_index = 0
             absolute_pos = self.indexPosToAbsolutePos(map_indices)
 
             local_worldmap = np.copy(self.orig_worldmap)
+            num_invalid_actions = 0
             for j in range(self.Tau_horizon):
                 # worldmap_pos = np.rint(pos).astype(np.int32)
                 action = self.sample_action(local_worldmap, map_indices, action_index, maxPolicy)
@@ -154,17 +156,27 @@ class LearnPolicyGradientParams:
                     absolute_pos, map_indices, action, action_index)
                 curr_reward = 0
                 if is_action_valid:
+                    num_invalid_actions = 0
                     for k in range(visited_map_indices.shape[0]):
                         state = visited_map_indices[k]
                         curr_reward += local_worldmap[state[1], state[0]]
                         local_worldmap[state[1], state[0]] = 0
+                        field_of_view = 3
+                        for m in range(-field_of_view, field_of_view+1):
+                            for n in range(-field_of_view, field_of_view+1):
+                                curr_reward += local_worldmap[state[1]+m, state[0]+n]
+                                local_worldmap[state[1]+m, state[0]+n] = 0
+
                     curr_reward -= traj_cost*.1
                 else:
                     curr_reward = -20
+                    num_invalid_actions += 1
                 Tau[i][j] = Trajectory(map_indices, absolute_pos, action, curr_reward, visited_map_indices, action_index)
                 absolute_pos = next_absolute_pos
                 action_index = next_action_index
                 map_indices = self.absolutePosToIndexPos(absolute_pos)
+                if num_invalid_actions > 5:
+                    continue
         return Tau
 
     def get_derivative(self, Tau, worldmap):
