@@ -21,26 +21,33 @@ class PolicyToROS:
     def odom_cb(self, msg):
         self.odom = msg
 
-    def run_policy(self, start_pos, publisher):
+    def run_policy(self, publisher):
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        pg = pickle.load(open(f'{script_dir}/trained_pickles/lpgp_short_015_fast_NoVisited_10json_2000.pkl', "rb"), encoding='latin1')
+        pg = pickle.load(
+            open(f'{script_dir}/trained_pickles/lpgp_eta03_gamma08_fast_noVisited_faster20json_2000_4.pkl', "rb"), encoding='latin1')
         print(pg.mp_graph_file_name)
-        pg.mp_graph_file_name = f'{script_dir}/trained_pickles/10.json'
+        pg.mp_graph_file_name = f'{script_dir}/latticeData/faster20.json'
         pg.load_graph()
 
-        rewardmap = pickle.load(open(f'{script_dir}/testingData/gaussian_mixture_test2.pkl', "rb"), encoding='latin1')
-        pg.orig_worldmap = np.zeros((pg.world_map_size, pg.world_map_size))
-        pg.orig_worldmap[pg.pad_size:pg.pad_size+pg.reward_map_size, pg.pad_size:pg.pad_size+pg.reward_map_size] = rewardmap
+        pg.xy_resolution = 1
+        pg.Tau_horizon = 50
 
+        pg.rewardmap = pickle.load(open(f'{script_dir}/testingData/gaussian_mixture_test2.pkl', "rb"), encoding='latin1')
+        pg.set_up_rewardmap(pg.rewardmap)
+
+        start_pos = np.array([self.odom.pose.pose.position.x, self.odom.pose.pose.position.y])
         Tau = pg.generate_trajectories(1, maxPolicy=True, rand_start=False, start_pos=start_pos)
         plt.figure(figsize=(7, 6))
-        plt.imshow(rewardmap, cmap='viridis', interpolation='spline36')
+        plt.imshow(pg.rewardmap, cmap='viridis', interpolation='spline36', origin='lower')
+        plt.colorbar()
+        mp_list = []
         for pt in Tau[0]:
             mp = deepcopy(pg.minimum_action_mp_graph[pt.index, pt.action])
             if mp is not None:
-                mp.translate_start_position(pt.exact_pos - [pg.reward_map_size-1]*pg.spatial_dim)
-                mp.plot(position_only=True, step_size=.01)
-                plt.plot(pt.exact_pos[0]-(pg.reward_map_size-1), pt.exact_pos[1]-(pg.reward_map_size-1), 'w.')
+                mp.translate_start_position(pt.exact_pos)
+                mp.plot(position_only=True, step_size=.01, color='red')
+                plt.plot(pt.exact_pos[0], pt.exact_pos[1], 'w.')
+                mp_list.append(mp)
         plt.plot(start_pos[0], start_pos[1], 'og')
         mp_list = self.traj_opt(Tau[0], pg, mp)
         spline_traj = self.mp_list_to_spline_traj(mp_list)
@@ -61,7 +68,7 @@ class PolicyToROS:
 
         for step in tau:
             vertex = Vertex(dimension)
-            vertex.addConstraint(derivative_order.POSITION, step.exact_pos - [pg.reward_map_size-1]*pg.spatial_dim)
+            vertex.addConstraint(derivative_order.POSITION, step.exact_pos)
             vertices.append(vertex)
         max_v = pg.mp_graph.max_state[1] + .5
         max_a = pg.mp_graph.max_state[2] + .5
@@ -142,7 +149,7 @@ class PolicyToROS:
 
         spline.segments = len(mp_list)
         spline.t_total = np.sum([mp.traj_time for mp in mp_list])
-        spline_traj.header.frame_id = "world"
+        spline_traj.header.frame_id = "quadrotor/map"
         spline_traj.header.stamp = rospy.Time.now()
         spline_traj.dimensions = 3
 
@@ -156,14 +163,15 @@ if __name__ == '__main__':
     rospy.loginfo("waiting for action server")
     client.wait_for_server()
     rospy.loginfo("found action server")
-    ptr = PolicyToROS()
+    client.cancel_all_goals()
+
+    obj = PolicyToROS()
     # Creates a goal to send to the action server.
     # goal = actionlib_tutorials.msg.FibonacciGoal(order=20)
 
     traj_opt_pub = rospy.Publisher("/quadrotor/spline_traj", SplineTrajectory, queue_size=10)
 
-    start_pos = np.array([20, 2])
-    spline_traj = ptr.run_policy(start_pos, traj_opt_pub)
+    spline_traj = obj.run_policy(traj_opt_pub)
     goal = RunTrajectoryGoal()
     goal.traj = spline_traj
     client.send_goal(goal)
