@@ -47,7 +47,7 @@ print(f"Discounted Trajectory Reward= {dis_tot}")
 
 plt.figure(figsize=(7, 6))
 plt.imshow(pg.rewardmap, cmap='viridis', interpolation='spline36', extent=[
-           0, pg.xy_resolution*pg.reward_map_size, 0, pg.xy_resolution*pg.reward_map_size])
+           0, pg.xy_resolution*pg.reward_map_size, 0, pg.xy_resolution*pg.reward_map_size], origin="lower")
 plt.colorbar()
 
 plt.plot(px[0], py[0], 'go', markersize=12)
