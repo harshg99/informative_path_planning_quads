@@ -111,18 +111,18 @@ class LearnPolicyGradientParams:
         is_valid = is_valid and (np.array(pos + (self.curr_r_pad-self.valid_action_pad)) < self.orig_worldmap.shape).all()
         return is_valid
 
-    def get_next_state(self, pos, action, index):
+    def get_next_state(self, absolute_pos, map_indices, action, index):
         """
         Given the current state and action, return the next state
         Ensures that next_pos is still in the reward map area
         """
         actions = [(-1, 0), (0, -1), (1, 0), (0, 1)]
-        next_pos = pos + actions[action]
+        next_pos = map_indices + actions[action]
         is_action_valid = self.isValidPos(next_pos)
         if is_action_valid:
-            return next_pos, 0, is_action_valid, next_pos.reshape(2, 1), 0
+            return self.indexPosToAbsolutePos(next_pos), 0, is_action_valid, next_pos.reshape(1, 2), 0
         else:
-            return pos, 0, is_action_valid, pos.reshape(2, 1), None
+            return absolute_pos, 0, is_action_valid, map_indices.reshape(1, 2), None
 
     def absolutePosToIndexPos(self, absolute_pos):
         return np.rint(absolute_pos / self.xy_resolution).astype(np.int32) + np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32)
@@ -139,9 +139,10 @@ class LearnPolicyGradientParams:
                 map_indices = np.random.choice(range(self.reward_map_size), 2) + \
                     np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32)
             else:
-                map_indices = np.array([self.reward_map_size, self.reward_map_size])
-                # if start_pos is not None:
-                #     pos += start_pos
+                if start_pos is None:
+                    map_indices = self.absolutePosToIndexPos(np.array([0, 0]))
+                else:
+                    map_indices = self.absolutePosToIndexPos(start_pos)
             action_index = 0
             absolute_pos = self.indexPosToAbsolutePos(map_indices)
 
