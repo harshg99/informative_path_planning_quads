@@ -13,4 +13,5 @@ matplotlib
 GPy
 
 
-#####Install motion primitives from https://github.com/ljarin/motion_primitives ######
+#####Install motion primitives from https://github.com/ljarin/motion_primitives ######'
+##
