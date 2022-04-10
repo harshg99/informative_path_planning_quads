@@ -11,7 +11,7 @@ pyglet == 1.5.23
 imageio
 matplotlib
 GPy
-
+tensorboardX
 
 #####Install motion primitives from https://github.com/ljarin/motion_primitives ######'
 ##
