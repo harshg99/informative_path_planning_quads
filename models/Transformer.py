@@ -130,7 +130,7 @@ class TransformerAC(ActorCritic3):
         values_plus = values.tolist()+[np.max(train_buffer['bootstrap_value']).squeeze()]
         values_plus = np.array(values_plus).squeeze()
         advantages = np.array(train_buffer['rewards']).squeeze() + DISCOUNT*values_plus[1:] - values_plus[:-1]
-        advantages = Utilities.discount(advantages,DISCOUNT)
+        #advantages = Utilities.discount(advantages,DISCOUNT)
         train_buffer['advantages'] = advantages.copy()
         train_buffer['discounted_rewards'] = np.copy(discount_rewards)
 
