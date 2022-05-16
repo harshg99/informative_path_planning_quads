@@ -8,23 +8,28 @@ import time
 import os
 from copy import deepcopy
 
+import multiprocessing
+
+
 
 class LearnPolicyGradientParams:
     def __init__(self):
-        self.reward_map_size = 30
-        self.pad_size = self.reward_map_size-1  # TODO clean up these
-        self.world_map_size = self.reward_map_size + 2*(self.pad_size)
-        self.curr_r_map_size = self.reward_map_size + self.pad_size
-        self.curr_r_pad = (self.curr_r_map_size-1)/2
         self.num_actions = 4  # Actions: 0 - LEFT, 1 - UP, 2 - RIGHT, and 3 - DOWN
         self.num_features = 24
         self.num_other_states = 1
-
         self.num_iterations = 10
         self.num_trajectories = 5
-        self.Tau_horizon = 400
+        self.Tau_horizon = 200
         self.plot = False
         self.fileNm = "lpgp"
+        self.theta = None
+        self.valid_action_pad = 1
+        self.num_actions_per_state = None
+        self.mp_graph = None
+        self.minimum_action_mp_graph = None
+        self.epsilon = 30
+        self.xy_resolution = 1
+
         if(len(sys.argv) > 2):
             self.fileNm = sys.argv[2]
 
@@ -34,15 +39,26 @@ class LearnPolicyGradientParams:
         self.Eta = 0.015
         if(len(sys.argv) > 1):
             self.Eta = float(sys.argv[1])
-    
-    def get_phi_prime(self, worldmap, pos):
+
+    def set_up_rewardmap(self, rewardmap):
+        self.reward_map_size = rewardmap.shape[0]
+        self.pad_size = self.reward_map_size-1  # TODO clean up these
+        self.world_map_size = self.reward_map_size + 2*(self.pad_size)
+        self.curr_r_map_size = self.reward_map_size + self.pad_size
+        self.curr_r_pad = (self.curr_r_map_size-1)/2
+        self.maximum_reward = sum(-np.sort(-np.reshape(rewardmap, (1, self.reward_map_size**2))[0])[0:self.Tau_horizon])
+        worldmap = np.zeros((self.world_map_size, self.world_map_size))
+        worldmap[self.pad_size:self.pad_size+self.reward_map_size, self.pad_size:self.pad_size+self.reward_map_size] = rewardmap
+        self.orig_worldmap = np.copy(worldmap)
+        
+    def get_phi_prime(self, worldmap, map_indices):
         def phi_from_map_coords(r, c):
             map_section = worldmap[r[0]:r[1], c[0]:c[1]]
             size = (r[1]-r[0])*(c[1]-c[0])
             return np.sum(map_section)/size
 
-        r = pos[1]
-        c = pos[0]
+        r = map_indices[1]
+        c = map_indices[0]
         phi_prime = []
         for i in range(-1, 2):
             for j in range(-1, 2):
@@ -58,17 +74,19 @@ class LearnPolicyGradientParams:
         phi_prime = np.squeeze(np.array([phi_prime]))
         return phi_prime
 
-    def get_phi(self, worldmap, pos, action, index):
-        phi_prime = self.get_phi_prime(worldmap, pos)
+    def get_phi(self, worldmap, pos, action, index, phi_prime=None):
+        if phi_prime is None:
+            phi_prime = self.get_phi_prime(worldmap, pos)
         phi = np.zeros((self.num_features, self.num_other_states, self.num_actions))
         phi[:, index, action] = phi_prime
         return phi
 
-    def compute_softmax(self, worldmap, pos, index):
-        phi_prime = self.get_phi_prime(worldmap, pos)
+    def compute_softmax(self, worldmap, map_indices, index, phi_prime=None):
+        if phi_prime is None:
+            phi_prime = self.get_phi_prime(worldmap, map_indices)
         theta_dot_phi = np.zeros(self.num_actions)
         for i in range(self.num_actions):
-            theta_dot_phi[i] = self.theta[:,index, i] @ phi_prime
+            theta_dot_phi[i] = self.theta[:, index, i] @ phi_prime
         theta_dot_phi -= np.max(theta_dot_phi)
         exp_theta_dot_phi = np.exp(theta_dot_phi)
         prob = exp_theta_dot_phi/np.sum(exp_theta_dot_phi)
@@ -79,9 +97,10 @@ class LearnPolicyGradientParams:
         pi = prob[act]
         return pi
 
-    def sample_action(self, worldmap, pos, index, maxPolicy=False):
-        prob = self.compute_softmax(worldmap, pos, index)
-        prob[self.num_actions_per_state[index]:] =0
+    def sample_action(self, worldmap, map_indices, index, maxPolicy=False):
+        prob = self.compute_softmax(worldmap, map_indices, index)
+        if self.num_actions_per_state is not None:
+            prob[self.num_actions_per_state[index]:] = 1e-10
         prob = prob/sum(prob)
         if maxPolicy:
             next_action = np.argmax(prob)
@@ -90,61 +109,91 @@ class LearnPolicyGradientParams:
         return next_action
 
     def isValidPos(self, pos):
-        is_valid = (np.array(pos-self.curr_r_pad) > -1).all()
-        is_valid = is_valid and (np.array(pos + self.curr_r_pad) < self.orig_worldmap.shape).all()
+        is_valid = (np.array(pos-(self.curr_r_pad-self.valid_action_pad)) > -1).all()
+        is_valid = is_valid and (np.array(pos + (self.curr_r_pad-self.valid_action_pad)) < self.orig_worldmap.shape).all()
         return is_valid
 
-    def get_next_state(self, pos, action, index):
+    def get_next_state(self, absolute_pos, map_indices, action, index):
         """
         Given the current state and action, return the next state
         Ensures that next_pos is still in the reward map area
         """
         actions = [(-1, 0), (0, -1), (1, 0), (0, 1)]
-        next_pos = pos + actions[action]
+        next_pos = map_indices + actions[action]
         is_action_valid = self.isValidPos(next_pos)
         if is_action_valid:
-            return next_pos, 0, is_action_valid, next_pos.reshape(2,1), 0
+            return self.indexPosToAbsolutePos(next_pos), 0, is_action_valid, next_pos.reshape(1, 2), 0
         else:
-            return pos, 0, is_action_valid, None, None
+            return absolute_pos, 0, is_action_valid, map_indices.reshape(1, 2), None
 
-    def generate_trajectories(self, num_trajectories, maxPolicy=False, rand_start=True):
+    def absolutePosToIndexPos(self, absolute_pos):
+        return np.rint(absolute_pos / self.xy_resolution).astype(np.int32) + np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32)
+
+    def indexPosToAbsolutePos(self, index_pos):
+        return (index_pos - np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32))*self.xy_resolution
+
+    def generate_trajectories(self, num_trajectories, maxPolicy=False, rand_start=True, start_pos=None):
         # Array of trajectories starting from current position.
         # Generate multiple trajectories (<action, state> pairs) using the current Theta.
         Tau = np.ndarray(shape=(num_trajectories, self.Tau_horizon), dtype=object)
         for i in range(num_trajectories):
             if rand_start:
-                pos = np.random.choice(range(self.reward_map_size), 2) + \
+                map_indices = np.random.choice(range(self.reward_map_size), 2) + \
                     np.array([self.curr_r_pad, self.curr_r_pad]).astype(np.int32)
             else:
-                pos = np.array([self.reward_map_size, self.reward_map_size])
-            index = 0
+                if start_pos is None:
+                    map_indices = self.absolutePosToIndexPos(np.array([0, 0]))
+                else:
+                    map_indices = self.absolutePosToIndexPos(start_pos)
+
+            action_index = 0
+            absolute_pos = self.indexPosToAbsolutePos(map_indices)
+
             local_worldmap = np.copy(self.orig_worldmap)
+            num_invalid_actions = 0
             for j in range(self.Tau_horizon):
-                worldmap_pos = np.rint(pos).astype(np.int32)
-                action = self.sample_action(local_worldmap, worldmap_pos, index, maxPolicy)
-                next_pos, next_index, is_action_valid, visited_states, traj_cost = self.get_next_state(pos, action, index)
-                # worldmap_next_pos =  np.rint(next_pos).astype(np.int32)
+                # worldmap_pos = np.rint(pos).astype(np.int32)
+                action = self.sample_action(local_worldmap, map_indices, action_index, maxPolicy)
+                next_absolute_pos, next_action_index, is_action_valid, visited_map_indices, traj_cost = self.get_next_state(
+                    absolute_pos, map_indices, action, action_index)
                 curr_reward = 0
                 if is_action_valid:
-                    for state in visited_states.T:
+                    num_invalid_actions = 0
+                    for k in range(visited_map_indices.shape[0]):
+                        state = visited_map_indices[k]
                         curr_reward += local_worldmap[state[1], state[0]]
                         curr_reward -= traj_cost
+
                         local_worldmap[state[1], state[0]] = 0
+                        field_of_view = 3
+                        for m in range(-field_of_view, field_of_view+1):
+                            for n in range(-field_of_view, field_of_view+1):
+                                curr_reward += local_worldmap[state[1]+m, state[0]+n]
+                                local_worldmap[state[1]+m, state[0]+n] = 0
+
+                    curr_reward -= traj_cost*.1
                 else:
                     curr_reward = -20
-                Tau[i][j] = Trajectory(worldmap_pos, pos, action, curr_reward, index)
-                pos = next_pos
-                index = next_index
+
+                    num_invalid_actions += 1
+                Tau[i][j] = Trajectory(map_indices, absolute_pos, action, curr_reward, visited_map_indices, action_index)
+                absolute_pos = next_absolute_pos
+                action_index = next_action_index
+                map_indices = self.absolutePosToIndexPos(absolute_pos)
+                if num_invalid_actions > 5:
+                    continue
+
         return Tau
 
     def get_derivative(self, Tau, worldmap):
         pos = Tau.pos
         act = Tau.action
         index = Tau.index
-        phi = self.get_phi(worldmap, pos, act, index)
+        phi_prime = self.get_phi_prime(worldmap, pos)
+        phi = self.get_phi(worldmap, pos, act, index, phi_prime)
         sum_b = 0
         for b in range(self.num_actions):
-            sum_b = sum_b + (self.get_pi(worldmap, pos, b, index) * self.get_phi(worldmap, pos, b, index))
+            sum_b = sum_b + (self.get_pi(worldmap, pos, b, index) * self.get_phi(worldmap, pos, b, index, phi_prime))
         delta = phi - sum_b
         return delta
 
@@ -163,12 +212,35 @@ class LearnPolicyGradientParams:
     def set_up_training(self):
         self.theta = np.random.rand(self.num_features, self.num_other_states, self.num_actions)*0.1
 
+    def process_trajectory(self, Tau):
+        g_Tau = 0
+        traj_reward = 0
+        worldmap = np.copy(self.orig_worldmap)
+        for j in range(self.Tau_horizon):
+            # Rolling out each of the trajectories
+            R_t = 0
+            # # Total reward in a trajectory
+            # tot_reward += Tau[j].reward
+            traj_reward += Tau[j].reward
+            # Discounted future rewards
+            for t in range(j, self.Tau_horizon):
+                R_t = R_t + self.gamma**(t-j)*Tau[t].reward
+            # sum_R_t[j] = sum_R_t[j] + R_t
+            A_t = R_t  # - (sum_R_t[j]/(i+1))
+            worldmap[Tau[j].pos[1], Tau[j].pos[0]] = 0
+            # for state in Tau[j].visited_states.T:
+            #    worldmap[int(state[1]), int(state[0])] = 0
+            g_t = self.get_derivative(Tau[j], worldmap) * A_t
+            g_Tau = g_Tau + g_t
+        return g_Tau, traj_reward
+
     def run_training(self, rewardmap):
-        self.set_up_training()
-        self.maximum_reward = sum(-np.sort(-np.reshape(rewardmap, (1, self.reward_map_size**2))[0])[0:self.Tau_horizon])
-        worldmap = np.zeros((self.world_map_size, self.world_map_size))
-        worldmap[self.pad_size:self.pad_size+self.reward_map_size, self.pad_size:self.pad_size+self.reward_map_size] = rewardmap
-        self.orig_worldmap = np.copy(worldmap)
+
+        self.set_up_rewardmap(rewardmap)
+        if self.theta is None:
+            print(f"Warning: resetting theta, pickle file name {self.fileNm}")
+            self.set_up_training()
+
 
         plt.ion()
         self.traj_reward_list = list()
@@ -181,37 +253,28 @@ class LearnPolicyGradientParams:
         # num_trajectories --> No. of trajectries used for policy estimation
         # Tau_horizon --> Finite horizon of each trajectory
         #*******************************************************************#
-
+        script_dir = os.path.dirname(os.path.abspath(__file__))
         for iterations in range(self.num_iterations):
             start = time.time()
             # Generate multiple trajectories (<action, state> pairs) using the current Theta.
             Tau = self.generate_trajectories(self.num_trajectories, rand_start=True)
             g_T = 0
             tot_reward = 0
-            sum_R_t = np.zeros(self.Tau_horizon)
+            pool = multiprocessing.Pool()
+            mp_graph_backup = self.mp_graph
+            minimum_action_mp_graph_backup = self.minimum_action_mp_graph
+            self.mp_graph = None
+            self.minimum_action_mp_graph = None
+            results = pool.map(self.process_trajectory, Tau)
             for i in range(self.num_trajectories):
-                g_Tau = 0
-                traj_reward = 0
-                worldmap = np.copy(self.orig_worldmap)
-                for j in range(self.Tau_horizon):
-                    # Rolling out each of the trajectories
-                    R_t = 0
-                    # Total reward in a trajectory
-                    tot_reward += Tau[i][j].reward
-                    traj_reward += Tau[i][j].reward
-                    # Discounted future rewards
-                    for t in range(j, self.Tau_horizon):
-                        R_t = R_t + self.gamma**(t-j)*Tau[i][t].reward
-                    sum_R_t[j] = sum_R_t[j] + R_t
-                    A_t = R_t - (sum_R_t[j]/(i+1))
-                    worldmap[Tau[i][j].pos[1], Tau[i][j].pos[0]] = 0
-                    g_t = self.get_derivative(Tau[i][j], worldmap) * A_t
-                    g_Tau = g_Tau + g_t
-                g_T = g_T + g_Tau
+                g_T += results[i][0]
+                tot_reward += results[i][1]
             g_T = g_T / self.num_trajectories
             g_T = g_T / (self.num_features*self.num_other_states)
             tot_reward = tot_reward / self.num_trajectories
             self.theta = self.theta + self.Eta*g_T
+            self.mp_graph = mp_graph_backup
+            self.minimum_action_mp_graph = minimum_action_mp_graph_backup
 
             print(f"Iteration {iterations+1}/{self.num_iterations}")
             print(f"total accumulated reward = {tot_reward:.2f} / {self.maximum_reward:.2f}")
@@ -231,8 +294,12 @@ class LearnPolicyGradientParams:
             x.minimum_action_mp_graph = None
             pickle.dump(x, open(f'{script_dir}/testingData/{self.fileNm}.pkl', "wb"))
 
+            x = deepcopy(self)
+            x.mp_graph = None
+            x.minimum_action_mp_graph = None
+            pickle.dump(x, open(f'{script_dir}/testingData/{self.fileNm}.pkl', "wb"))
+
         # print theta
-        pos = np.array([self.reward_map_size, self.reward_map_size])
         Tau = self.generate_trajectories(1, maxPolicy=True, rand_start=False)
         for j in range(self.Tau_horizon):
             print(Tau[0][j])
@@ -240,7 +307,6 @@ class LearnPolicyGradientParams:
         # Saving the trained data
         self.Tau = Tau
         self.mp_graph = None
-        script_dir = os.path.dirname(__file__)
         self.mp_graph = None
         self.minimum_action_mp_graph = None
         pickle.dump(self, open(f'{script_dir}/testingData/{self.fileNm}.pkl', "wb"))
@@ -254,12 +320,13 @@ class LearnPolicyGradientParams:
 
 
 class Trajectory:
-    def __init__(self, pos, exact_pos, action, reward, index):
+    def __init__(self, pos, exact_pos, action, reward, visited_states, index):
         self.pos = pos
         self.exact_pos = exact_pos
         self.action = action
         self.reward = reward
         self.index = index
+        self.visited_states = visited_states
 
     def __str__(self):
         return f"{self.pos} {self.exact_pos} {self.index} {self.action} {self.reward}"
@@ -269,6 +336,6 @@ if __name__ == '__main__':
 
     lpgp = LearnPolicyGradientParams()
 
-    script_dir = os.path.dirname(__file__)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     rewardmap = pickle.load(open(f'{script_dir}/trainingData/gaussian_mixture_training_data.pkl', "rb"), encoding='latin1')
     lpgp.run_training(rewardmap)
