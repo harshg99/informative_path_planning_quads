@@ -1,6 +1,6 @@
 # Training Parameters
 GPU=False
-NUM_META_AGENTS = 3
+NUM_META_AGENTS = 25
 MAX_EPISODES = 50000
 DISCOUNT = 0.9
 LR = 1e-3
@@ -46,7 +46,7 @@ if MODEL_TYPE !='ActorCritic3' and MODEL_TYPE!='TransformerAC':
     COMPUTE_VALIDS = False
 
 #Logging Params
-MODEL_NAME = 'MPAC_v2'
+MODEL_NAME = 'MPAC_vTrans'
 DESCRIPTION = 'MP_RangewObs_validloss'
 TRAIN_PATH = 'data/train/'+MODEL_NAME+'_'+DESCRIPTION
 MODEL_PATH = 'data/models/'+MODEL_NAME+'_'+DESCRIPTION

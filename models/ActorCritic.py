@@ -66,7 +66,7 @@ class ActorCritic(Vanilla):
         values_plus.append(train_buffer['bootstrap_value'])
         values_plus = np.array(values_plus).squeeze()
         advantages = np.array(train_buffer['rewards']).squeeze() + DISCOUNT*values_plus[1:] - values_plus[:-1]
-
+        #advantages = Utilities.discount(advantages,DISCOUNT)
         train_buffer['advantages'] = advantages
         train_buffer['discounted_rewards'] = np.copy(discount_rewards)
 
@@ -180,7 +180,8 @@ class ActorCritic3(ActorCritic2):
         p_l = -self.params_dict['policy_weight'] * torch.log(
             torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
         #valid_l = self.params_dict['valids_weight']* (valids*torch.log(torch.clip(valids_net,1e-7,1))+ (1-valids)*torch.log(torch.clip(1 - valids_net,1e-7,1)))
-        valid_l = self.params_dict['valids_weight'] * ((1 - valids) * torch.log(torch.clip(1 - valids_net, 1e-7, 1)))
+        valid_l = self.params_dict['valids_weight'] * ((1 - valids) * torch.log(torch.clip(1 - valids_net, 1e-7, 1)) +\
+                                                       valids*torch.log(torch.clip(valids_net, 1e-7, 1)))
         return v_l, p_l, e_l,valid_l
 
     def compute_valids(self,input):
@@ -192,7 +193,7 @@ class ActorCritic3(ActorCritic2):
 
         v_l, p_l, e_l,valid_l = self.compute_loss(train_buffer)
 
-        loss = v_l.sum() + p_l.sum() - e_l.sum()
+        loss = v_l.sum() + p_l.sum() - e_l.sum() + valid_l.sum()
         self.optim.zero_grad()
         loss.sum().backward()
         # self.optimizer.step()

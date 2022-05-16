@@ -1,5 +1,5 @@
 #Network Params
-hidden_sizes = [64,128]
+hidden_sizes = [256,512]
 hidden = 16
 embed = 16
 action_depth = 20

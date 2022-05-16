@@ -167,8 +167,33 @@ class TransformerAC(ActorCritic3):
         p_l = -self.params_dict['policy_weight'] * torch.log(
             torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
         #valid_l = self.params_dict['valids_weight']* (valids*torch.log(torch.clip(valids_net,1e-7,1))+ (1-valids)*torch.log(torch.clip(1 - valids_net,1e-7,1)))
-        valid_l = self.params_dict['valids_weight'] * ((1 - valids) * torch.log(torch.clip(1 - valids_net, 1e-7, 1)))
+        valid_l = self.params_dict['valids_weight'] * ((1 - valids) * torch.log(torch.clip(1 - valids_net, 1e-7, 1)) + \
+                                                       valids * torch.log(torch.clip(valids_net, 1e-7, 1)))
         return v_l, p_l, e_l,valid_l
 
+    def backward(self, train_buffer):
+        self.optim.zero_grad()
 
+        v_l, p_l, e_l,valid_l = self.compute_loss(train_buffer)
+
+        loss = v_l.sum() + p_l.sum() - e_l.sum() + valid_l.sum()
+        self.optim.zero_grad()
+        loss.sum().backward()
+        # self.optimizer.step()
+        norm = torch.nn.utils.clip_grad_norm_(self.parameters(), 50)
+        v_n = torch.linalg.norm(
+            torch.stack(
+                [torch.linalg.norm(p.detach()).to("cpu") for p in self.parameters()])).detach().numpy().item()
+
+        gradient = []
+        for local_param in self.parameters():
+            gradient.append(local_param.grad)
+        g_n = norm.detach().cpu().numpy().item()
+        episode_length = train_buffer['episode_length']
+        train_metrics = {'Value Loss': v_l.sum().cpu().detach().numpy().item() / episode_length,
+                         'Policy Loss': p_l.sum().cpu().detach().numpy().item() / episode_length,
+                         'Entropy Loss': e_l.sum().cpu().detach().numpy().item() / episode_length,
+                         'Valid Loss': valid_l.sum().cpu().detach().numpy().item()/episode_length,
+                         'Grad Norm': g_n, 'Var Norm': v_n}
+        return train_metrics, gradient
 
