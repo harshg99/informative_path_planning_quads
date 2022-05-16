@@ -41,6 +41,7 @@ class Worker:
         train_buffer['next_obs'] = []
         train_buffer['values'] = []
         train_buffer['valids'] = []
+        train_buffer['policy'] = []
         train_buffer['episode_length'] = self.env.episode_length
         episode_reward = 0
         control_cost = 0
@@ -57,6 +58,7 @@ class Worker:
             action_dict = Utilities.sample_actions(policy)
             train_buffer['actions'].append([action_dict[k] for k in action_dict.keys()])
             train_buffer['values'].append(value[0])
+            train_buffer['policy'].append(policy)
             rewards,done = self.env.step_all(action_dict)
             train_buffer['rewards'].append(rewards)
             train_buffer['valids'].append(observation['valids'])

@@ -96,3 +96,28 @@ def setup_neptune() :
         run = neptune.init(project=project, api_token=token, run=NEPTUNE_RUN)
 
     return run
+
+def lambda_return(rewards,values,gamma,lamb):
+    '''
+
+    :param rewards: Rewards (batch,sequence)
+    :param values: Values (batch,sequence)
+    :param gamma: Discount
+    :param lamb: Lamb weight
+    :return: Lambda returns (batch,sequence)
+    '''
+
+    #shape (batch,T,T)
+    rewards = np.repeat(np.expand_dims(rewards,axis=-1),repeats =rewards.shape[1],axis=-1)
+    lambret = rewards.copy()
+    rewards = np.append(rewards,np.zeros((rewards.shape[0],rewards.shape[1],1)),axis=2)
+    multiplier = np.zeros(lambret.shape)
+    for j in rewards.sshape[1]:
+        rewards[:,j,j+1:] = 0
+        rewards[:,j,j+1] = values[:,j+1]
+        lambret[:,j,:] = signal.lfilter([1], [1, -gamma], rewards[:,j,::-1], axis=0)[::-1]
+        multiplier[:,j:,j] = np.array([lamb^i for i in range(rewards.shape[1]-j)])
+
+    lambret = lambret*multiplier
+    lambret = lambret.sum(axis=1)
+    return  lambret

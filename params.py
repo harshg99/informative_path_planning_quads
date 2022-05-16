@@ -39,10 +39,10 @@ SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawne
 ENV_TYPE = 'MotionPrim' # Motion Prim or Discrete
 
 #MODEL TYPE
-MODEL_TYPE = 'ActorCritic3'
+MODEL_TYPE = 'TransformerAC'#TransformerAC,ActorCritic3
 COMPUTE_VALIDS = True # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
 
-if MODEL_TYPE !='ActorCritic3':
+if MODEL_TYPE !='ActorCritic3' and MODEL_TYPE!='TransformerAC':
     COMPUTE_VALIDS = False
 
 #Logging Params

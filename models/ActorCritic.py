@@ -5,7 +5,7 @@ import numpy as np
 import Utilities
 from models.Vanilla import Vanilla
 from torch.optim.lr_scheduler import ExponentialLR
-from models.Transformer import *
+
 
 class ActorCritic(Vanilla):
     def __init__(self,input_size,action_size,params_dict):
@@ -213,15 +213,7 @@ class ActorCritic3(ActorCritic2):
                          'Grad Norm': g_n, 'Var Norm': v_n}
         return train_metrics, gradient
 
-#TODO Transformer Actor Critic with Keys as Actions and State Decoder
-class TransformerActorCritic(ActorCritic):
 
-    def __init__(self):
-        super(Vanilla, self).__init__()
-        self.hidden_sizes = params_dict['hidden_sizes']
-        self.input_size = input_size
-        self.action_size = action_size
-        self.params_dict = params_dict
 
 
 

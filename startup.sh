@@ -12,7 +12,7 @@ mkdir /home/code
 cd /home/code
 
 git clone https://github.com/ljarin/Active-sampling-with-motion-primitives.git
-cd Active-sampling-with-motion-primitives.git
+cd Active-sampling-with-motion-primitives
 git checkout Search_vGYM
 pip install -r requirements.txt
 

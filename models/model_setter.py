@@ -17,8 +17,13 @@ class model_setter:
             import model_params.ActorCritic3 as parameters
             model_params_dict = model_setter.set_dict(parameters)
             return ActorCritic3(input_size, action_size, model_params_dict)
+        elif type == 'TransformerAC':
+            from models.Transformer import TransformerAC
+            import model_params.Transformer as parameters
+            model_params_dict = model_setter.set_dict(parameters)
+            return TransformerAC(input_size, action_size, model_params_dict)
         elif type == 'DQN':
-            import model_params.ActorCritic3 as parameters
+            import model_params.Transformer as parameters
             model_params_dict = model_setter.set_dict(parameters)
             return DQN(input_size,action_size,model_params_dict)
 
