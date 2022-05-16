@@ -74,4 +74,6 @@ for i,centre in enumerate(box_pop_centers):
 interest_array/=interest_array.sum()
 plt.figure()
 plt.imshow(interest_array, origin='lower', extent=[0, resolution*num_bins[0], 0, resolution*num_bins[1]])
+
+np.save("interest_Array.npy",interest_array)
 plt.show()
