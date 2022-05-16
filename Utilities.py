@@ -112,7 +112,7 @@ def lambda_return(rewards,values,gamma,lamb):
     lambret = rewards.copy()
     rewards = np.append(rewards,np.zeros((rewards.shape[0],rewards.shape[1],1)),axis=2)
     multiplier = np.zeros(lambret.shape)
-    for j in rewards.sshape[1]:
+    for j in rewards.shape[1]:
         rewards[:,j,j+1:] = 0
         rewards[:,j,j+1] = values[:,j+1]
         lambret[:,j,:] = signal.lfilter([1], [1, -gamma], rewards[:,j,::-1], axis=0)[::-1]
