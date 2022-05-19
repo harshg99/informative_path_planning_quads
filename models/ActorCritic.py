@@ -66,7 +66,7 @@ class ActorCritic(Vanilla):
         values_plus.append(train_buffer['bootstrap_value'])
         values_plus = np.array(values_plus).squeeze()
         advantages = np.array(train_buffer['rewards']).squeeze() + DISCOUNT*values_plus[1:] - values_plus[:-1]
-        #advantages = Utilities.discount(advantages,DISCOUNT)
+        advantages = Utilities.discount(advantages,DISCOUNT)
         train_buffer['advantages'] = advantages
         train_buffer['discounted_rewards'] = np.copy(discount_rewards)
 
