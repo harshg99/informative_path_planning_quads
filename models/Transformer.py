@@ -164,7 +164,8 @@ class TransformerAC(ActorCritic3):
         advantages = torch.tensor(advantages, dtype=torch.float32)
 
         responsible_outputs = policy.gather(-1, a_batch)
-        v_l = self.params_dict['value_weight'] * torch.square(torch.sum(value*F.one_hot(a_batch).squeeze(),axis=-1)-target_v)
+        v_l = self.params_dict['value_weight'] * torch.square(\
+            torch.sum(value*F.one_hot(a_batch,num_classes = self.action_size).squeeze(),axis=-1)-target_v)
         e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
         p_l = -self.params_dict['policy_weight'] * torch.log(
             torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
