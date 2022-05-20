@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from models.ActorCritic import ActorCritic3
 from torch.optim.lr_scheduler import ExponentialLR
 import numpy as np
@@ -119,7 +120,7 @@ class TransformerAC(ActorCritic3):
 
     def get_advantages(self,train_buffer):
         rewards_plus = np.copy(train_buffer['rewards']).tolist()
-        rewards_plus.append(train_buffer['bootstrap_value'][:,0].tolist())
+        rewards_plus += [np.max(train_buffer['bootstrap_value'],axis= -1).tolist()]
         rewards_plus = np.array(rewards_plus).squeeze()
         discount_rewards = Utilities.discount(rewards_plus,DISCOUNT)[:-1]
 
@@ -131,7 +132,7 @@ class TransformerAC(ActorCritic3):
         values_plus = values.tolist()+[np.max(train_buffer['bootstrap_value']).squeeze()]
         values_plus = np.array(values_plus).squeeze()
         advantages = np.array(train_buffer['rewards']).squeeze() + DISCOUNT*values_plus[1:] - values_plus[:-1]
-        #advantages = Utilities.discount(advantages,DISCOUNT)
+        advantages = Utilities.discount(advantages,DISCOUNT)
         train_buffer['advantages'] = advantages.copy()
         train_buffer['discounted_rewards'] = np.copy(discount_rewards)
 
@@ -163,7 +164,7 @@ class TransformerAC(ActorCritic3):
         advantages = torch.tensor(advantages, dtype=torch.float32)
 
         responsible_outputs = policy.gather(-1, a_batch)
-        v_l = self.params_dict['value_weight'] * torch.square(value.gather(-1,a_batch).squeeze()-target_v)
+        v_l = self.params_dict['value_weight'] * torch.square(torch.sum(value*F.one_hot(a_batch).squeeze(),axis=-1)-target_v)
         e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
         p_l = -self.params_dict['policy_weight'] * torch.log(
             torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
@@ -217,15 +218,21 @@ class TransformerAC2(TransformerAC):
 
         self.attention_layer = MHA(params_dict)
         self.action_layer = nn.Linear(self.params_dict['action_depth'],self.params_dict['embed'])
-        self.policy_layers = []
-        self.policy_layers.extend([nn.Linear(params_dict['embed'], 1)])
+        self.policy_layers = self.mlp_block(params_dict['embed'], 4*params_dict['embed'])
+        for j in range(1):
+            self.policy_layers.extend(
+                self.mlp_block(4*params_dict['embed'], 4*params_dict['embed'], dropout=False, activation=nn.LeakyReLU))
+        self.policy_layers.extend([nn.Linear(4*params_dict['embed'], 1)])
         self.policy_net = nn.Sequential(*self.policy_layers)
         self.softmax = nn.Softmax(dim=-1)
         self.sigmoid = nn.Sigmoid()
 
-        self.value_layers = []
-
-        self.value_layers.extend([nn.Linear(params_dict['embed'], 1)])
+        self.value_layers = self.mlp_block(params_dict['embed'], 4 * params_dict['embed'])
+        for j in range(1):
+            self.value_layers.extend(
+                self.mlp_block(4 * params_dict['embed'], 4 * params_dict['embed'], dropout=False,
+                               activation=nn.LeakyReLU))
+        self.value_layers.extend([nn.Linear(4 * params_dict['embed'], 1)])
         self.value_net = nn.Sequential(*self.value_layers)
         self.optim = torch.optim.Adam(self.parameters(), lr=params_dict['LR'], betas=(0.9, 0.99))
         self.scheduler = ExponentialLR(self.optim, gamma=params_dict['DECAY'])
