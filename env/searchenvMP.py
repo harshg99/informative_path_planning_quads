@@ -151,6 +151,8 @@ class SearchEnvMP(SearchEnv):
                 obs.append(self.get_obs_tiled_wobs(agentID=j))
             elif OBSERVER == 'RANGEwOBS':
                 obs.append(self.get_obs_ranged_wobs(agentID=j))
+            elif OBSERVER == 'RANGEwOBSwPENC':
+                obs.append(self.get_obs_ranged_wobspenc(agentID=j))
             coeffs,valid = self.get_mps(j)
             agents_actions.append(coeffs)
             valids.append(valid)

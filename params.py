@@ -39,10 +39,10 @@ SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawne
 ENV_TYPE = 'MotionPrim' # Motion Prim or Discrete
 
 #MODEL TYPE
-MODEL_TYPE = 'TransformerAC2'#TransformerAC,ActorCritic3
+MODEL_TYPE = 'ActorCritic4'#TransformerAC,ActorCritic3
 COMPUTE_VALIDS = True # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
 
-if MODEL_TYPE !='ActorCritic3' and MODEL_TYPE!='TransformerAC':
+if MODEL_TYPE =='ActorCritic' or MODEL_TYPE!='ActorCrtic2':
     COMPUTE_VALIDS = False
 
 #Logging Params
@@ -60,5 +60,5 @@ neptune_project        = "harshg99/SearchKR" # USER-ID
 NEPTUNE_API_TOKEN      = "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOTI4NjE0Yi00ZjNmLTQ5NjktOTdhNy04YTk3ZGQyZTg1MDIifQ=="
 
 # Observation Type
-OBSERVER = 'RANGEwOBS' # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS
+OBSERVER = 'RANGEwOBSwPENC' # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS,RANGEwOBSwPENC
 RANGE = 15

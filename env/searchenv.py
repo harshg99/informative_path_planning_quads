@@ -100,15 +100,17 @@ class SearchEnv(gym.Env):
         self.viewer = None
 
         if OBSERVER == 'RANGE':
-            self.input_size = 4*RANGE*RANGE
+            self.input_size = [4*RANGE*RANGE]
         elif OBSERVER =='TILED':
-            self.input_size = 24
+            self.input_size = [24]
         elif OBSERVER == 'TILEDwOBS':
-            self.input_size = 48
+            self.input_size = [48]
         elif OBSERVER == 'RANGEwOBS':
-            self.input_size = 8*RANGE*RANGE
+            self.input_size = [8*RANGE*RANGE]
         elif OBSERVER == 'RANGEwOBSwNEIGH':
-            self.input_size = 8*(RANGE+1)*(RANGE+1)
+            self.input_size = [8*(RANGE+1)*(RANGE+1)]
+        elif OBSERVER == 'RANGEwOBSwPENC':
+            self.input_size = [4*RANGE*RANGE,4]
 
     '''
     Adds a Gaussian
@@ -350,6 +352,8 @@ class SearchEnv(gym.Env):
                 obs.append(self.get_obs_tiled_wobs(agentID=j))
             elif OBSERVER == 'RANGEwOBS':
                 obs.append(self.get_obs_ranged_wobs(agentID=j))
+            elif OBSERVER == 'RANGEwOBSwPENC':
+                obs.append(self.get_obs_ranged_wobspenc(agentID=j))
         obs_dict = dict()
         obs_dict['obs'] = obs
         obs_dict['valids'] = None
@@ -377,6 +381,24 @@ class SearchEnv(gym.Env):
         features.append(self.obstacle_map[min_x:max_x,min_y:max_y].reshape(-1).tolist())
         #print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
         return np.array(features).reshape(-1)
+
+    def get_obs_ranged_wobspenc(self,agentID):
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
+        min_x = r - RANGE
+        min_y = c - RANGE
+        max_x = r + RANGE
+        max_y = c + RANGE
+        penc_x = np.expand_dims(np.arange(start=0,stop=1,step=1/(2*RANGE)),axis=1)\
+            .repeat(repeats=2*RANGE,axis=1).reshape(-1)
+        penc_y = np.expand_dims(np.arange(start=0, stop=1, step=1 / (2 * RANGE)), axis=0)\
+            .repeat(repeats=2 * RANGE,axis=0).reshape(-1)
+
+        features =np.expand_dims(self.worldMap[min_x:max_x, min_y:max_y].reshape(-1),axis=-1)
+        features = np.concatenate((features,np.expand_dims(self.obstacle_map[min_x:max_x,min_y:max_y].reshape(-1),axis=-1),\
+                         np.expand_dims(penc_x,axis=-1),np.expand_dims(penc_y,axis=-1)),axis=-1)
+        #print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
+        return np.array(features)
 
     def render(self, mode='visualise',W=800, H=800):
 

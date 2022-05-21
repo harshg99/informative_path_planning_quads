@@ -15,7 +15,7 @@ class ActorCritic(Vanilla):
         self.action_size = action_size
         self.params_dict = params_dict
 
-        self.policy_layers = self.mlp_block(self.input_size,self.hidden_sizes[0],dropout=False)
+        self.policy_layers = self.mlp_block(self.input_size[0],self.hidden_sizes[0],dropout=False)
         for j in range(len(self.hidden_sizes)-1):
             self.policy_layers.extend(self.mlp_block(self.hidden_sizes[j],self.hidden_sizes[j+1],dropout=False,activation=nn.LeakyReLU))
         self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size)])
@@ -23,7 +23,7 @@ class ActorCritic(Vanilla):
         self.softmax = nn.Softmax(dim=-1)
         self.sigmoid = nn.Sigmoid()
 
-        self.value_layers = self.mlp_block(self.input_size, self.hidden_sizes[0], dropout=False)
+        self.value_layers = self.mlp_block(self.input_size[0], self.hidden_sizes[0], dropout=False)
         for j in range(len(self.hidden_sizes) - 1):
             self.value_layers.extend(self.mlp_block(self.hidden_sizes[j], self.hidden_sizes[j + 1],dropout=False,activation=nn.LeakyReLU))
         self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], 1)])
@@ -126,7 +126,7 @@ class ActorCritic2(ActorCritic):
         self.action_size = action_size
         self.params_dict = params_dict
 
-        self.layers = self.mlp_block(self.input_size,self.hidden_sizes[0],dropout=False)
+        self.layers = self.mlp_block(self.input_size[0],self.hidden_sizes[0],dropout=False)
         for j in range(len(self.hidden_sizes)-1):
             self.layers.extend(self.mlp_block(self.hidden_sizes[j],self.hidden_sizes[j+1],dropout=False,activation=nn.LeakyReLU))
 
@@ -215,7 +215,52 @@ class ActorCritic3(ActorCritic2):
         return train_metrics, gradient
 
 
+class ActorCritic4(ActorCritic3):
+    def __init__(self,input_size,action_size,params_dict):
+        super(Vanilla,self).__init__()
+        self.hidden_sizes = params_dict['hidden_sizes']
+        self.hidden_sizes1 = params_dict['hidden_sizes1']
+        self.input_size = input_size
+        self.action_size = action_size
+        self.params_dict = params_dict
 
+        self.layers1 = self.mlp_block(self.input_size[1],self.hidden_sizes1[0],dropout=False)
+        for j in range(len(self.hidden_sizes1) - 1):
+            self.layers1.extend(
+                self.mlp_block(self.hidden_sizes1[j], self.hidden_sizes1[j + 1], dropout=False, activation=nn.LeakyReLU))
+        self.layers1 = nn.Sequential(*self.layers1)
+        self.layers = self.mlp_block(self.input_size[0],self.hidden_sizes[0],dropout=False)
+        for j in range(len(self.hidden_sizes)-1):
+            self.layers.extend(self.mlp_block(self.hidden_sizes[j],self.hidden_sizes[j+1],dropout=False,activation=nn.LeakyReLU))
 
+        self.policy_layers = self.layers.copy()
+        for j in range(2):
+            self.policy_layers.extend(self.mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
 
+        self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size)])
+        self.policy_net = nn.Sequential(*self.policy_layers)
+        self.softmax = nn.Softmax(dim=-1)
+        self.sigmoid = nn.Sigmoid()
+
+        self.value_layers = self.layers.copy()
+        for j in range(2):
+            self.value_layers.extend(self.mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
+        self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], 1)])
+        self.value_net = nn.Sequential(*self.value_layers)
+
+        self.optim = torch.optim.Adam(self.parameters(),lr=params_dict['LR'],betas=(0.9,0.99))
+        self.scheduler = ExponentialLR(self.optim,gamma=params_dict['DECAY'])
+
+    def compute_valids(self,input):
+        input = self.layers1(input)
+        input = torch.flatten(input, start_dim=-2, end_dim=-1)
+        policy = self.policy_net(input)
+        return self.sigmoid(policy)
+
+    def forward(self,input):
+        #print(input.shape)
+        input = self.layers1(input)
+        input = torch.flatten(input,start_dim=-2,end_dim=-1)
+        policy = self.policy_net(input)
+        return self.softmax(policy),self.value_net(input)
 

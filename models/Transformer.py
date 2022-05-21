@@ -17,7 +17,7 @@ class MHA(nn.Module):
         # Concat and normalisation
         self.attnblocks = [ScaledDotProductAttention(config) for _ in range(self.num_heads)]
         # Feedforward to compressed state
-        self.outlayer = nn.Linear(in_features=self.num_heads,out_features=1)
+        self.outlayer = nn.Linear(in_features=self.num_heads*self.hidden,out_features=self.hidden)
 
     def forward(self,keys_in,query_in=None):
         for j,blocks in enumerate(self.attnblocks):
@@ -25,7 +25,7 @@ class MHA(nn.Module):
                 concat_output = blocks(keys_in,query_in).unsqueeze(-1)
             else:
                 concat_output = torch.concat([concat_output,blocks(keys_in,query_in).unsqueeze(-1)],dim=-1)
-        mhaout = self.outlayer(concat_output).squeeze(-1)
+        mhaout = self.outlayer(concat_output.flatten(start_dim=-2,end_dim=-1))
         return mhaout
 
 # scaled dot product attention
@@ -64,7 +64,7 @@ class TransformerAC(ActorCritic3):
         self.params_dict = params_dict
         params_dict['action_size'] = self.action_size
 
-        self.layers = self.mlp_block(self.input_size, self.hidden_sizes[0])
+        self.layers = self.mlp_block(self.input_size[0], self.hidden_sizes[0])
         for j in range(len(self.hidden_sizes) - 1):
             self.layers.extend(
                 self.mlp_block(self.hidden_sizes[j], self.hidden_sizes[j + 1], dropout=False, activation=nn.LeakyReLU))
@@ -209,7 +209,7 @@ class TransformerAC2(TransformerAC):
         self.params_dict = params_dict
         params_dict['action_size'] = self.action_size
 
-        self.layers = self.mlp_block(self.input_size, self.hidden_sizes[0])
+        self.layers = self.mlp_block(self.input_size[0], self.hidden_sizes[0])
         for j in range(len(self.hidden_sizes) - 1):
             self.layers.extend(
                 self.mlp_block(self.hidden_sizes[j], self.hidden_sizes[j + 1], dropout=False, activation=nn.LeakyReLU))
@@ -238,23 +238,3 @@ class TransformerAC2(TransformerAC):
         self.optim = torch.optim.Adam(self.parameters(), lr=params_dict['LR'], betas=(0.9, 0.99))
         self.scheduler = ExponentialLR(self.optim, gamma=params_dict['DECAY'])
 
-    def forward(self,input,actions):
-        '''
-        @param: input: tuple of observation and action
-        '''
-        processed = self.layers_net(input)
-        #reshaping here
-        processed = processed.view((processed.shape[0],processed.shape[1],\
-                                    self.action_size,self.params_dict['embed']))
-        processed_actions = self.action_layer(actions)
-        processed_attn = self.attention_layer(processed, processed_actions)
-        value = self.value_net(processed_attn).squeeze(-1)
-        policy = self.softmax(self.policy_net(processed_attn).squeeze(-1))
-        return policy,value
-
-    def forward_step(self,input):
-        obs = input['obs']
-        actions = input['mps']
-        obs = torch.tensor([obs], dtype=torch.float32)
-        actions = torch.tensor([actions],dtype=torch.float32)
-        return self.forward(obs,actions)
