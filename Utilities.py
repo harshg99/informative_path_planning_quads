@@ -75,7 +75,7 @@ class Tensorboard():
                     run['training/{}/{}'.format(k, k2)].log(value=v2, step=currEpisode)
         return
 
-def setup_neptune() :
+def setup_neptune(args) :
     global run
     run = None
     if int(NEPTUNE) :
@@ -94,6 +94,7 @@ def setup_neptune() :
         project = neptune_project
         token = NEPTUNE_API_TOKEN
         run = neptune.init(project=project, api_token=token, run=NEPTUNE_RUN)
+        run['params'] = args
 
     return run
 
@@ -121,3 +122,11 @@ def lambda_return(rewards,values,gamma,lamb):
     lambret = lambret*multiplier
     lambret = lambret.sum(axis=1)
     return  lambret
+
+def set_dict(parameters):
+    globals_dict = vars(parameters)
+    new_dict = {}
+    for k, v in globals_dict.items():
+        if not k.startswith('__'):
+            new_dict[k] = v
+    return new_dict

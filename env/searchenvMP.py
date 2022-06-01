@@ -78,7 +78,10 @@ class SearchEnvMP(SearchEnv):
     '''
     def __init__(self, params_dict):
         super().__init__(params_dict)
-        self.mp_graph_file_name = os.getcwd()+ '/env/'+params_dict['graph_file_name']
+        if 'home_dir' not in params_dict.keys():
+            self.mp_graph_file_name = os.getcwd()+ '/env/'+params_dict['graph_file_name']
+        else:
+            self.mp_graph_file_name = params_dict['home_dir'] + '/env/' + params_dict['graph_file_name']
         self.load_graph()
         self.spatial_dim = self.mp_graph.num_dims
 
@@ -142,6 +145,7 @@ class SearchEnvMP(SearchEnv):
         obs = []
         agents_actions = []
         valids = []
+        position = []
         for j in range(self.numAgents):
             if OBSERVER == 'TILED':
                 obs.append(self.get_obs_tiled(agentID=j))
@@ -153,14 +157,18 @@ class SearchEnvMP(SearchEnv):
                 obs.append(self.get_obs_ranged_wobs(agentID=j))
             elif OBSERVER == 'RANGEwOBSwPENC':
                 obs.append(self.get_obs_ranged_wobspenc(agentID=j))
+            elif OBSERVER == 'RANGE_wOBS_ENCSTACK':
+                obs.append(self.get_obs_range_wobspencstack(agentID=j))
             coeffs,valid = self.get_mps(j)
             agents_actions.append(coeffs)
             valids.append(valid)
-
+            position.append(self.agents[j].pos)
         obs_dict = dict()
         obs_dict['obs'] = obs
         obs_dict['mps'] = np.array(agents_actions)
         obs_dict['valids'] = np.array(valids)
+        obs_dict['position'] = np.array(position)
+
         return obs_dict
 
 
@@ -225,7 +233,8 @@ class SearchEnvMP(SearchEnv):
                 self.worldMap[state[0], state[1]] = 0
             reward -= cost/10000
         elif visited_states is not None:
-            reward += REWARD.COLLISION.value*visited_states.shape[0]
+            #reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
+            reward += REWARD.COLLISION.value*2
         else:
             reward += REWARD.COLLISION.value*3
 

@@ -118,8 +118,11 @@ class Worker:
 
         if JOB_TYPE==JOB_TYPES.getGradient:
             metrics = self.compute_grads(train_buffer=self.train_buffer)
+            self.episode_data = {'Losses': metrics, 'Perf': {'Reward': episode_reward, 'Control Cost': control_cost,
+                                                             'Length': episode_step}}
         else:
-            pass
-        self.episode_data = {'Losses':metrics,'Perf':{'Reward':episode_reward,'Control Cost':control_cost, 'Length':episode_step}}
+            self.episode_data = {'Perf': {'Reward': episode_reward, 'Control Cost': control_cost,
+                                                             'Length': episode_step}}
+
         return
 

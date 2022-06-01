@@ -32,7 +32,7 @@ class Runner(object):
         if JOB_TYPE==JOB_TYPES.getGradient:
             jobResults.append(self.worker.gradient)
         else:
-            jobResults.append(self.worker.train_buffer)
+            jobResults.append([self.worker.train_buffer])
         return jobResults,self.worker.episode_data
 
     def multiThreadedJob(self):

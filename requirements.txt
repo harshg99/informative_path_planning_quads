@@ -12,6 +12,7 @@ imageio
 matplotlib
 GPy
 tensorboardX
+cmaes==0.8.2
 
 #####Install motion primitives from https://github.com/ljarin/motion_primitives ######'
 ##

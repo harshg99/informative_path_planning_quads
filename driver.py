@@ -16,6 +16,7 @@ from tensorboardX import SummaryWriter
 from models.model_setter import model_setter
 from env.env_setter import env_setter
 
+
 def apply_gradients(global_model, gradients,device):
     global_model.optim.zero_grad()
     for g, global_param in zip(gradients, global_model.parameters()):
@@ -25,6 +26,10 @@ def apply_gradients(global_model, gradients,device):
             global_param._grad = g
     global_model.optim.step()
 
+def compute_ppo_grads(global_model,train_buffer):
+    train_buffer_adv = global_model.get_advantages(train_buffer)
+    metric,gradients = global_model.backward(train_buffer_adv)
+    return metric,gradients
 
 def init_ray():
     ray.init(num_gpus=int(GPU))
@@ -66,7 +71,10 @@ if __name__=='__main__':
     tensorboard_writer = Utilities.Tensorboard(global_summary)
     weights = global_model.state_dict()
     joblist,curr_episode = init_jobs(meta_agents,weights,curr_episode)
-    neptune_run = Utilities.setup_neptune()
+
+    import params as parameters
+    params = Utilities.set_dict(parameters)
+    neptune_run = Utilities.setup_neptune(params)
     reinit_count = 0
     returns, best_return = [], -9999
 
@@ -77,11 +85,16 @@ if __name__=='__main__':
 
             jobResults, metrics, info,exp = ray.get(id)[0]
 
-            tensorboard_writer.update(metrics, curr_episode, neptune_run)
+
 
             if JOB_TYPE == JOB_TYPES.getGradient:
                 # apply gradient on the global network
                 for gradients in jobResults[0]:
+                    apply_gradients(global_model, gradients, device)
+            elif JOB_TYPE == JOB_TYPES.getExperience:
+                # apply gradient on the global network
+                for train_buffer in jobResults[0]:
+                    metrics['Losses'],gradients = compute_ppo_grads(global_model,train_buffer)
                     apply_gradients(global_model, gradients, device)
 
             if global_model.scheduler:
@@ -91,6 +104,7 @@ if __name__=='__main__':
             else:
                 pass
 
+            tensorboard_writer.update(metrics, curr_episode, neptune_run)
                 # get the updated weights from the global network
             weights = global_model.state_dict()
             if reinit_count > RAY_RESET_EPS:

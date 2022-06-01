@@ -6,6 +6,9 @@ DISCOUNT = 0.9
 LR = 1e-3
 DECAY = 1/MAX_EPISODES
 
+#PPO params
+PPO = True
+eps = 0.2
 
 class JOB_TYPES:
     getExperience      = 1
@@ -19,8 +22,13 @@ class GRADIENT_OPTIONS:
     episodic = 0
     batches = 4
 
+
 JOB_TYPE = JOB_TYPES.getGradient
 TRAINING_TYPE = TRAINING_OPTIONS.singleThreaded
+
+if PPO:
+    JOB_TYPE = JOB_TYPES.getExperience
+    TRAINING_TYPE = TRAINING_OPTIONS.singleThreaded
 
 GRADIENT_TYPE = GRADIENT_OPTIONS.batches
 
@@ -36,7 +44,7 @@ RAY_RESET_EPS = 1000
 SPAWN_RANDOM_AGENTS = True
 SET_SEED = False # Sets seed to ensure similar form of training
 SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawned deterministically
-ENV_TYPE = 'MotionPrim' # Motion Prim or Discrete
+ENV_TYPE = 'MotionPrim' # MotionPrim or Discrete
 
 #MODEL TYPE
 MODEL_TYPE = 'ActorCritic4'#TransformerAC,ActorCritic3
@@ -46,7 +54,7 @@ if MODEL_TYPE =='ActorCritic' or MODEL_TYPE!='ActorCrtic2':
     COMPUTE_VALIDS = False
 
 #Logging Params
-MODEL_NAME = 'MPAC_vTrans'
+MODEL_NAME = 'MPAC_vTrans_PPO'
 DESCRIPTION = 'MP_RangewObs_validloss'
 TRAIN_PATH = 'data/train/'+MODEL_NAME+'_'+DESCRIPTION
 MODEL_PATH = 'data/models/'+MODEL_NAME+'_'+DESCRIPTION
@@ -62,3 +70,6 @@ NEPTUNE_API_TOKEN      = "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLC
 # Observation Type
 OBSERVER = 'RANGEwOBSwPENC' # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS,RANGEwOBSwPENC
 RANGE = 15
+
+# Test directory
+MAP_TEST_DIR = 'tests/maps/'

@@ -6,7 +6,7 @@ import Utilities
 
 
 class Vanilla(nn.Module):
-    def __init__(self,input_size,action_size,params_dict):
+    def __init__(self,input_size,action_size,params_dict,PPO=False):
         super(Vanilla,self).__init__()
 
     # Implement these functions according to various model requirements
