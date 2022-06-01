@@ -383,7 +383,7 @@ class SearchEnv(gym.Env):
         max_y = np.min([c + RANGE,self.worldMap.shape[1]])
 
         infomap_feature = np.zeros((2 * RANGE, 2 * RANGE))
-        obsmap_feature = np.zeros((2 * RANGE, 2 * RANGE))
+        obsmap_feature = np.ones((2 * RANGE, 2 * RANGE))
         infomap_feature[min_x - (r - RANGE):2 * RANGE - (r + RANGE - max_x), \
         min_y - (c - RANGE):2 * RANGE - (c + RANGE - max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
 
@@ -404,7 +404,7 @@ class SearchEnv(gym.Env):
         max_y = np.min([c + RANGE,self.worldMap.shape[1]])
 
         infomap_feature = np.zeros((2*RANGE,2*RANGE))
-        obsmap_feature = np.zeros((2 * RANGE, 2 * RANGE))
+        obsmap_feature = np.ones((2 * RANGE, 2 * RANGE))
         infomap_feature[min_x-(r-RANGE):2*RANGE - (r+RANGE-max_x),\
                         min_y-(c-RANGE):2*RANGE - (c+RANGE-max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
 

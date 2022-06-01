@@ -103,12 +103,13 @@ class ActorCritic(Vanilla):
 
         responsible_outputs = policy.gather(-1, a_batch)
         old_responsible_outputs = old_policy.gather(-1,a_batch)
-        ratio = responsible_outputs/old_responsible_outputs
+        ratio = torch.log(torch.clamp(responsible_outputs, 1e-10, 1)) \
+                - torch.log(torch.clamp(old_responsible_outputs, 1e-10, 1))
 
         v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
         e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
 
-        p_l = -self.params_dict['policy_weight'] * torch.minimum(
+        p_l = self.params_dict['policy_weight'] * torch.minimum(
         ratio.squeeze() * advantages.squeeze(),
         torch.clamp(ratio.squeeze(),1+self.args_dict['eps'],1-self.args_dict['eps'])*advantages.squeeze())
 
@@ -228,7 +229,8 @@ class ActorCritic3(ActorCritic2):
 
         responsible_outputs = policy.gather(-1, a_batch)
         old_responsible_outputs = old_policy.gather(-1,a_batch)
-        ratio = responsible_outputs/old_responsible_outputs
+        ratio = torch.log(torch.clamp(responsible_outputs,1e-10,1)) \
+                - torch.log(torch.clamp(old_responsible_outputs,1e-10,1))
 
         v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
         e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
