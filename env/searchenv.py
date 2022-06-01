@@ -377,18 +377,23 @@ class SearchEnv(gym.Env):
     def get_obs_ranged_wobs(self,agentID):
         r = self.agents[agentID].pos[0]
         c = self.agents[agentID].pos[1]
-        min_x = np.max(r - RANGE,0)
-        min_y = np.max(c - RANGE,0)
-        max_x = np.min(r + RANGE,self.worldMap.shape[0])
-        max_y = np.min(c + RANGE,self.worldMap.shape[1])
+        min_x = np.max([r - RANGE,0])
+        min_y = np.max([c - RANGE,0])
+        max_x = np.min([r + RANGE,self.worldMap.shape[0]])
+        max_y = np.min([c + RANGE,self.worldMap.shape[1]])
 
-        infomap_feature = np.zeros((2*RANGE,2*RANGE))
-        infomap_feature[min_x-(r-RANGE):2*RANGE - (r+RANGE-max_x),\
-                        min_y-(c-RANGE):2*RANGE - (c+RANGE-max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
-        features = [self.worldMap[min_x:max_x, min_y:max_y].reshape(-1).tolist()]
-        features.append(self.obstacle_map[min_x:max_x,min_y:max_y].reshape(-1).tolist())
+        infomap_feature = np.zeros((2 * RANGE, 2 * RANGE))
+        obsmap_feature = np.zeros((2 * RANGE, 2 * RANGE))
+        infomap_feature[min_x - (r - RANGE):2 * RANGE - (r + RANGE - max_x), \
+        min_y - (c - RANGE):2 * RANGE - (c + RANGE - max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
+
+        obsmap_feature[min_x - (r - RANGE):2 * RANGE - (r + RANGE - max_x), \
+        min_y - (c - RANGE):2 * RANGE - (c + RANGE - max_y)] = self.obstacle_map[min_x:max_x, min_y:max_y]
+
+        features = np.expand_dims(infomap_feature.reshape(-1), axis=-1)
+        features = np.concatenate((features, np.expand_dims(obsmap_feature.reshape(-1), axis=-1)), axis=-1)
         #print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
-        return infomap_feature.reshape(-1)
+        return np.array(features).reshape(-1)
 
     def get_obs_ranged_wobspenc(self,agentID):
         r = self.agents[agentID].pos[0]
