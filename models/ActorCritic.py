@@ -110,9 +110,9 @@ class ActorCritic(Vanilla):
         v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
         e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
 
-        p_l = self.params_dict['policy_weight'] * torch.minimum(
+        p_l = - self.params_dict['policy_weight'] * torch.minimum(
         ratio.squeeze() * advantages.squeeze(),
-        torch.clamp(ratio.squeeze(),1+self.args_dict['eps'],1-self.args_dict['eps'])*advantages.squeeze())
+        torch.clamp(ratio.squeeze(),1-self.args_dict['eps'],1+self.args_dict['eps'])*advantages.squeeze())
 
         return v_l,p_l,e_l
 
@@ -238,9 +238,9 @@ class ActorCritic3(ActorCritic2):
         v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
         e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
 
-        p_l = self.params_dict['policy_weight'] * torch.minimum(
+        p_l = -self.params_dict['policy_weight'] * torch.minimum(
         ratio.squeeze() * advantages.squeeze(),
-        torch.clamp(ratio.squeeze(),1+self.args_dict['eps'],1-self.args_dict['eps'])*advantages.squeeze())
+        torch.clamp(ratio.squeeze(),1-self.args_dict['eps'],1+self.args_dict['eps'])*advantages.squeeze())
 
         valids = torch.tensor(np.array(valids),dtype=torch.float32)
         valids_net = self.compute_valids(obs)
