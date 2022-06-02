@@ -99,7 +99,7 @@ class ActorCritic(Vanilla):
         target_v = torch.tensor(target_v, dtype=torch.float32)
         a_batch = torch.tensor(a_batch, dtype=torch.int64)
         advantages = torch.tensor(advantages, dtype=torch.float32)
-        #advantages = (advantages - advantages.mean(axis=-1))/(advantages.std(axis=-1)+1e-8)
+        advantages = (advantages - advantages.mean(axis=-1))/(advantages.std(axis=-1)+1e-8)
         old_policy = torch.tensor(old_policy,dtype=torch.float32)
 
         responsible_outputs = policy.gather(-1, a_batch)
@@ -226,7 +226,7 @@ class ActorCritic3(ActorCritic2):
         target_v = torch.tensor(target_v, dtype=torch.float32)
         a_batch = torch.tensor(a_batch, dtype=torch.int64)
         advantages = torch.tensor(advantages, dtype=torch.float32)
-        #advantages = (advantages - advantages.mean(axis=-1)) / (advantages.std(axis=-1) + 1e-8)
+        advantages = (advantages - advantages.mean(axis=-1)) / (advantages.std(axis=-1) + 1e-8)
 
         old_policy = torch.tensor(old_policy.squeeze(),dtype=torch.float32)
 
