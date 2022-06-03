@@ -15,7 +15,7 @@ from env.searchenv import *
 from tensorboardX import SummaryWriter
 from models.model_setter import model_setter
 from env.env_setter import env_setter
-
+from copy import deepcopy
 
 def apply_gradients(global_model, gradients,device):
     global_model.optim.zero_grad()
@@ -29,7 +29,7 @@ def apply_gradients(global_model, gradients,device):
 def compute_ppo_grads(global_model,train_buffer):
     train_buffer_adv = global_model.get_advantages(train_buffer)
     metric,gradients = global_model.backward(train_buffer_adv)
-    return metric,gradients
+    return metric,deepcopy(gradients)
 
 def init_ray():
     ray.init(num_gpus=int(GPU))

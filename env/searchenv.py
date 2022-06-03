@@ -82,18 +82,26 @@ class SearchEnv(gym.Env):
         self.agentMap = None
         self.obstacle_map = None
 
+        # Multiple Reward Map Size choices
+        self.reward_map_size_list = params_dict['rewardMapSizeList']
+        self.random_map_size = params_dict['randomMapSize']
+
+        if self.random_map_size:
+            self.reward_map_size = np.random.choice(self.reward_map_size_list)
+        else:
+            self.reward_map_size = self.reward_map_size_list[params_dict['defaultMapChoice']]
+
+
         # Parameters to create training maps
         self.centers = params_dict['num_centers']
         self.max_var = params_dict['max_var']
         self.min_var = params_dict['min_var']
-        self.reward_map_size = params_dict['rewardMapSize']
-        mapSize = params_dict['mapSize']
-        self.pad_size = int(0.5*(mapSize - self.reward_map_size))  # TODO clean up these
-        self.world_map_size = self.reward_map_size + 2 * (self.pad_size)
-        self.curr_r_map_size = self.reward_map_size + self.pad_size
-        self.curr_r_pad = (self.curr_r_map_size - 1) / 2
+        self.pad_size = params_dict['pad_size']
+        self.world_map_size = self.reward_map_size + 2*self.pad_size
+
         self.action_size = len(ACTIONS)
         self.episode_length = params_dict['episode_length']
+
 
         if SET_SEED:
             self.seed = params_dict['seed']
@@ -253,6 +261,9 @@ class SearchEnv(gym.Env):
     resets the world for a new reward map and new training epoch
     '''
     def reset(self, state=None):
+        if state is not None:
+            self.reward_map_size = state.shape[0]
+            self.world_map_size =2*self.pad_size+self.reward_map_size
         self.createWorld(rewardMap=state)
 
     def step_all(self,action_dict):
