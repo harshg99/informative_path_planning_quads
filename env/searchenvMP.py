@@ -27,6 +27,7 @@ class AgentMP():
         self.lookup = lookup
         self.index = 0
         self.spatial_dim = spatial_dim
+        self.prev_action = 0
 
     def updateMap(self,worldMap):
         self.worldMap= worldMap
@@ -48,6 +49,7 @@ class AgentMP():
                 self.visited_states = visited_states
                 return is_valid, visited_states, mp.cost / mp.subclass_specific_data.get('rho', 1) / 10
             return False,visited_states,None
+        self.prev_action = action
         return False,None, None
 
     def isValidMP(self,mp):
@@ -146,6 +148,7 @@ class SearchEnvMP(SearchEnv):
         agents_actions = []
         valids = []
         position = []
+        previous_actions = []
         for j in range(self.numAgents):
             if OBSERVER == 'TILED':
                 obs.append(self.get_obs_tiled(agentID=j))
@@ -157,17 +160,19 @@ class SearchEnvMP(SearchEnv):
                 obs.append(self.get_obs_ranged_wobs(agentID=j))
             elif OBSERVER == 'RANGEwOBSwPENC':
                 obs.append(self.get_obs_ranged_wobspenc(agentID=j))
-            elif OBSERVER == 'RANGE_wOBS_ENCSTACK':
-                obs.append(self.get_obs_range_wobspencstack(agentID=j))
+            elif OBSERVER == 'RANGEwOBSwPENCwMULTI':
+                obs.append(self.get_obs_range_wobspenc_multi(agentID=j))
             coeffs,valid = self.get_mps(j)
             agents_actions.append(coeffs)
             valids.append(valid)
             position.append(self.agents[j].pos)
+            previous_actions.append(self.agents[j].prev_action)
         obs_dict = dict()
         obs_dict['obs'] = obs
         obs_dict['mps'] = np.array(agents_actions)
         obs_dict['valids'] = np.array(valids)
         obs_dict['position'] = np.array(position)
+        obs_dict['previous_actions'] = np.array(previous_actions)
 
         return obs_dict
 

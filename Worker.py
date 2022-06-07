@@ -37,6 +37,7 @@ class Worker:
         train_buffer = {}
         train_buffer['obs'] = []
         train_buffer['actions'] = []
+        train_buffer['prev_actions'] = []
         train_buffer['rewards'] = []
         train_buffer['next_obs'] = []
         train_buffer['values'] = []
@@ -64,6 +65,7 @@ class Worker:
             train_buffer['valids'].append(observation['valids'])
             observation = self.env.get_obs_all()
             train_buffer['next_obs'] = observation
+
 
             episode_step+=1
             episode_reward += np.array(rewards).sum()

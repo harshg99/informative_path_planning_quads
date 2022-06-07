@@ -6,7 +6,7 @@ import Utilities
 from models.Vanilla import Vanilla
 from torch.optim.lr_scheduler import ExponentialLR
 from models.subnets import *
-
+import torch.nn.functional as F
 class ActorCritic(Vanilla):
     def __init__(self,input_size,action_size,params_dict,args_dict):
         super(Vanilla,self).__init__()
@@ -181,19 +181,26 @@ class ActorCritic3(ActorCritic2):
     def __init__(self,input_size,action_size,params_dict,args_dict):
         super(ActorCritic2,self).__init__(input_size,action_size,params_dict,args_dict)
 
-    def compute_loss(self, train_buffer):
-        advantages = train_buffer['advantages']
-        target_v = train_buffer['discounted_rewards']
-        a_batch = np.array(train_buffer['actions'])
-
+    def compute_forward_buffer(self,obs_buffer):
         obs = []
         valids = []
-        for j in train_buffer['obs']:
+        for j in obs_buffer:
             obs.append(j['obs'])
             valids.append(j['valids'])
 
         obs = torch.tensor(np.array(obs).squeeze(axis=1), dtype=torch.float32)
         policy, value = self.forward(obs)
+        valids_net = self.compute_valids(obs)
+
+        return policy,value,valids,valids_net
+
+    def compute_loss(self, train_buffer):
+        advantages = train_buffer['advantages']
+        target_v = train_buffer['discounted_rewards']
+        a_batch = np.array(train_buffer['actions'])
+
+        policy,value,valids,valids_net = self.compute_forward_buffer(train_buffer['obs'])
+
         target_v = torch.tensor(target_v, dtype=torch.float32)
         a_batch = torch.tensor(a_batch, dtype=torch.int64)
         advantages = torch.tensor(advantages, dtype=torch.float32)
@@ -207,7 +214,7 @@ class ActorCritic3(ActorCritic2):
         torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
 
         valids = torch.tensor(np.array(valids),dtype=torch.float32)
-        valids_net = self.compute_valids(obs)
+
         valid_l = -self.params_dict['valids_weight'] * ((1 - valids) * torch.log(torch.clip(1 - valids_net, 1e-7, 1)) +\
                                                        valids*torch.log(torch.clip(valids_net, 1e-7, 1)))
         return v_l, p_l, e_l,valid_l
@@ -218,14 +225,7 @@ class ActorCritic3(ActorCritic2):
         a_batch = np.array(train_buffer['actions'])
         old_policy = np.array(train_buffer['policy'])
 
-        obs = []
-        valids = []
-        for j in train_buffer['obs']:
-            obs.append(j['obs'])
-            valids.append(j['valids'])
-
-        obs = torch.tensor(np.array(obs).squeeze(axis=1), dtype=torch.float32)
-        policy, value = self.forward(obs)
+        policy,value,valids,valids_net = self.compute_forward_buffer(train_buffer['obs'])
         target_v = torch.tensor(target_v, dtype=torch.float32)
         a_batch = torch.tensor(a_batch, dtype=torch.int64)
         advantages = torch.tensor(advantages, dtype=torch.float32)
@@ -247,7 +247,6 @@ class ActorCritic3(ActorCritic2):
         torch.clamp(ratio.squeeze(),1-self.args_dict['eps'],1+self.args_dict['eps'])*advantages.squeeze())
 
         valids = torch.tensor(np.array(valids),dtype=torch.float32)
-        valids_net = self.compute_valids(obs)
         #valid_l = self.params_dict['valids_weight']* (valids*torch.log(torch.clip(valids_net,1e-7,1))+ (1-valids)*torch.log(torch.clip(1 - valids_net,1e-7,1)))
         valid_l = -self.params_dict['valids_weight'] * ((1 - valids) * torch.log(torch.clip(1 - valids_net, 1e-7, 1)) +\
                                                        valids*torch.log(torch.clip(valids_net, 1e-7, 1)))
@@ -290,7 +289,7 @@ class ActorCritic3(ActorCritic2):
 
 class ActorCritic4(ActorCritic3):
     def __init__(self,input_size,action_size,params_dict,args_dict):
-        super(Vanilla,self).__init__()
+        super(ActorCritic3,self).__init__(input_size,action_size,params_dict,args_dict)
         self.hidden_sizes = params_dict['hidden_sizes']
         self.hidden_sizes1 = params_dict['hidden_sizes1']
         self.input_size = input_size
@@ -342,7 +341,7 @@ With positonal encoder
 '''
 class ActorCritic5(ActorCritic4):
     def __init__(self,input_size,action_size,params_dict,args_dict):
-        super(ActorCritic4,self).__init__(input_size,action_size,params_dict)
+        super(ActorCritic4,self).__init__(input_size,action_size,params_dict,args_dict)
         self.hidden_sizes = params_dict['hidden_sizes']
         self.hidden_sizes1 = params_dict['hidden_sizes1']
         self.pos_layer_size = params_dict['pos_layer_size']
@@ -352,7 +351,7 @@ class ActorCritic5(ActorCritic4):
         self.args_dict = args_dict
 
         self.position_layer = mlp_block(2,self.pos_layer_size[0],dropout=False,activation=nn.LeakyReLU)
-        for j in range(len(self.position_layer)):
+        for j in range(len(self.position_layer)-1):
             self.position_layer.extend(mlp_block(self.pos_layer_size[j],\
                                                       self.pos_layer_size[j+1],dropout=False,activation=nn.LeakyReLU))
         self.position_layer = nn.Sequential(*self.position_layer)
@@ -380,11 +379,11 @@ class ActorCritic5(ActorCritic4):
         self.scheduler = ExponentialLR(self.optim,gamma=params_dict['DECAY'])
 
     def forward_step(self, input):
-        input = input['obs']
+        obs = input['obs']
         pos = input['pos']
-        input = torch.tensor([input], dtype=torch.float32)
+        obs = torch.tensor([obs], dtype=torch.float32)
         pos = torch.tensor([pos],dtype=torch.float32)
-        return self.forward(input,pos)
+        return self.forward(obs,pos)
 
     def compute_valids(self,input,pos):
         input = self.layers1(input)
@@ -404,3 +403,111 @@ class ActorCritic5(ActorCritic4):
         input = torch.concat([input,pos],dim=-1)
         policy = self.policy_net(input)
         return self.softmax(policy),self.value_net(input)
+
+    def compute_forward_buffer(self, obs_buffer):
+        obs = []
+        valids = []
+        pos = []
+        for j in obs_buffer:
+            obs.append(j['obs'])
+            valids.append(j['valids'])
+            pos.append(j['position'])
+
+        obs = torch.tensor(np.array(obs).squeeze(axis=1), dtype=torch.float32)
+        policy, value = self.forward(obs,pos)
+        valids_net = self.compute_valids(obs,pos)
+
+        return policy, value, valids, valids_net
+
+'''
+With positonal encoder
+'''
+class ActorCritic6(ActorCritic5):
+    def __init__(self,input_size,action_size,params_dict,args_dict):
+        super(ActorCritic5,self).__init__(input_size,action_size,params_dict,args_dict)
+        self.hidden_sizes = params_dict['hidden_sizes']
+        self.hidden_sizes1 = params_dict['hidden_sizes1']
+        self.pos_layer_size = params_dict['pos_layer_size']
+        self.input_size = input_size
+        self.action_size = action_size
+        self.params_dict = params_dict
+        self.args_dict = args_dict
+
+
+        self.layers = nn.Sequential(*self.layers)
+        self.position_layer = mlp_block(2, self.pos_layer_size[0], dropout=False, activation=nn.LeakyReLU)
+        for j in range(len(self.position_layer)-1):
+            self.position_layer.extend(mlp_block(self.pos_layer_size[j], \
+                                                 self.pos_layer_size[j + 1], dropout=False, activation=nn.LeakyReLU))
+        self.position_layer = nn.Sequential(*self.position_layer)
+
+        self.policy_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] +self.action_size, \
+                                                 self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        for j in range(2):
+            self.policy_layers.extend(mlp_block(self.hidden_sizes[-1],\
+                                                     self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
+
+        self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size)])
+        self.policy_net = nn.Sequential(*self.policy_layers)
+        self.softmax = nn.Softmax(dim=-1)
+        self.sigmoid = nn.Sigmoid()
+
+        self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1]+self.action_size, \
+                                                self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        for j in range(2):
+            self.value_layers.extend(mlp_block(self.hidden_sizes[-1],\
+                                                    self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
+        self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], 1)])
+        self.value_net = nn.Sequential(*self.value_layers)
+
+        self.optim = torch.optim.Adam(self.parameters(),lr=params_dict['LR'],betas=(0.9,0.99))
+        self.scheduler = ExponentialLR(self.optim,gamma=params_dict['DECAY'])
+
+    def forward_step(self, input):
+        obs = input['obs']
+        pos = input['position']
+        previous_actions = input['previous_actions']
+        obs = torch.tensor([obs], dtype=torch.float32)
+        pos = torch.tensor([pos],dtype=torch.float32)
+        prev_a = F.one_hot(torch.tensor([previous_actions]),num_classes = self.action_size)
+        return self.forward(obs,pos,prev_a)
+
+    def compute_valids(self,input,pos,prev_a):
+        input = self.layers1(input)
+        pos = self.position_layer(pos)
+        input = torch.flatten(input,start_dim=-2,end_dim=-1)
+        input = self.layers(input)
+        input = torch.concat([input,pos,prev_a],dim=-1)
+        policy = self.policy_net(input)
+        return self.sigmoid(policy)
+
+    def forward(self,input,pos,prev_a):
+        #print(input.shape)
+        input = self.layers1(input)
+        pos = self.position_layer(pos)
+        input = torch.flatten(input,start_dim=-2,end_dim=-1)
+        input = self.layers(input)
+        input = torch.concat([input,pos,prev_a],dim=-1)
+        policy = self.policy_net(input)
+        return self.softmax(policy),self.value_net(input)
+
+    def compute_forward_buffer(self, obs_buffer):
+        obs = []
+        valids = []
+        pos = []
+        prev_action = []
+
+        for j in obs_buffer:
+            obs.append(j['obs'])
+            valids.append(j['valids'])
+            pos.append(j['position'])
+            prev_action.append(j['previous_actions'])
+
+        obs = torch.tensor(np.array(obs).squeeze(axis=1), dtype=torch.float32)
+        pos = torch.tensor(np.array(pos).squeeze(axis=1), dtype=torch.float32)
+        prev_action = F.one_hot(torch.tensor(np.array(prev_action).squeeze(axis =1), dtype=torch.int64),\
+                                num_classes =self.action_size)
+        policy, value = self.forward(obs,pos,prev_action)
+        valids_net = self.compute_valids(obs,pos,prev_action)
+
+        return policy, value, valids, valids_net

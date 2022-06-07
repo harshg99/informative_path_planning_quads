@@ -42,6 +42,7 @@ class Agent():
         self.pad = pad
         self.world_size = world_size
         self.worldMap = None
+        self.prev_action = 0
 
 
     def updateMap(self,worldMap):
@@ -52,6 +53,7 @@ class Agent():
         is_action_valid = self.isValidPos(next_pos)
         if is_action_valid:
             self.pos = next_pos
+        self.prev_action =  action
         return is_action_valid
 
     def isValidPos(self, pos):
@@ -119,7 +121,6 @@ class SearchEnv(gym.Env):
             self.input_size = [8*(RANGE+1)*(RANGE+1)]
         elif OBSERVER == 'RANGEwOBSwPENC':
             self.input_size = [4*RANGE*RANGE,4]
-
     '''
     Adds a Gaussian
     '''
@@ -434,7 +435,7 @@ class SearchEnv(gym.Env):
         return np.array(features)
 
 
-    def get_obs_range_wobspencstack(self,agentID):
+    def get_obs_range_wobspenc_multi(self,agentID):
         r = self.agents[agentID].pos[0]
         c = self.agents[agentID].pos[1]
         min_x = np.max([r - RANGE, 0])

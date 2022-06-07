@@ -27,6 +27,10 @@ class model_setter:
             import model_params.ActorCritic5 as parameters
             model_params_dict = model_setter.set_dict(parameters)
             return ActorCritic5(input_size, action_size, model_params_dict,args_dict)
+        elif type == 'ActorCritic6':
+            import model_params.ActorCritic6 as parameters
+            model_params_dict = model_setter.set_dict(parameters)
+            return ActorCritic6(input_size, action_size, model_params_dict,args_dict)
         elif type == 'TransformerAC':
             from models.Transformer import TransformerAC
             import model_params.Transformer as parameters

@@ -7,7 +7,7 @@ LR = 1e-3
 DECAY = 1/MAX_EPISODES
 
 #PPO params
-PPO = True
+PPO = False
 eps = 0.2
 
 class JOB_TYPES:
@@ -47,7 +47,7 @@ SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawne
 ENV_TYPE = 'MotionPrim' # MotionPrim or Discrete
 
 #MODEL TYPE
-MODEL_TYPE = 'ActorCritic4'#TransformerAC,ActorCritic3
+MODEL_TYPE = 'ActorCritic6'#TransformerAC,ActorCritic3
 COMPUTE_VALIDS = True # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
 
 if MODEL_TYPE =='ActorCritic' or MODEL_TYPE!='ActorCrtic2':
@@ -62,7 +62,7 @@ GIFS_PATH = 'data/gifs/'+MODEL_NAME+'_'+DESCRIPTION
 LOAD_MODEL = False
 SUMMARY_WINDOW = 10
 
-NEPTUNE = True
+NEPTUNE = False
 NEPTUNE_RUN = None
 neptune_project        = "harshg99/SearchKR" # USER-ID
 NEPTUNE_API_TOKEN      = "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOTI4NjE0Yi00ZjNmLTQ5NjktOTdhNy04YTk3ZGQyZTg1MDIifQ=="
