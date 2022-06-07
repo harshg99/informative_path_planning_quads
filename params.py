@@ -54,8 +54,8 @@ if MODEL_TYPE =='ActorCritic' or MODEL_TYPE!='ActorCrtic2':
     COMPUTE_VALIDS = False
 
 #Logging Params
-MODEL_NAME = 'MPAC_vTrans_PPO'
-DESCRIPTION = 'MP_RangewObs_validloss'
+MODEL_NAME = 'MPAC6_PPO'
+DESCRIPTION = 'MP_Range_wPosencObs_PosAct'
 TRAIN_PATH = 'data/train/'+MODEL_NAME+'_'+DESCRIPTION
 MODEL_PATH = 'data/models/'+MODEL_NAME+'_'+DESCRIPTION
 GIFS_PATH = 'data/gifs/'+MODEL_NAME+'_'+DESCRIPTION
