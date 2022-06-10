@@ -94,6 +94,7 @@ class AC:
         train_metrics = {'Value Loss': v_l.sum().cpu().detach().numpy().item()/episode_length,
                          'Policy Loss': p_l.sum().cpu().detach().numpy().item()/episode_length,
                          'Entropy Loss': e_l.sum().cpu().detach().numpy().item()/episode_length,
+                         'Valid Loss': valid_l.sum().cpu().detach().numpy().item() / episode_length,
                          'Grad Norm': g_n, 'Var Norm': v_n}
         return train_metrics, gradient
 

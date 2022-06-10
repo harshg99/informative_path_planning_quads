@@ -90,8 +90,8 @@ class Model2(Model1):
                                               self.hidden_sizes,self.input_size)
 
         self.policy_layers = mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
-        for j in range(2):
-            self.policy_layers.extend(mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
+        # for j in range(2):
+        #     self.policy_layers.extend(mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
 
         self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size)])
         self.policy_net = nn.Sequential(*self.policy_layers)
@@ -99,8 +99,8 @@ class Model2(Model1):
         self.sigmoid = nn.Sigmoid()
 
         self.value_layers = mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU)
-        for j in range(2):
-            self.value_layers.extend(mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
+        # for j in range(2):
+        #     self.value_layers.extend(mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
         self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], 1)])
         self.value_net = nn.Sequential(*self.value_layers)
 
@@ -162,9 +162,9 @@ class Model3(Model2):
         self.position_layer = nn.Sequential(*self.position_layer)
         self.policy_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1], \
                                                  self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
-        for j in range(2):
-            self.policy_layers.extend(mlp_block(self.hidden_sizes[-1],\
-                                                     self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
+        # for j in range(2):
+        #     self.policy_layers.extend(mlp_block(self.hidden_sizes[-1],\
+        #                                              self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
 
         self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size)])
         self.policy_net = nn.Sequential(*self.policy_layers)
@@ -173,9 +173,9 @@ class Model3(Model2):
 
         self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1], \
                                                 self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
-        for j in range(2):
-            self.value_layers.extend(mlp_block(self.hidden_sizes[-1],\
-                                                    self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
+        # for j in range(2):
+        #     self.value_layers.extend(mlp_block(self.hidden_sizes[-1],\
+        #                                             self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
         self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], 1)])
         self.value_net = nn.Sequential(*self.value_layers)
 
@@ -242,9 +242,9 @@ class Model4(Model3):
 
         self.policy_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] +self.action_size, \
                                                  self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
-        for j in range(2):
-            self.policy_layers.extend(mlp_block(self.hidden_sizes[-1],\
-                                                     self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
+        # for j in range(2):
+        #     self.policy_layers.extend(mlp_block(self.hidden_sizes[-1],\
+        #                                              self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
 
         self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size)])
         self.policy_net = nn.Sequential(*self.policy_layers)
@@ -253,9 +253,9 @@ class Model4(Model3):
 
         self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1]+self.action_size, \
                                                 self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
-        for j in range(2):
-            self.value_layers.extend(mlp_block(self.hidden_sizes[-1],\
-                                                    self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
+        # for j in range(2):
+        #     self.value_layers.extend(mlp_block(self.hidden_sizes[-1],\
+        #                                             self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
         self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], 1)])
         self.value_net = nn.Sequential(*self.value_layers)
 
