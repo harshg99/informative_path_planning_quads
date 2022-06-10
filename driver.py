@@ -115,7 +115,7 @@ if __name__=='__main__':
                     print('REINITIALIZING RAY')
                     ray.shutdown()
                     ray.init(num_gpus=int(GPU))
-                    meta_agents = [Runner.remote(i) for i in range(NUM_META_AGENTS)]
+                    meta_agents = [Runner.remote(i,params) for i in range(NUM_META_AGENTS)]
                     reinitialize = True
                 else:
                     reinitialize = False

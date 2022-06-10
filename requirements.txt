@@ -13,6 +13,6 @@ matplotlib
 GPy
 tensorboardX
 cmaes==0.8.2
-skimage
+scikit-image
 #####Install motion primitives from https://github.com/ljarin/motion_primitives ######'
 ##
