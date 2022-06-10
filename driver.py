@@ -14,12 +14,14 @@ from models.Vanilla import Vanilla
 from env.searchenv import *
 from tensorboardX import SummaryWriter
 from models.model_setter import model_setter
+from models.alg_setter import alg_setter
+
 from env.env_setter import env_setter
 from copy import deepcopy
 
 def apply_gradients(global_model, gradients,device):
     global_model.optim.zero_grad()
-    for g, global_param in zip(gradients, global_model.parameters()):
+    for g, global_param in zip(gradients, global_model._model.parameters()):
         if g.device is not device:
             global_param._grad = g.cpu()
         else:
@@ -44,8 +46,12 @@ def init_jobs(agents, weights, curr_episode):
 
 if __name__=='__main__':
     # Creating the global model
-    dummy_env = env_setter.set_env(ENV_TYPE)
-    global_model = model_setter.set_model(dummy_env.input_size, dummy_env.action_size,MODEL_TYPE)
+    import params as parameters
+    params = Utilities.set_dict(parameters)
+    neptune_run = Utilities.setup_neptune(params)
+
+    dummy_env = env_setter.set_env(params['ENV_TYPE'])
+    global_model = alg_setter.set_model(dummy_env.input_size, dummy_env.action_size,params)
     init_ray()
     global_model.share_memory()
     global_summary = SummaryWriter(TRAIN_PATH)
@@ -66,15 +72,12 @@ if __name__=='__main__':
         curr_episode = checkpoint['epoch']
         print('Model results at Episode: {}'.format(curr_episode))
 
-    meta_agents = [Runner.remote(i)
+    meta_agents = [Runner.remote(i,params)
                    for i in range(NUM_META_AGENTS)]
     tensorboard_writer = Utilities.Tensorboard(global_summary)
     weights = global_model.state_dict()
     joblist,curr_episode = init_jobs(meta_agents,weights,curr_episode)
 
-    import params as parameters
-    params = Utilities.set_dict(parameters)
-    neptune_run = Utilities.setup_neptune(params)
     reinit_count = 0
     returns, best_return = [], -9999
 

@@ -8,7 +8,7 @@ import math
 import matplotlib.pyplot as plt
 import GPy
 from params import *
-
+from skimage.measure import block_reduce
 '''
 Reward Class
 '''
@@ -99,6 +99,7 @@ class SearchEnv(gym.Env):
         self.max_var = params_dict['max_var']
         self.min_var = params_dict['min_var']
         self.pad_size = params_dict['pad_size']
+        self.scale = params_dict['scale']
         self.world_map_size = self.reward_map_size + 2*self.pad_size
 
         self.action_size = len(ACTIONS)
@@ -110,17 +111,20 @@ class SearchEnv(gym.Env):
         self.viewer = None
 
         if OBSERVER == 'RANGE':
-            self.input_size = [4*RANGE*RANGE]
+            self.input_size = [2*RANGE,2*RANGE,1]
         elif OBSERVER =='TILED':
-            self.input_size = [24]
+            self.input_size = [24,1,1]
         elif OBSERVER == 'TILEDwOBS':
-            self.input_size = [48]
+            self.input_size = [48,1,1]
         elif OBSERVER == 'RANGEwOBS':
-            self.input_size = [8*RANGE*RANGE]
+            self.input_size = [2*RANGE,2*RANGE,2]
         elif OBSERVER == 'RANGEwOBSwNEIGH':
-            self.input_size = [8*(RANGE+1)*(RANGE+1)]
+            self.input_size = [2*(RANGE+1),2*(RANGE+1),2]
         elif OBSERVER == 'RANGEwOBSwPENC':
-            self.input_size = [4*RANGE*RANGE,4]
+            self.input_size = [2*RANGE,2*RANGE,4]
+        elif OBSERVER == 'RANGEwOBSwMULTI':
+            self.input_size = [2*RANGE, 2*RANGE, len(self.scale)*2]
+
     '''
     Adds a Gaussian
     '''
@@ -331,6 +335,7 @@ class SearchEnv(gym.Env):
                     phi_prime.append(self.phi_from_map_coords(i, j,map=self.obstacle_map))
 
         phi_prime = np.squeeze(np.array([phi_prime]))
+        phi_prime = np.expand_dims(np.expand_dims(phi_prime, axis=-1), axis=-1)
         return phi_prime
 
     def get_obs_tiled(self, agentID):
@@ -351,6 +356,7 @@ class SearchEnv(gym.Env):
                     phi_prime.append(self.phi_from_map_coords_max(i, j))
 
         phi_prime = np.squeeze(np.array([phi_prime]))
+        phi_prime = np.expand_dims(np.expand_dims(phi_prime,axis=-1),axis=-1)
         return phi_prime
 
     def get_obs_all(self):
@@ -382,8 +388,11 @@ class SearchEnv(gym.Env):
         infomap_feature = np.zeros((2*RANGE,2*RANGE))
         infomap_feature[min_x-(r-RANGE):2*RANGE - (r+RANGE-max_x),\
                         min_y-(c-RANGE):2*RANGE - (c+RANGE-max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
-        print("%d %d %d %d".format(min_x,min_y,max_x,max_y))
-        return infomap_feature.reshape(-1)
+        #print("%d %d %d %d".format(min_x,min_y,max_x,max_y))
+
+        infomap_feature = np.expand_dims(infomap_feature,axis=-1)
+
+        return infomap_feature
 
 
     def get_obs_ranged_wobs(self,agentID):
@@ -402,10 +411,10 @@ class SearchEnv(gym.Env):
         obsmap_feature[min_x - (r - RANGE):2 * RANGE - (r + RANGE - max_x), \
         min_y - (c - RANGE):2 * RANGE - (c + RANGE - max_y)] = self.obstacle_map[min_x:max_x, min_y:max_y]
 
-        features = np.expand_dims(infomap_feature.reshape(-1), axis=-1)
-        features = np.concatenate((features, np.expand_dims(obsmap_feature.reshape(-1), axis=-1)), axis=-1)
-        #print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
-        return np.array(features).reshape(-1)
+        features = np.expand_dims(infomap_feature, axis=-1)
+        features = np.concatenate((features, np.expand_dims(obsmap_feature, axis=-1)), axis=-1)
+
+        return np.array(features)
 
     def get_obs_ranged_wobspenc(self,agentID):
         r = self.agents[agentID].pos[0]
@@ -424,41 +433,45 @@ class SearchEnv(gym.Env):
                         min_y-(c-RANGE):2*RANGE - (c+RANGE-max_y)] = self.obstacle_map[min_x:max_x,min_y:max_y]
 
         penc_x = np.expand_dims(np.arange(start=0,stop=1,step=1/(2*RANGE))-0.5,axis=1)\
-            .repeat(repeats=2*RANGE,axis=1).reshape(-1)
+            .repeat(repeats=2*RANGE,axis=1)
         penc_y = np.expand_dims(np.arange(start=0, stop=1, step=1 / (2 * RANGE))-0.5, axis=0)\
-            .repeat(repeats=2 * RANGE,axis=0).reshape(-1)
+            .repeat(repeats=2 * RANGE,axis=0)
 
-        features = np.expand_dims(infomap_feature.reshape(-1),axis=-1)
-        features = np.concatenate((features,np.expand_dims(obsmap_feature.reshape(-1),axis=-1),\
+        features = np.expand_dims(infomap_feature,axis=-1)
+        features = np.concatenate((features,np.expand_dims(obsmap_feature,axis=-1),\
                          np.expand_dims(penc_x,axis=-1),np.expand_dims(penc_y,axis=-1)),axis=-1)
         #print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
         return np.array(features)
 
 
-    def get_obs_range_wobspenc_multi(self,agentID):
+    def get_obs_range_wobs_multi(self,agentID):
         r = self.agents[agentID].pos[0]
         c = self.agents[agentID].pos[1]
-        min_x = np.max([r - RANGE, 0])
-        min_y = np.max([c - RANGE, 0])
-        max_x = np.min([r + RANGE, self.worldMap.shape[0]])
-        max_y = np.min([c + RANGE, self.worldMap.shape[1]])
 
-        infomap_feature = np.zeros((2 * RANGE, 2 * RANGE))
-        obsmap_feature = np.zeros((2 * RANGE, 2 * RANGE))
-        infomap_feature[min_x - (r - RANGE):2 * RANGE - (r + RANGE - max_x), \
-        min_y - (c - RANGE):2 * RANGE - (c + RANGE - max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
+        range = RANGE
+        for s in self.scale:
+            range = s*RANGE
+            min_x = np.max([r - range, 0])
+            min_y = np.max([c - range, 0])
+            max_x = np.min([r + range, self.worldMap.shape[0]])
+            max_y = np.min([c + range, self.worldMap.shape[1]])
 
-        obsmap_feature[min_x - (r - RANGE):2 * RANGE - (r + RANGE - max_x), \
-        min_y - (c - RANGE):2 * RANGE - (c + RANGE - max_y)] = self.obstacle_map[min_x:max_x, min_y:max_y]
+            infomap_feature = np.zeros((2 * range, 2 * range))
+            obsmap_feature = np.zeros((2 * range, 2 * range))
+            infomap_feature[min_x - (r - range):2 * range - (r + range - max_x), \
+            min_y - (c - range):2 * range - (c + range - max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
 
-        penc_x = np.expand_dims(np.arange(start=0, stop=1, step=1 / (2 * RANGE)) - 0.5, axis=1) \
-            .repeat(repeats=2 * RANGE, axis=1).reshape(-1)
-        penc_y = np.expand_dims(np.arange(start=0, stop=1, step=1 / (2 * RANGE)) - 0.5, axis=0) \
-            .repeat(repeats=2 * RANGE, axis=0).reshape(-1)
+            obsmap_feature[min_x - (r - range):2 * range - (r + range - max_x), \
+            min_y - (c - range):2 * range - (c + range - max_y)] = self.obstacle_map[min_x:max_x, min_y:max_y]
 
-        features = np.expand_dims(infomap_feature.reshape(-1), axis=-1)
-        features = np.concatenate((features, np.expand_dims(obsmap_feature.reshape(-1), axis=-1), \
-                                   np.expand_dims(penc_x, axis=-1), np.expand_dims(penc_y, axis=-1)), axis=-1)
+            if s==1:
+                features = np.expand_dims(infomap_feature, axis=-1)
+                features = np.concatenate((features, np.expand_dims(obsmap_feature, axis=-1)), axis=-1)
+            else:
+                infomap_feature = block_reduce(infomap_feature,(s,s),np.max)
+                obsmap_feature = block_reduce(obsmap_feature,(s,s),np.max)
+                features = np.concatenate((features,np.expand_dims(infomap_feature, axis=-1)), axis=-1)
+                features = np.concatenate((features,np.expand_dims(obsmap_feature, axis=-1)), axis=-1)
         # print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
         return np.array(features)
 

@@ -160,12 +160,14 @@ class SearchEnvMP(SearchEnv):
                 obs.append(self.get_obs_ranged_wobs(agentID=j))
             elif OBSERVER == 'RANGEwOBSwPENC':
                 obs.append(self.get_obs_ranged_wobspenc(agentID=j))
-            elif OBSERVER == 'RANGEwOBSwPENCwMULTI':
-                obs.append(self.get_obs_range_wobspenc_multi(agentID=j))
+            elif OBSERVER == 'RANGEwOBSwMULTI':
+                obs.append(self.get_obs_range_wobs_multi(agentID=j))
+
             coeffs,valid = self.get_mps(j)
             agents_actions.append(coeffs)
             valids.append(valid)
-            position.append(self.agents[j].pos)
+            position.append([self.agents[j].pos[0]/self.reward_map_size,\
+                             self.agents[j].pos[1]/self.reward_map_size])
             previous_actions.append(self.agents[j].prev_action)
         obs_dict = dict()
         obs_dict['obs'] = obs

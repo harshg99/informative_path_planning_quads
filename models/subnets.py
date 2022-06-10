@@ -13,6 +13,77 @@ def mlp_block(hidden_size, out_size, dropout=True, droputProb=0.5, activation=No
         layers.append(nn.Dropout(p=droputProb))
     return layers
 
+def conv_block(kernel_size,in_channels,out_channels,stride,\
+               dropout=False,droputProb=0.5, activation=None, batchNorm=False):
+    if activation is None:
+        layers = [nn.Conv2d(in_channels,out_channels,kernel_size,stride,padding='same'),
+                  nn.Conv2d(in_channels,out_channels,kernel_size,stride,padding='same')]
+    else:
+        layers = [nn.Conv2d(in_channels,out_channels,kernel_size,stride,padding='same'),
+                  activation(),
+                  nn.Conv2d(in_channels,out_channels,kernel_size,stride,padding='same'),
+                  activation()]
+    if batchNorm:
+        layers.append(nn.BatchNorm2d(out_channels))
+    if dropout:
+        layers.append(nn.Dropout(p=droputProb))
+
+    return nn.Sequential(*layers)
+
+class MLPLayer(nn.Module):
+    def __init__(self, hidden_sizes,input_size):
+        super(MLPLayer,self).__init__()
+        self.hidden_sizes = hidden_sizes
+        self.input_size = input_size
+        self.layers = mlp_block(self.input_size,\
+                                self.hidden_sizes[0], dropout=False)
+        for j in range(len(self.hidden_sizes) - 1):
+            self.layers.extend(
+                mlp_block(self.hidden_sizes[j], self.hidden_sizes[j + 1], \
+                          dropout=False, activation=nn.LeakyReLU))
+
+        self.layers = nn.Sequential(*self.layers)
+
+    def forward(self, input):
+        input = input.view(input.shape[0],input.shape[1],-1)
+        return self.layers(input)
+
+class ConvLayers(nn.Module):
+    def __init__(self, params_dict,input_size):
+        super(ConvLayers, self).__init__()
+        self.hidden_layers = params_dict['hidden_sizes']
+        self.kernel_size = 3
+        self.input_size = input_size
+        self.layers = []
+        self.layers.append(conv_block(self.kernel_size,self.input_size[-1],\
+                                      self.hidden_layers[0],stride=1,\
+                                      activation=nn.LeakyReLU))
+        for j in range(len(self.hidden_layers)-1):
+            self.layers.append(conv_block(self.kernel_size,self.hidden_layers[j],\
+                                          self.hidden_layers[j+1],stride=1,\
+                                          activation=nn.LeakyReLU))
+        self.pool = nn.MaxPool2d(kernel_size=3,stride=2,padding='same')
+        self.identitylayers = []
+        self.identitylayers = conv_block(1,input_size,\
+                                      self.hidden_layers[0],stride=2,\
+                                      activation=nn.LeakyReLU)
+
+        for j in range(len(self.hidden_layers)-1):
+            self.identitylayers.append(conv_block(1,self.hidden_layers[j],\
+                                      self.hidden_layers[j+1],stride=2,\
+                                      activation=nn.LeakyReLU))
+    def forward(self, input):
+        intermediate = input
+        for layer,downsample in zip(self.layers,self.identitylayers):
+            identity = downsample(intermediate)
+            intermediate = layer(intermediate)
+            intermediate = self.pool(intermediate)
+            intermediate+=identity
+            intermediate = nn.LeakyReLU()(intermediate)
+
+        return intermediate
+
+
 class MHA(nn.Module):
     def __init__(self,config):
         # Number of attention blocks

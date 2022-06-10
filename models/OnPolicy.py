@@ -1,0 +1,147 @@
+import torch
+import torch.nn as nn
+from params import *
+import numpy as np
+import Utilities
+from models.Vanilla import Vanilla
+from torch.optim.lr_scheduler import ExponentialLR
+from models.subnets import *
+import torch.nn.functional as F
+from models.model_setter import model_setter
+
+class AC:
+    def __init__(self,input_size,action_size,params_dict,args_dict):
+        self.input_size = input_size
+        self.action_size = action_size
+        self.params_dict = params_dict
+        self.args_dict = args_dict
+
+        self._model = model_setter.set_model(input_size,action_size,args_dict)
+
+        self.optim = torch.optim.Adam(self._model.parameters(),lr=params_dict['LR'],betas=(0.9,0.99))
+        self.scheduler = ExponentialLR(self.optim,gamma=params_dict['DECAY'])
+
+    def forward_step(self,input):
+        return self._model.forward_step(input)
+
+    def reset(self,episodeNum):
+        self.episodeNum = episodeNum
+
+    def get_advantages(self,train_buffer):
+        rewards_plus = np.copy(train_buffer['rewards']).tolist()
+        rewards_plus.append(train_buffer['bootstrap_value'][:,0].tolist())
+        rewards_plus = np.array(rewards_plus).squeeze()
+        discount_rewards = Utilities.discount(rewards_plus,self.args_dict['DISCOUNT'])[:-1]
+
+        values_plus = train_buffer['values']
+        values_plus.append(train_buffer['bootstrap_value'])
+        values_plus = np.array(values_plus).squeeze()
+        advantages = np.array(train_buffer['rewards']).squeeze() + \
+                     self.args_dict['DISCOUNT']*values_plus[1:] - values_plus[:-1]
+        advantages = Utilities.discount(advantages,self.args_dict['DISCOUNT'])
+        train_buffer['advantages'] = advantages.copy()
+        train_buffer['discounted_rewards'] = np.copy(discount_rewards)
+
+        return train_buffer
+
+    def compute_loss(self,train_buffer):
+        advantages = train_buffer['advantages']
+        target_v = train_buffer['discounted_rewards']
+        a_batch = np.array(train_buffer['actions'])
+
+        obs = []
+        for j in train_buffer['obs']:
+            obs.append(j['obs'])
+
+        obs = torch.tensor(np.array(obs).squeeze(axis=1), dtype=torch.float32)
+        policy,value,valids,valids_net = self.compute_forward_buffer(train_buffer['obs'])
+
+        target_v = torch.tensor(target_v, dtype=torch.float32)
+        a_batch = torch.tensor(a_batch, dtype=torch.int64)
+        advantages = torch.tensor(advantages, dtype=torch.float32)
+
+        responsible_outputs = policy.gather(-1, a_batch)
+        v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
+        e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
+        p_l = -self.params_dict['policy_weight'] * torch.log(
+        torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
+
+
+
+        valid_l = -self.params_dict['valids_weight'] * ((1 - valids) * \
+                                                        torch.log(torch.clip(1 - valids_net, 1e-7, 1)) +\
+                                                       valids*torch.log(torch.clip(valids_net, 1e-7, 1)))
+        return v_l,p_l,e_l,valid_l
+
+    def backward(self,train_buffer):
+        self.optim.zero_grad()
+        v_l,p_l,e_l,valid_l = self.compute_loss(train_buffer)
+        loss = v_l.sum() + p_l.sum() - e_l.sum() + valid_l.sum()
+
+        self.optim.zero_grad()
+        loss.sum().backward()
+        # self.optimizer.step()
+        norm = torch.nn.utils.clip_grad_norm_(self._model.parameters(), 50)
+        v_n = torch.linalg.norm(
+            torch.stack([torch.linalg.norm(p.detach()).to("cpu") \
+                         for p in self._model.parameters()])).detach().numpy().item()
+
+        gradient = []
+        for local_param in self._model.parameters():
+            gradient.append(local_param.grad)
+        g_n = norm.detach().cpu().numpy().item()
+        episode_length = train_buffer['episode_length']
+        train_metrics = {'Value Loss': v_l.sum().cpu().detach().numpy().item()/episode_length,
+                         'Policy Loss': p_l.sum().cpu().detach().numpy().item()/episode_length,
+                         'Entropy Loss': e_l.sum().cpu().detach().numpy().item()/episode_length,
+                         'Grad Norm': g_n, 'Var Norm': v_n}
+        return train_metrics, gradient
+
+    def compute_forward_buffer(self,obs_buffer):
+        return self._model.forward_buffer(obs_buffer)
+
+    def state_dict(self):
+        return self._model.state_dict()
+
+    def share_memory(self):
+        self._model.share_memory()
+
+    def load_state_dict(self,weights):
+        self._model.load_state_dict(weights)
+
+class PPO(AC):
+    def __init__(self, input_size, action_size, params_dict, args_dict):
+        super(PPO, self).__init__(input_size,action_size,params_dict,args_dict)
+
+    def compute_loss(self, train_buffer):
+        advantages = train_buffer['advantages']
+        target_v = train_buffer['discounted_rewards']
+        a_batch = np.array(train_buffer['actions'])
+        old_policy = np.array(train_buffer['policy'])
+
+        policy,value,valids,valids_net = self.compute_forward_buffer(train_buffer['obs'])
+        target_v = torch.tensor(target_v, dtype=torch.float32)
+        a_batch = torch.tensor(a_batch, dtype=torch.int64)
+        advantages = torch.tensor(advantages, dtype=torch.float32)
+        #advantages = target_v - value.squeeze().detach()
+        #advantages = (advantages - advantages.mean(axis=-1)) / (advantages.std(axis=-1) + 1e-8)
+
+        old_policy = torch.tensor(old_policy.squeeze(),dtype=torch.float32)
+
+        responsible_outputs = policy.gather(-1, a_batch)
+        old_responsible_outputs = old_policy.gather(-1,a_batch)
+        ratio = (torch.log(torch.clamp(responsible_outputs,1e-10,1)) \
+                - torch.log(torch.clamp(old_responsible_outputs,1e-10,1))).exp()
+
+        v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
+        e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
+
+        p_l = -self.params_dict['policy_weight'] * torch.minimum(
+        ratio.squeeze() * advantages.squeeze(),
+        torch.clamp(ratio.squeeze(),1-self.args_dict['eps'],1+self.args_dict['eps'])*advantages.squeeze())
+
+        valids = torch.tensor(np.array(valids),dtype=torch.float32)
+        #valid_l = self.params_dict['valids_weight']* (valids*torch.log(torch.clip(valids_net,1e-7,1))+ (1-valids)*torch.log(torch.clip(1 - valids_net,1e-7,1)))
+        valid_l = -self.params_dict['valids_weight'] * ((1 - valids) * torch.log(torch.clip(1 - valids_net, 1e-7, 1)) +\
+                                                       valids*torch.log(torch.clip(valids_net, 1e-7, 1)))
+        return v_l, p_l, e_l,valid_l

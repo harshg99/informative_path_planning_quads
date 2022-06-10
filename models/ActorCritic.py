@@ -7,6 +7,7 @@ from models.Vanilla import Vanilla
 from torch.optim.lr_scheduler import ExponentialLR
 from models.subnets import *
 import torch.nn.functional as F
+
 class ActorCritic(Vanilla):
     def __init__(self,input_size,action_size,params_dict,args_dict):
         super(Vanilla,self).__init__()
@@ -154,7 +155,11 @@ class ActorCritic2(ActorCritic):
         self.action_size = action_size
         self.params_dict = params_dict
         self.args_dict = args_dict
-        self.layers = mlp_block(self.input_size[0],self.hidden_sizes[0],dropout=False)
+
+        #self.layers =
+        self.layers = mlp_block(self.input_size[0]*self.input_size[1]*self.input_size[2],\
+                                self.hidden_sizes[0],dropout=False)
+
         for j in range(len(self.hidden_sizes)-1):
             self.layers.extend(mlp_block(self.hidden_sizes[j],self.hidden_sizes[j+1],dropout=False,activation=nn.LeakyReLU))
 
@@ -290,12 +295,17 @@ class ActorCritic3(ActorCritic2):
 class ActorCritic4(ActorCritic3):
     def __init__(self,input_size,action_size,params_dict,args_dict):
         super(ActorCritic3,self).__init__(input_size,action_size,params_dict,args_dict)
-        self.hidden_sizes = params_dict['hidden_sizes']
-        self.hidden_sizes1 = params_dict['hidden_sizes1']
+        if params_dict['obs_model'] =='MLP':
+            self.hidden_sizes = params_dict['hidden_sizes']
+            self.hidden_sizes1 = params_dict['hidden_sizes1']
+        else:
+            self.hidden_sizes = params_dict['hidden_sizes']
+
         self.input_size = input_size
         self.action_size = action_size
         self.params_dict = params_dict
         self.args_dict = args_dict
+
         self.layers1 = mlp_block(self.input_size[1],self.hidden_sizes1[0],dropout=False)
         for j in range(len(self.hidden_sizes1) - 1):
             self.layers1.extend(
@@ -306,6 +316,8 @@ class ActorCritic4(ActorCritic3):
             self.layers.extend(mlp_block(self.hidden_sizes[j],self.hidden_sizes[j+1],dropout=False,activation=nn.LeakyReLU))
 
         self.policy_layers = self.layers.copy()
+
+
         for j in range(2):
             self.policy_layers.extend(mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
 
@@ -337,7 +349,7 @@ class ActorCritic4(ActorCritic3):
         return self.softmax(policy),self.value_net(input)
 
 '''
-With positonal encoder
+With positional encoder
 '''
 class ActorCritic5(ActorCritic4):
     def __init__(self,input_size,action_size,params_dict,args_dict):
@@ -420,7 +432,7 @@ class ActorCritic5(ActorCritic4):
         return policy, value, valids, valids_net
 
 '''
-With positonal encoder
+With positonal encoder and prior motion primitives
 '''
 class ActorCritic6(ActorCritic5):
     def __init__(self,input_size,action_size,params_dict,args_dict):

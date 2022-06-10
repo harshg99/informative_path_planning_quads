@@ -10,8 +10,6 @@ class Vanilla(nn.Module):
         super(Vanilla,self).__init__()
 
     # Implement these functions according to various model requirements
-    def get_advantages(self):
-        pass
 
     def forward(self):
         pass
