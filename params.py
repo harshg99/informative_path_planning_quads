@@ -1,5 +1,8 @@
 # Training Parameters
-GPU=False
+import torch
+GPU = True and torch.cuda.is_available()
+DEVICE = 'cuda:0' if GPU else 'cpu'
+
 NUM_META_AGENTS = 25
 MAX_EPISODES = 50000
 DISCOUNT = 0.9
@@ -26,8 +29,6 @@ TRAINING_TYPE = TRAINING_OPTIONS.singleThreaded
 
 GRADIENT_TYPE = GRADIENT_OPTIONS.batches
 
-DEVICE = 'cuda:0'
-
 RENDER_TRAINING = True
 RENDER_TRAINING_WINDOW = 300
 RAY_RESET_EPS = 1000
@@ -41,7 +42,7 @@ SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawne
 ENV_TYPE = 'MotionPrim' # MotionPrim or Discrete
 
 #MODEL TYPE
-MODEL_TYPE = 'Model1'#Model1 Model2 etc
+MODEL_TYPE = 'Model5'#Model1 Model2 etc
 ALG_TYPE = 'AC' #AC or PPO
 COMPUTE_VALIDS = True # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
 
@@ -58,14 +59,15 @@ GIFS_PATH = 'data/gifs/'+MODEL_NAME+'_'+DESCRIPTION
 LOAD_MODEL = False
 SUMMARY_WINDOW = 10
 
-NEPTUNE = True
+NEPTUNE = False
 NEPTUNE_RUN = None
-neptune_project        = "harshg99/SearchKR" # USER-ID
+
+neptune_project        = "harshg99/SearchKR2" # USER-ID
 NEPTUNE_API_TOKEN      = "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOTI4NjE0Yi00ZjNmLTQ5NjktOTdhNy04YTk3ZGQyZTg1MDIifQ=="
 
 # Observation Type
 OBSERVER = 'RANGEwOBS' # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS,RANGEwOBSwPENC,RANGEwOBSwMULTI
-RANGE = 15
+RANGE = 16
 
 # Test directory
 MAP_TEST_DIR = 'tests/maps/'

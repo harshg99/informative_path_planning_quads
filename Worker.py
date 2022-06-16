@@ -33,7 +33,7 @@ class Worker:
         self.env.reset()
         self.model.reset(episodeNum)
 
-    def single_threaded_episode(self,episodeNum):
+    def single_threaded_episode_il(self,episodeNum):
         action_dict = {}
         self.reset(episodeNum)
         for j in range(self.env.numAgents):
@@ -62,8 +62,8 @@ class Worker:
             if not self.imitation_worker:
                 policy,value = self.model.forward_step(observation)
 
-            policy = policy.detach().numpy()
-            value = value.detach().numpy()
+            policy = policy.cpu().detach().numpy()
+            value = value.cpu().detach().numpy()
 
             action_dict = Utilities.sample_actions(policy)
             train_buffer['actions'].append([action_dict[k] for k in action_dict.keys()])
@@ -122,8 +122,8 @@ class Worker:
             #print(observation)
             policy,value = self.model.forward_step(observation)
 
-            policy = policy.detach().numpy()
-            value = value.detach().numpy()
+            policy = policy.cpu().detach().numpy()
+            value = value.cpu().detach().numpy()
 
             action_dict = Utilities.sample_actions(policy)
             train_buffer['actions'].append([action_dict[k] for k in action_dict.keys()])
@@ -149,7 +149,7 @@ class Worker:
                      '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(GIFS_PATH, episodeNum, 0, episode_reward))
 
         policy_, value_ = self.model.forward_step(observation)
-        train_buffer['bootstrap_value'] = value_.detach().numpy()[0]
+        train_buffer['bootstrap_value'] = value_.cpu().detach().numpy()[0]
 
         print('MetaAgent{} Episode {} Reward {} Control cost {} Length {}'.format(self.ID,episodeNum,episode_reward,control_cost,episode_step))
         return train_buffer,episode_reward,control_cost,episode_step

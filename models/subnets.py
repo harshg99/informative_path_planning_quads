@@ -14,14 +14,14 @@ def mlp_block(hidden_size, out_size, dropout=True, droputProb=0.5, activation=No
     return layers
 
 def conv_block(kernel_size,in_channels,out_channels,stride,\
-               dropout=False,droputProb=0.5, activation=None, batchNorm=False):
+               dropout=False,droputProb=0.5, activation=None, batchNorm=False,padding = 'same'):
     if activation is None:
-        layers = [nn.Conv2d(in_channels,out_channels,kernel_size,stride,padding='same'),
-                  nn.Conv2d(in_channels,out_channels,kernel_size,stride,padding='same')]
+        layers = [nn.Conv2d(in_channels,out_channels,kernel_size,stride=stride,padding=padding),
+                  nn.Conv2d(out_channels,out_channels,kernel_size,stride=stride,padding=padding)]
     else:
-        layers = [nn.Conv2d(in_channels,out_channels,kernel_size,stride,padding='same'),
+        layers = [nn.Conv2d(in_channels,out_channels,kernel_size,stride=stride,padding=padding),
                   activation(),
-                  nn.Conv2d(in_channels,out_channels,kernel_size,stride,padding='same'),
+                  nn.Conv2d(out_channels,out_channels,kernel_size,stride =stride,padding=padding),
                   activation()]
     if batchNorm:
         layers.append(nn.BatchNorm2d(out_channels))
@@ -48,10 +48,10 @@ class MLPLayer(nn.Module):
         input = input.view(input.shape[0],input.shape[1],-1)
         return self.layers(input)
 
-class ConvLayers(nn.Module):
-    def __init__(self, params_dict,input_size):
-        super(ConvLayers, self).__init__()
-        self.hidden_layers = params_dict['hidden_sizes']
+class ConvLayer(nn.Module):
+    def __init__(self, hidden_size,input_size):
+        super(ConvLayer, self).__init__()
+        self.hidden_layers = hidden_size
         self.kernel_size = 3
         self.input_size = input_size
         self.layers = []
@@ -62,25 +62,40 @@ class ConvLayers(nn.Module):
             self.layers.append(conv_block(self.kernel_size,self.hidden_layers[j],\
                                           self.hidden_layers[j+1],stride=1,\
                                           activation=nn.LeakyReLU))
-        self.pool = nn.MaxPool2d(kernel_size=3,stride=2,padding='same')
+        self.pool = nn.MaxPool2d(kernel_size=2,stride=2,padding=0)
         self.identitylayers = []
-        self.identitylayers = conv_block(1,input_size,\
-                                      self.hidden_layers[0],stride=2,\
-                                      activation=nn.LeakyReLU)
+        # self.identitylayers.append(conv_block(1,self.input_size[-1],\
+        #                               self.hidden_layers[0],stride=2,\
+        #                               activation=nn.LeakyReLU,padding = 0))
+        #
+        # for j in range(len(self.hidden_layers)-1):
+        #     self.identitylayers.append(conv_block(1,self.hidden_layers[j],\
+        #                               self.hidden_layers[j+1],stride=2,\
+        #                               activation=nn.LeakyReLU,padding = 0))
+        self.identitylayers.append(nn.Conv2d(in_channels=self.input_size[-1],\
+                                             out_channels=self.hidden_layers[0],\
+                                             kernel_size=1,stride=2,padding=0))
 
         for j in range(len(self.hidden_layers)-1):
-            self.identitylayers.append(conv_block(1,self.hidden_layers[j],\
-                                      self.hidden_layers[j+1],stride=2,\
-                                      activation=nn.LeakyReLU))
+            self.identitylayers.append(nn.Conv2d(in_channels=self.hidden_layers[j],\
+                                                 out_channels=self.hidden_layers[j+1],\
+                                                 kernel_size=1,stride=2,padding=0))
+        self.fc = nn.Linear(self.hidden_layers[-1]*4,self.hidden_layers[-1])
+
     def forward(self, input):
-        intermediate = input
+
+        # shape is (batch,num_agents,H,W,C)
+        B,N,H,W,C = input.shape
+        intermediate = input.reshape([B*N,H,W,C])
+        intermediate = torch.permute(intermediate, [0,3,1,2])
         for layer,downsample in zip(self.layers,self.identitylayers):
             identity = downsample(intermediate)
             intermediate = layer(intermediate)
             intermediate = self.pool(intermediate)
             intermediate+=identity
             intermediate = nn.LeakyReLU()(intermediate)
-
+        #B_,H_,W_,C_ = intermediate.shape
+        intermediate = nn.LeakyReLU()(self.fc(intermediate.reshape([B,N,-1])))
         return intermediate
 
 

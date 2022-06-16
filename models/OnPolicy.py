@@ -10,13 +10,15 @@ import torch.nn.functional as F
 from models.model_setter import model_setter
 
 class AC:
-    def __init__(self,input_size,action_size,params_dict,args_dict):
-        self.input_size = input_size
-        self.action_size = action_size
+    def __init__(self,env,params_dict,args_dict):
+        self.env = env
+        self.input_size = env.input_size
+        self.action_size = env.action_size
         self.params_dict = params_dict
         self.args_dict = args_dict
 
-        self._model = model_setter.set_model(input_size,action_size,args_dict)
+        self._model = model_setter.set_model(self.env,args_dict)
+        self._model.to(self.args_dict['DEVICE'])
 
         self.optim = torch.optim.Adam(self._model.parameters(),lr=params_dict['LR'],betas=(0.9,0.99))
         self.scheduler = ExponentialLR(self.optim,gamma=params_dict['DECAY'])
@@ -56,9 +58,9 @@ class AC:
         obs = torch.tensor(np.array(obs).squeeze(axis=1), dtype=torch.float32)
         policy,value,valids,valids_net = self.compute_forward_buffer(train_buffer['obs'])
 
-        target_v = torch.tensor(target_v, dtype=torch.float32)
-        a_batch = torch.tensor(a_batch, dtype=torch.int64)
-        advantages = torch.tensor(advantages, dtype=torch.float32)
+        target_v = torch.tensor(target_v, dtype=torch.float32).to(self.args_dict['DEVICE'])
+        a_batch = torch.tensor(a_batch, dtype=torch.int64).to(self.args_dict['DEVICE'])
+        advantages = torch.tensor(advantages, dtype=torch.float32).to(self.args_dict['DEVICE'])
 
         responsible_outputs = policy.gather(-1, a_batch)
         v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
@@ -111,8 +113,8 @@ class AC:
         self._model.load_state_dict(weights)
 
 class PPO(AC):
-    def __init__(self, input_size, action_size, params_dict, args_dict):
-        super(PPO, self).__init__(input_size,action_size,params_dict,args_dict)
+    def __init__(self, env,params_dict, args_dict):
+        super(PPO, self).__init__(env,params_dict,args_dict)
 
     def compute_loss(self, train_buffer):
         advantages = train_buffer['advantages']
@@ -121,13 +123,13 @@ class PPO(AC):
         old_policy = np.array(train_buffer['policy'])
 
         policy,value,valids,valids_net = self.compute_forward_buffer(train_buffer['obs'])
-        target_v = torch.tensor(target_v, dtype=torch.float32)
-        a_batch = torch.tensor(a_batch, dtype=torch.int64)
-        advantages = torch.tensor(advantages, dtype=torch.float32)
+        target_v = torch.tensor(target_v, dtype=torch.float32).to(self.args_dict['DEVICE'])
+        a_batch = torch.tensor(a_batch, dtype=torch.int64).to(self.args_dict['DEVICE'])
+        advantages = torch.tensor(advantages, dtype=torch.float32).to(self.args_dict['DEVICE'])
         #advantages = target_v - value.squeeze().detach()
         #advantages = (advantages - advantages.mean(axis=-1)) / (advantages.std(axis=-1) + 1e-8)
 
-        old_policy = torch.tensor(old_policy.squeeze(),dtype=torch.float32)
+        old_policy = torch.tensor(old_policy.squeeze(),dtype=torch.float32).to(self.args_dict['DEVICE'])
 
         responsible_outputs = policy.gather(-1, a_batch)
         old_responsible_outputs = old_policy.gather(-1,a_batch)

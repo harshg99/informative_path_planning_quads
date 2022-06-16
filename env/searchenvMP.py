@@ -91,6 +91,7 @@ class SearchEnvMP(SearchEnv):
         self.mp_graph = MotionPrimitiveLattice.load(self.mp_graph_file_name)
         self.mp_graph.edges = self.mp_graph.edges.T
         self.action_size = max([len([j for j in i if j != None]) for i in self.mp_graph.edges])
+        self.num_graph_nodes = self.mp_graph.edges.shape[0]
         #print(self.num_actions)
         self.minimum_action_mp_graph = np.empty((self.mp_graph.edges.shape[0], self.action_size), dtype=object)
         self.lookup_dictionary = np.ones_like(self.minimum_action_mp_graph)*-1
@@ -149,6 +150,7 @@ class SearchEnvMP(SearchEnv):
         valids = []
         position = []
         previous_actions = []
+        agent_idx = []
         for j in range(self.numAgents):
             if OBSERVER == 'TILED':
                 obs.append(self.get_obs_tiled(agentID=j))
@@ -169,13 +171,15 @@ class SearchEnvMP(SearchEnv):
             position.append([self.agents[j].pos[0]/self.reward_map_size,\
                              self.agents[j].pos[1]/self.reward_map_size])
             previous_actions.append(self.agents[j].prev_action)
+            agent_idx.append(self.agents[j].index)
+
         obs_dict = dict()
         obs_dict['obs'] = obs
         obs_dict['mps'] = np.array(agents_actions)
         obs_dict['valids'] = np.array(valids)
         obs_dict['position'] = np.array(position)
         obs_dict['previous_actions'] = np.array(previous_actions)
-
+        obs_dict['node'] = np.array(agent_idx)
         return obs_dict
 
 

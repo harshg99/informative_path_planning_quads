@@ -51,7 +51,7 @@ if __name__=='__main__':
     neptune_run = Utilities.setup_neptune(params)
 
     dummy_env = env_setter.set_env(params['ENV_TYPE'])
-    global_model = alg_setter.set_model(dummy_env.input_size, dummy_env.action_size,params)
+    global_model = alg_setter.set_model(dummy_env,params)
     init_ray()
     global_model.share_memory()
     global_summary = SummaryWriter(TRAIN_PATH)
