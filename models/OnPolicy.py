@@ -141,7 +141,7 @@ class PPO(AC):
 
         p_l = -self.params_dict['policy_weight'] * torch.minimum(
         ratio.squeeze() * advantages.squeeze(),
-        torch.clamp(ratio.squeeze(),1-self.args_dict['eps'],1+self.args_dict['eps'])*advantages.squeeze())
+        torch.clamp(ratio.squeeze(),1-self.params_dict['EPS'],1+self.params_dict['EPS'])*advantages.squeeze())
 
         valids = torch.tensor(np.array(valids),dtype=torch.float32)
         #valid_l = self.params_dict['valids_weight']* (valids*torch.log(torch.clip(valids_net,1e-7,1))+ (1-valids)*torch.log(torch.clip(1 - valids_net,1e-7,1)))
