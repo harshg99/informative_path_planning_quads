@@ -14,14 +14,14 @@ def mlp_block(hidden_size, out_size, dropout=True, droputProb=0.5, activation=No
     return layers
 
 def conv_block(kernel_size,in_channels,out_channels,stride,\
-               dropout=False,droputProb=0.5, activation=None, batchNorm=False,padding = 'same'):
+               dropout=False,droputProb=0.5, activation=None, batchNorm=False,padding = 'same',device='cpu'):
     if activation is None:
-        layers = [nn.Conv2d(in_channels,out_channels,kernel_size,stride=stride,padding=padding),
-                  nn.Conv2d(out_channels,out_channels,kernel_size,stride=stride,padding=padding)]
+        layers = [nn.Conv2d(in_channels,out_channels,kernel_size,stride=stride,padding=padding).to(device),
+                  nn.Conv2d(out_channels,out_channels,kernel_size,stride=stride,padding=padding).to(device)]
     else:
-        layers = [nn.Conv2d(in_channels,out_channels,kernel_size,stride=stride,padding=padding),
+        layers = [nn.Conv2d(in_channels,out_channels,kernel_size,stride=stride,padding=padding).to(device),
                   activation(),
-                  nn.Conv2d(out_channels,out_channels,kernel_size,stride =stride,padding=padding),
+                  nn.Conv2d(out_channels,out_channels,kernel_size,stride =stride,padding=padding).to(device),
                   activation()]
     if batchNorm:
         layers.append(nn.BatchNorm2d(out_channels))
@@ -31,10 +31,11 @@ def conv_block(kernel_size,in_channels,out_channels,stride,\
     return nn.Sequential(*layers)
 
 class MLPLayer(nn.Module):
-    def __init__(self, hidden_sizes,input_size):
+    def __init__(self, hidden_sizes,input_size,device):
         super(MLPLayer,self).__init__()
         self.hidden_sizes = hidden_sizes
         self.input_size = input_size
+        self.device = device
         self.layers = mlp_block(self.input_size,\
                                 self.hidden_sizes[0], dropout=False)
         for j in range(len(self.hidden_sizes) - 1):
@@ -42,27 +43,28 @@ class MLPLayer(nn.Module):
                 mlp_block(self.hidden_sizes[j], self.hidden_sizes[j + 1], \
                           dropout=False, activation=nn.LeakyReLU))
 
-        self.layers = nn.Sequential(*self.layers)
+        self.layers = nn.Sequential(*self.layers).to(self.device)
 
     def forward(self, input):
         input = input.view(input.shape[0],input.shape[1],-1)
         return self.layers(input)
 
 class ConvLayer(nn.Module):
-    def __init__(self, hidden_size,input_size):
+    def __init__(self, hidden_size,input_size,device):
         super(ConvLayer, self).__init__()
         self.hidden_layers = hidden_size
         self.kernel_size = 3
         self.input_size = input_size
         self.layers = []
+        self.device = device
         self.layers.append(conv_block(self.kernel_size,self.input_size[-1],\
                                       self.hidden_layers[0],stride=1,\
-                                      activation=nn.LeakyReLU))
+                                      activation=nn.LeakyReLU,device=self.device))
         for j in range(len(self.hidden_layers)-1):
             self.layers.append(conv_block(self.kernel_size,self.hidden_layers[j],\
                                           self.hidden_layers[j+1],stride=1,\
-                                          activation=nn.LeakyReLU))
-        self.pool = nn.MaxPool2d(kernel_size=2,stride=2,padding=0)
+                                          activation=nn.LeakyReLU,device=self.device))
+        self.pool = nn.MaxPool2d(kernel_size=2,stride=2,padding=0).to(self.device)
         self.identitylayers = []
         # self.identitylayers.append(conv_block(1,self.input_size[-1],\
         #                               self.hidden_layers[0],stride=2,\
@@ -74,13 +76,13 @@ class ConvLayer(nn.Module):
         #                               activation=nn.LeakyReLU,padding = 0))
         self.identitylayers.append(nn.Conv2d(in_channels=self.input_size[-1],\
                                              out_channels=self.hidden_layers[0],\
-                                             kernel_size=1,stride=2,padding=0))
+                                             kernel_size=1,stride=2,padding=0).to(self.device))
 
         for j in range(len(self.hidden_layers)-1):
             self.identitylayers.append(nn.Conv2d(in_channels=self.hidden_layers[j],\
                                                  out_channels=self.hidden_layers[j+1],\
-                                                 kernel_size=1,stride=2,padding=0))
-        self.fc = nn.Linear(self.hidden_layers[-1]*4,self.hidden_layers[-1])
+                                                 kernel_size=1,stride=2,padding=0).to(self.device))
+        self.fc = nn.Linear(self.hidden_layers[-1]*4,self.hidden_layers[-1]).to(self.device)
 
     def forward(self, input):
 

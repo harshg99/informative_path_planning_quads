@@ -89,7 +89,7 @@ class Model2(Model1):
         self.args_dict = args_dict
 
         self.layers = subnet_setter.set_model(params_dict['obs_model'],\
-                                              self.hidden_sizes,self.input_size)
+                                              self.hidden_sizes,self.input_size,self.args_dict['DEVICE'])
         self.layers.to(self.args_dict['DEVICE'])
 
         self.policy_layers = mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
