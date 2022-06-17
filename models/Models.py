@@ -90,6 +90,7 @@ class Model2(Model1):
 
         self.layers = subnet_setter.set_model(params_dict['obs_model'],\
                                               self.hidden_sizes,self.input_size)
+        self.layers.to(self.args_dict['DEVICE'])
 
         self.policy_layers = mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
         # for j in range(2):
@@ -97,6 +98,7 @@ class Model2(Model1):
 
         self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size)])
         self.policy_net = nn.Sequential(*self.policy_layers)
+        self.policy_net.to(self.args_dict['DEVICE'])
         self.softmax = nn.Softmax(dim=-1)
         self.sigmoid = nn.Sigmoid()
 
@@ -105,6 +107,7 @@ class Model2(Model1):
         #     self.value_layers.extend(mlp_block(self.hidden_sizes[-1], self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
         self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], 1)])
         self.value_net = nn.Sequential(*self.value_layers)
+        self.value_net.to(self.args_dict['DEVICE'])
 
     def forward(self, input):
         # print(input.shape)
@@ -162,6 +165,8 @@ class Model3(Model2):
             self.position_layer.extend(mlp_block(self.pos_layer_size[j],\
                                                       self.pos_layer_size[j+1],dropout=False,activation=nn.LeakyReLU))
         self.position_layer = nn.Sequential(*self.position_layer)
+        self.position_layer.to(self.args_dict['DEVICE'])
+
         self.policy_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1], \
                                                  self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
         # for j in range(2):
@@ -170,6 +175,7 @@ class Model3(Model2):
 
         self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size)])
         self.policy_net = nn.Sequential(*self.policy_layers)
+        self.policy_net.to(self.args_dict['DEVICE'])
         self.softmax = nn.Softmax(dim=-1)
         self.sigmoid = nn.Sigmoid()
 
@@ -180,6 +186,7 @@ class Model3(Model2):
         #                                             self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
         self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], 1)])
         self.value_net = nn.Sequential(*self.value_layers)
+        self.value_net.to(self.args_dict['DEVICE'])
 
     def forward_step(self, input):
         obs = input['obs']
@@ -241,7 +248,7 @@ class Model4(Model3):
             self.position_layer.extend(mlp_block(self.pos_layer_size[j], \
                                                  self.pos_layer_size[j + 1], dropout=False, activation=nn.LeakyReLU))
         self.position_layer = nn.Sequential(*self.position_layer)
-
+        self.position_layer.to(self.args_dict['DEVICE'])
         self.policy_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] +self.action_size, \
                                                  self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
         # for j in range(2):
@@ -250,6 +257,7 @@ class Model4(Model3):
 
         self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size)])
         self.policy_net = nn.Sequential(*self.policy_layers)
+        self.policy_net.to(self.args_dict['DEVICE'])
         self.softmax = nn.Softmax(dim=-1)
         self.sigmoid = nn.Sigmoid()
 
@@ -260,6 +268,7 @@ class Model4(Model3):
         #                                             self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
         self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], 1)])
         self.value_net = nn.Sequential(*self.value_layers)
+        self.value_net.to(self.args_dict['DEVICE'])
 
 
     def forward_step(self, input):
@@ -333,6 +342,7 @@ class Model5(Model4):
                                                    dropout=False, activation=nn.LeakyReLU))
         self.graph_node_layer = nn.Sequential(*self.graph_node_layer)
 
+        self.graph_node_layer.to(self.args_dict['DEVICE'])
         self.policy_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] +\
                                        self.action_size + self.graph_layer_size[-1], \
                                         self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
@@ -342,6 +352,7 @@ class Model5(Model4):
 
         self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1],self.action_size)])
         self.policy_net = nn.Sequential(*self.policy_layers)
+        self.policy_net.to(self.args_dict['DEVICE'])
         self.softmax = nn.Softmax(dim=-1)
         self.sigmoid = nn.Sigmoid()
 
@@ -353,6 +364,7 @@ class Model5(Model4):
         #                                             self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
         self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], 1)])
         self.value_net = nn.Sequential(*self.value_layers)
+        self.value_net.to(self.args_dict['DEVICE'])
 
 
     def forward_step(self, input):
