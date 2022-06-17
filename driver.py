@@ -56,7 +56,7 @@ if __name__=='__main__':
     global_model.share_memory()
     global_summary = SummaryWriter(TRAIN_PATH)
     curr_episode = 0
-    device = torch.device('cpu')
+    device = torch.device(params['DEVICE'])
 
     # Making the diectory
     if not os.path.isdir(MODEL_PATH):
