@@ -18,7 +18,7 @@ class REWARD(Enum):
     STAY      = -0.5
     MAP  = +100
     TARGET  = +15.0
-    COLLISION = -2.0
+    COLLISION = -1.0
 
 '''
 Constant Envrionment Variables for rendering

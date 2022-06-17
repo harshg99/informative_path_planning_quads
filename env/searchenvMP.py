@@ -58,13 +58,20 @@ class AgentMP():
         _, sp = mp.get_sampled_position()
         # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
         visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
-        is_valid = is_valid and self.isValidPoses(visited_states)
-        return is_valid,visited_states
+        #is_valid = is_valid and self.isValidPoses(visited_states)
+        final_pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
+        is_valid = is_valid and self.isValidFinalPose(final_pos)
+        return is_valid,visited_states 
 
     def isValidPoses(self, poses):
         is_valid = True
         for state in poses.T:
             is_valid = is_valid and self.isValidPos(state)
+        return is_valid
+
+    def isValidFinalPose(self, final_pose):
+        is_valid = True
+        is_valid = is_valid and self.isValidPos(final_pose.T)
         return is_valid
 
     def isValidPos(self, pos):
@@ -245,9 +252,9 @@ class SearchEnvMP(SearchEnv):
             reward -= cost/10000
         elif visited_states is not None:
             #reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
-            reward += REWARD.COLLISION.value*2
+            reward += REWARD.COLLISION.value
         else:
-            reward += REWARD.COLLISION.value*3
+            reward += REWARD.COLLISION.value*1.5
 
         reward += self.worldMap[int(self.agents[agentID].pos[0]), int(self.agents[agentID].pos[1])]
         self.worldMap[self.agents[agentID].pos[0], self.agents[agentID].pos[1]] = 0
