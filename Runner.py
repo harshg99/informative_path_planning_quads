@@ -13,7 +13,7 @@ from env.env_setter import *
 from models.alg_setter import alg_setter
 import Utilities
 
-@ray.remote(num_cpus=1,num_gpus=int(GPU)/(NUM_META_AGENTS+1))
+@ray.remote(num_cpus=1,num_gpus=NUM_DEVICES*int(GPU)/(NUM_META_AGENTS+1))
 class Runner(object):
     def __init__(self,id,args_dict):
         self.ID= id

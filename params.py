@@ -2,6 +2,7 @@
 import torch
 GPU = True and torch.cuda.is_available()
 DEVICE = 'cuda:0' if GPU else 'cpu'
+NUM_DEVICES = torch.cuda.device_count()
 
 NUM_META_AGENTS = 25
 MAX_EPISODES = 50000
