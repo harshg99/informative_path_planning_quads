@@ -23,7 +23,7 @@ def apply_gradients(global_model, gradients,device):
     global_model.optim.zero_grad()
     for g, global_param in zip(gradients, global_model._model.parameters()):
         if g.device is not device:
-            global_param._grad = g.cpu()
+            global_param._grad = g.to(device)
         else:
             global_param._grad = g
     global_model.optim.step()
