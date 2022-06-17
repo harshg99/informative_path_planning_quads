@@ -143,7 +143,6 @@ class PPO(AC):
         ratio.squeeze() * advantages.squeeze(),
         torch.clamp(ratio.squeeze(),1-self.params_dict['EPS'],1+self.params_dict['EPS'])*advantages.squeeze())
 
-        valids = torch.tensor(np.array(valids),dtype=torch.float32)
         #valid_l = self.params_dict['valids_weight']* (valids*torch.log(torch.clip(valids_net,1e-7,1))+ (1-valids)*torch.log(torch.clip(1 - valids_net,1e-7,1)))
         valid_l = -self.params_dict['valids_weight'] * ((1 - valids) * torch.log(torch.clip(1 - valids_net, 1e-7, 1)) +\
                                                        valids*torch.log(torch.clip(valids_net, 1e-7, 1)))
