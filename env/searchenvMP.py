@@ -237,6 +237,13 @@ class SearchEnvMP(SearchEnv):
         if np.all(np.abs(self.worldMap[self.pad_size:self.pad_size + self.reward_map_size, \
                          self.pad_size:self.pad_size + self.reward_map_size]) < 0.1):
             done = True
+
+        # If no agent has valid motion primitives terminate
+        for agent_idx,_ in enumerate(self.agents):
+            _,valids = self.get_mps(agent_idx)
+            if np.array(valids).sum()==0:
+                done = True
+
         return rewards, done
 
     def step(self,agentID,action):

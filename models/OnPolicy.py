@@ -31,12 +31,15 @@ class AC:
 
     def get_advantages(self,train_buffer):
         rewards_plus = np.copy(train_buffer['rewards']).tolist()
-        rewards_plus.append(train_buffer['bootstrap_value'][:,0].tolist())
+        dones = np.array(train_buffer['dones'])
+
+        rewards_plus.append((1 - dones[-1])*train_buffer['bootstrap_value'][:,0].tolist())
+
         rewards_plus = np.array(rewards_plus).squeeze()
         discount_rewards = Utilities.discount(rewards_plus,self.args_dict['DISCOUNT'])[:-1]
 
         values_plus = train_buffer['values']
-        values_plus.append(train_buffer['bootstrap_value'])
+        values_plus.append((1 - dones[-1])*train_buffer['bootstrap_value'])
         values_plus = np.array(values_plus).squeeze()
         advantages = np.array(train_buffer['rewards']).squeeze() + \
                      self.args_dict['DISCOUNT']*values_plus[1:] - values_plus[:-1]
@@ -50,29 +53,28 @@ class AC:
         advantages = train_buffer['advantages']
         target_v = train_buffer['discounted_rewards']
         a_batch = np.array(train_buffer['actions'])
+        dones = np.array(train_buffer['dones'])
 
-        obs = []
-        for j in train_buffer['obs']:
-            obs.append(j['obs'])
 
-        obs = torch.tensor(np.array(obs).squeeze(axis=1), dtype=torch.float32)
         policy,value,valids,valids_net = self.compute_forward_buffer(train_buffer['obs'])
 
         target_v = torch.tensor(target_v, dtype=torch.float32).to(self.args_dict['DEVICE'])
         a_batch = torch.tensor(a_batch, dtype=torch.int64).to(self.args_dict['DEVICE'])
         advantages = torch.tensor(advantages, dtype=torch.float32).to(self.args_dict['DEVICE'])
+        dones = torch.tensor(np.array(dones), dtype=torch.float32).to(self.args_dict['DEVICE'])
 
         responsible_outputs = policy.gather(-1, a_batch)
-        v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
-        e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
-        p_l = -self.params_dict['policy_weight'] * torch.log(
+        v_l = (1-dones)*self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
+        e_l = -(1-dones)*torch.sum(self.params_dict['entropy_weight'] * \
+                                   (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))),dim=-1)
+        p_l = -(1-dones)*self.params_dict['policy_weight'] * torch.log(
         torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
 
 
 
-        valid_l = -self.params_dict['valids_weight'] * ((1 - valids) * \
+        valid_l = -(1-dones)*self.params_dict['valids_weight'] * torch.sum(((1 - valids) * \
                                                         torch.log(torch.clip(1 - valids_net, 1e-7, 1)) +\
-                                                       valids*torch.log(torch.clip(valids_net, 1e-7, 1)))
+                                                       valids*torch.log(torch.clip(valids_net, 1e-7, 1))),dim=-1)
         return v_l,p_l,e_l,valid_l
 
     def backward(self,train_buffer):
@@ -121,6 +123,7 @@ class PPO(AC):
         target_v = train_buffer['discounted_rewards']
         a_batch = np.array(train_buffer['actions'])
         old_policy = np.array(train_buffer['policy'])
+        dones = np.array(train_buffer['dones'])
 
         policy,value,valids,valids_net = self.compute_forward_buffer(train_buffer['obs'])
         target_v = torch.tensor(target_v, dtype=torch.float32).to(self.args_dict['DEVICE'])
@@ -135,15 +138,18 @@ class PPO(AC):
         old_responsible_outputs = old_policy.gather(-1,a_batch)
         ratio = (torch.log(torch.clamp(responsible_outputs,1e-10,1)) \
                 - torch.log(torch.clamp(old_responsible_outputs,1e-10,1))).exp()
+        dones = torch.tensor(np.array(dones), dtype=torch.float32).to(self.args_dict['DEVICE'])
 
-        v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
-        e_l = -self.params_dict['entropy_weight'] * (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0)))
+        v_l = (1-dones)*self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
+        e_l = -(1 - dones) * torch.sum(self.params_dict['entropy_weight'] * \
+                                       (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))), dim=-1)
 
-        p_l = -self.params_dict['policy_weight'] * torch.minimum(
+        p_l = -(1-dones)*self.params_dict['policy_weight'] * torch.minimum(
         ratio.squeeze() * advantages.squeeze(),
         torch.clamp(ratio.squeeze(),1-self.params_dict['EPS'],1+self.params_dict['EPS'])*advantages.squeeze())
 
         #valid_l = self.params_dict['valids_weight']* (valids*torch.log(torch.clip(valids_net,1e-7,1))+ (1-valids)*torch.log(torch.clip(1 - valids_net,1e-7,1)))
-        valid_l = -self.params_dict['valids_weight'] * ((1 - valids) * torch.log(torch.clip(1 - valids_net, 1e-7, 1)) +\
-                                                       valids*torch.log(torch.clip(valids_net, 1e-7, 1)))
+        valid_l = -(1-dones)*self.params_dict['valids_weight'] *  torch.sum(((1 - valids) * \
+                                                        torch.log(torch.clip(1 - valids_net, 1e-7, 1)) +\
+                                                       valids*torch.log(torch.clip(valids_net, 1e-7, 1))),dim=-1)
         return v_l, p_l, e_l,valid_l
