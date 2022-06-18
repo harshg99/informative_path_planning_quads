@@ -72,9 +72,11 @@ class AC:
 
 
 
-        valid_l = -(1-dones)*self.params_dict['valids_weight'] * torch.sum(((1 - valids) * \
-                                                        torch.log(torch.clip(1 - valids_net, 1e-7, 1)) +\
-                                                       valids*torch.log(torch.clip(valids_net, 1e-7, 1))),dim=-1)
+        valid_l1 = -(1-dones)*self.params_dict['valids_weight1'] * torch.sum((1 - valids) * \
+                                                        torch.log(torch.clip(1 - valids_net, 1e-7, 1)),dim=-1)
+        valid_l2 = -(1 - dones) * self.params_dict['valids_weight2'] * torch.sum(valids * \
+                                                                    torch.log(torch.clip(valids_net, 1e-7, 1)),dim=-1)
+        valid_l = valid_l1 + valid_l2
         return v_l,p_l,e_l,valid_l
 
     def backward(self,train_buffer):
@@ -149,7 +151,13 @@ class PPO(AC):
         torch.clamp(ratio.squeeze(),1-self.params_dict['EPS'],1+self.params_dict['EPS'])*advantages.squeeze())
 
         #valid_l = self.params_dict['valids_weight']* (valids*torch.log(torch.clip(valids_net,1e-7,1))+ (1-valids)*torch.log(torch.clip(1 - valids_net,1e-7,1)))
-        valid_l = -(1-dones)*self.params_dict['valids_weight'] *  torch.sum(((1 - valids) * \
-                                                        torch.log(torch.clip(1 - valids_net, 1e-7, 1)) +\
-                                                       valids*torch.log(torch.clip(valids_net, 1e-7, 1))),dim=-1)
+        valid_l1 = -(1 - dones) * self.params_dict['valids_weight1'] * torch.sum((1 - valids) * \
+                                                                                 torch.log(
+                                                                                     torch.clip(1 - valids_net, 1e-7,
+                                                                                                1)),dim-1)
+        valid_l2 = -(1 - dones) * self.params_dict['valids_weight2'] * torch.sum(valids * \
+                                                                                 torch.log(
+                                                                                     torch.clip(valids_net, 1e-7, 1)),
+                                                                                 dim=-1)
+        valid_l = valid_l1 + valid_l2
         return v_l, p_l, e_l,valid_l
