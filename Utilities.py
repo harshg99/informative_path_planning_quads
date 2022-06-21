@@ -98,6 +98,7 @@ def setup_neptune(args) :
 
     return run
 
+
 def lambda_return(rewards,values,gamma,lamb):
     '''
 
@@ -109,18 +110,24 @@ def lambda_return(rewards,values,gamma,lamb):
     '''
 
     #shape (batch,T,T)
-    rewards = np.repeat(np.expand_dims(rewards,axis=-1),repeats =rewards.shape[1],axis=-1)
-    lambret = rewards.copy()
-    rewards = np.append(rewards,np.zeros((rewards.shape[0],rewards.shape[1],1)),axis=2)
-    multiplier = np.zeros(lambret.shape)
-    for j in rewards.shape[1]:
-        rewards[:,j,j+1:] = 0
-        rewards[:,j,j+1] = values[:,j+1]
-        lambret[:,j,:] = signal.lfilter([1], [1, -gamma], rewards[:,j,::-1], axis=0)[::-1]
-        multiplier[:,j:,j] = np.array([lamb^i for i in range(rewards.shape[1]-j)])
+    rewards = rewards.copy()
+    lambret = np.zeros(rewards.shape[-1])
+    for j in range(rewards.shape[-1]):
+        index = rewards.shape[-1] - j - 1
 
-    lambret = lambret*multiplier
-    lambret = lambret.sum(axis=1)
+
+        if j ==0:
+            if len(rewards.shape)==2:
+                lambret[:,index] = rewards[:,index] + gamma*values[:,index+1]
+            else:
+                lambret[index] = rewards[index] + gamma * values[index + 1]
+        else:
+            if len(rewards.shape) == 2:
+                lambret[:,index] = rewards[:,index] + gamma*(1-lamb)*values[:,index+1]\
+                                + lamb*gamma*lambret[:,index+1]
+            else:
+                lambret[index] = rewards[index] + gamma * (1 - lamb) * values[index + 1] \
+                                + lamb * gamma * lambret[index + 1]
     return  lambret
 
 def set_dict(parameters):

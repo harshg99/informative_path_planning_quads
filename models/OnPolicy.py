@@ -45,7 +45,11 @@ class AC:
                      self.args_dict['DISCOUNT']*values_plus[1:] - values_plus[:-1]
         advantages = Utilities.discount(advantages,self.args_dict['DISCOUNT'])
         train_buffer['advantages'] = advantages.copy()
-        train_buffer['discounted_rewards'] = np.copy(discount_rewards)
+        if self.args_dict['LAMBDA_RET']:
+            train_buffer['discounted_rewards'] = Utilities.lambda_return(rewards_plus[:-1],\
+                                        values_plus,self.args_dict['DISCOUNT'],self.args_dict['LAMBDA'])
+        else:
+            train_buffer['discounted_rewards'] = np.copy(discount_rewards)
 
         return train_buffer
 

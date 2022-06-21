@@ -9,6 +9,8 @@ MAX_EPISODES = 50000
 DISCOUNT = 0.9
 LR = 1e-3
 DECAY = 1/MAX_EPISODES
+LAMBDA_RET = True
+LAMBDA = 0.8
 
 class JOB_TYPES:
     getExperience      = 1
@@ -52,8 +54,8 @@ if ALG_TYPE=='PPO':
     TRAINING_TYPE = TRAINING_OPTIONS.singleThreaded
 
 #Logging Params
-MODEL_NAME = 'MPAC_Model1_MLP'
-DESCRIPTION = 'MP_Range_wObs'
+MODEL_NAME = 'MPAC_Model5_MLP'
+DESCRIPTION = 'MP_Range_wObs_Lambda'
 TRAIN_PATH = 'data/train/'+MODEL_NAME+'_'+DESCRIPTION
 MODEL_PATH = 'data/models/'+MODEL_NAME+'_'+DESCRIPTION
 GIFS_PATH = 'data/gifs/'+MODEL_NAME+'_'+DESCRIPTION
@@ -67,7 +69,7 @@ neptune_project        = "harshg99/SearchKR2" # USER-ID
 NEPTUNE_API_TOKEN      = "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOTI4NjE0Yi00ZjNmLTQ5NjktOTdhNy04YTk3ZGQyZTg1MDIifQ=="
 
 # Observation Type
-OBSERVER = 'RANGEwOBS' # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS,RANGEwOBSwPENC,RANGEwOBSwMULTI
+OBSERVER = 'RANGEwOBSwMULTI' # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS,RANGEwOBSwPENC,RANGEwOBSwMULTI
 RANGE = 16
 
 # Test directory
