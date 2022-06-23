@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import GPy
 from params import *
 from skimage.measure import block_reduce
+from env.agents import Agent
 '''
 Reward Class
 '''
@@ -17,8 +18,9 @@ class REWARD(Enum):
     STEPDIAGONAL= -0.1*np.sqrt(2)
     STAY      = -0.5
     MAP  = +100
-    TARGET  = +15.0
+    TARGET  = +100.0
     COLLISION = -1.0
+    MP = 10000
 
 '''
 Constant Envrionment Variables for rendering
@@ -34,33 +36,6 @@ Environment DEbug Variables
 '''
 DEBUG = False
 
-class Agent():
-    def __init__(self,ID,row,col,map_size,pad,world_size):
-        self.ID = ID
-        self.pos = np.array([row,col])
-        self.reward_map_size = map_size
-        self.pad = pad
-        self.world_size = world_size
-        self.worldMap = None
-        self.prev_action = 0
-
-
-    def updateMap(self,worldMap):
-        self.worldMap= worldMap
-
-    def updatePos(self,action):
-        next_pos = self.pos + np.array(action)
-        is_action_valid = self.isValidPos(next_pos)
-        if is_action_valid:
-            self.pos = next_pos
-        self.prev_action =  action
-        return is_action_valid
-
-    def isValidPos(self, pos):
-        is_valid = (np.array(pos - self.pad) > -1).all()
-        is_valid = is_valid and (np.array(pos + self.pad) < self.world_size).all()
-        return is_valid
-
 
 class SearchEnv(gym.Env):
 
@@ -75,7 +50,7 @@ class SearchEnv(gym.Env):
     mapSize: size of the reward map
     seed: environemnt seed to reproduce the training results if necessary6
     '''
-    def __init__(self,params_dict):
+    def __init__(self,params_dict,args_dict):
 
         self.numAgents = params_dict['numAgents']
         self.worldMap = None
@@ -83,6 +58,7 @@ class SearchEnv(gym.Env):
         self.trajMap = None
         self.agentMap = None
         self.obstacle_map = None
+        self.args_dict = args_dict
 
         # Multiple Reward Map Size choices
         self.reward_map_size_list = params_dict['rewardMapSizeList']
@@ -104,6 +80,7 @@ class SearchEnv(gym.Env):
 
         self.action_size = len(ACTIONS)
         self.episode_length = params_dict['episode_length']
+        self.sensor_range = params_dict['sensor_range']
 
 
         if SET_SEED:
@@ -296,6 +273,19 @@ class SearchEnv(gym.Env):
             reward+=REWARD.COLLISION.value
 
         self.worldMap[self.agents[agentID].pos[0],self.agents[agentID].pos[1]] = 0
+        self.agents[agentID].updateMap(self.worldMap)
+        return reward
+
+    def updateInfoMap(self,agentID,action):
+        valid = self.agents[agentID].updatePos(action)
+        reward = 0
+        reward += self.worldMap[self.agents[agentID].pos[0], self.agents[agentID].pos[1]]
+        if valid:
+            reward += REWARD.STEP.value
+        else:
+            reward += REWARD.COLLISION.value
+
+        self.worldMap[self.agents[agentID].pos[0], self.agents[agentID].pos[1]] = 0
         self.agents[agentID].updateMap(self.worldMap)
         return reward
 

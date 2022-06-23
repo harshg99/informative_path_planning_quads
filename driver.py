@@ -50,7 +50,7 @@ if __name__=='__main__':
     params = Utilities.set_dict(parameters)
     neptune_run = Utilities.setup_neptune(params)
 
-    dummy_env = env_setter.set_env(params['ENV_TYPE'])
+    dummy_env = env_setter.set_env(params)
     global_model = alg_setter.set_model(dummy_env,params)
     init_ray()
     global_model.share_memory()

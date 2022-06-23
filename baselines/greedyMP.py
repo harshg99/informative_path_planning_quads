@@ -7,20 +7,15 @@ import os
 from Utilities import set_dict
 from env.render import *
 from multiprocessing import Pool as pool
-class GreedyMP:
+from baselines.il_wrapper import il_wrapper
+
+class GreedyMP(il_wrapper):
     def __init__(self,params_dict,home_dir="/"):
-        self.depth = params_dict['depth']
-        import env_params.MotionPrim as parameters
-        env_params_dict = set_dict(parameters)
-        env_params_dict['home_dir'] = os.getcwd()+home_dir
-        self.env = SearchEnvMP(env_params_dict)
+        super(GreedyMP).__init__(home_dir)
         self.gifs = params_dict['GIFS']
         self.gifs_path = params_dict['GIFS_PATH']
+        self.depth = params_dict['depth']
 
-        self.mp_graph = self.env.minimum_action_mp_graph
-        self.lookup = self.env.lookup_dictionary
-        self.num_tiles = self.env.mp_graph.num_tiles
-        self.spatial_dim = self.env.mp_graph.num_dims
 
     def isValidMP(self,pos,mp,agentID):
         is_valid = mp.is_valid
@@ -80,9 +75,7 @@ class GreedyMP:
         worldMap = args[3]
         current_depth = args[4]
 
-
-
-    def plan_action(self,pos,index,agentID,current_depth = 0,worldMap=None):
+    def plan_action(self,pos,index,agentID,current_depth=0,worldMap=None):
         if current_depth>=self.depth:
             return 0
         else:
@@ -100,6 +93,14 @@ class GreedyMP:
                 return best_action,np.max(np.array(costs))
             else:
                 return np.max(np.array(costs))
+
+    '''
+    For imitation learning
+    '''
+    def return_action(self,agentID):
+        agent = self.env.agents[agentID]
+        action, cost = self.plan_action(deepcopy(agent.pos), deepcopy(agent.index), agentID)
+        return action,cost
 
     def run_test(self,rewardmap,ID=0):
         episode_step = 0

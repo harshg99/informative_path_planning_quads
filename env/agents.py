@@ -1,0 +1,163 @@
+import numpy as np
+from gym.envs.classic_control import rendering
+from enum import Enum
+from env.render import *
+from env.searchenv import *
+import math
+import matplotlib.pyplot as plt
+import GPy
+from params import *
+from motion_primitives_py import MotionPrimitiveLattice
+from copy import deepcopy
+import os
+from env.sensors import *
+
+class Agent():
+    def __init__(self,ID,row,col,map_size,pad,world_size):
+        self.ID = ID
+        self.pos = np.array([row,col])
+        self.reward_map_size = map_size
+        self.pad = pad
+        self.world_size = world_size
+        self.worldMap = None
+        self.prev_action = 0
+
+
+    def updateMap(self,worldMap):
+        self.worldMap= worldMap
+
+    def updatePos(self,action):
+        next_pos = self.pos + np.array(action)
+        is_action_valid = self.isValidPos(next_pos)
+        if is_action_valid:
+            self.pos = next_pos
+        self.prev_action =  action
+        return is_action_valid
+
+    def isValidPos(self, pos):
+        is_valid = (np.array(pos - self.pad) > -1).all()
+        is_valid = is_valid and (np.array(pos + self.pad) < self.world_size).all()
+        return is_valid
+
+class AgentMP():
+    def __init__(self,ID,row,col,map_size,pad,world_size,mp_graph,lookup,spatial_dim,tiles,budget = None):
+        self.ID = ID
+        self.pos = np.array([row,col])
+        self.reward_map_size = map_size
+        self.pad = pad
+        self.tiles = tiles
+        self.world_size = world_size
+        self.worldMap = None
+        self.visited_states = None
+        self.mp_graph = mp_graph
+        self.lookup = lookup
+        self.index = 0
+        self.spatial_dim = spatial_dim
+        self.prev_action = 0
+        if budget is not None:
+            self.agentBudget = budget
+
+
+    def updateMap(self,worldMap):
+        self.worldMap= worldMap
+
+    def updatePos(self,action):
+        mp = deepcopy(self.mp_graph[self.index, action])
+        mpcost = -1
+        if mp is not None:
+            #mp.translate_start_position(self.pos)
+            #_, sp = mp.get_sampled_position()
+            # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
+            #visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
+            is_valid,visited_states = self.isValidMP(mp)
+            self.prev_action = action
+            if is_valid:
+                next_index = self.lookup[self.index, action]
+                next_index = int(np.floor(next_index / self.tiles))
+                self.index = next_index
+                self.pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
+                #print("{:d} {:d} {:d} {:d}".format(self.pos[0], self.pos[1], visited_states[0,0], visited_states[1,0]))
+                self.visited_states = visited_states
+                mpcost = mp.cost / mp.subclass_specific_data.get('rho', 1) / 10
+                if self.agentBudget is not None:
+                    self.agentBudget -= mpcost
+                return is_valid, visited_states, mpcost
+            if self.agentBudget is not None:
+                self.agentBudget -= mpcost
+            return False,visited_states,None
+        if self.agentBudget is not None:
+            self.agentBudget -= mpcost
+        return False,None, None
+
+    def isValidMP(self,mp):
+        is_valid = mp.is_valid
+        mp.translate_start_position(self.pos)
+        _, sp = mp.get_sampled_position()
+        # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
+        visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
+        #is_valid = is_valid and self.isValidPoses(visited_states)
+        final_pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
+        is_valid = is_valid and self.isValidFinalPose(final_pos)
+        return is_valid,visited_states
+
+    def isValidPoses(self, poses):
+        is_valid = True
+        for state in poses.T:
+            is_valid = is_valid and self.isValidPos(state)
+        return is_valid
+
+    def isValidFinalPose(self, final_pose):
+        is_valid = True
+        is_valid = is_valid and self.isValidPos(final_pose.T)
+        return is_valid
+
+    def isValidPos(self, pos):
+        is_valid = (np.array(pos - self.pad) > -1).all()
+        is_valid = is_valid and (np.array(pos + self.pad) < self.world_size).all()
+        return is_valid
+
+class AgentGP(AgentMP):
+    def __init__(self,ID,row,col,map_size,pad,world_size,mp_graph,lookup,spatial_dim,tiles,sensor_params,budget=None):
+        super(AgentGP, self).__init__(ID,row,col,map_size,pad,world_size,mp_graph,lookup,spatial_dim,tiles,budget)
+        self.beliefMap = np.zeros([self.world_size,self.world_size])
+        self.targetMap = np.zeros([self.world_size,self.world_size])
+        self.sensor = sensor_setter.set_env(sensor_params)
+
+    def initBeliefMap(self,Map):
+        self.beliefMap = Map.copy()
+
+
+    def updatePos(self,action,beliefThresh = 0.99):
+        valid,states,cost = super(AgentGP, self).updatePos(action)
+        return valid,states,cost
+
+    def updateInfoTarget(self,visited_states,worldTargetMap,beliefThresh):
+        measurement_list = []
+        for state in visited_states:
+            r = state[0]
+            c = state[1]
+            range_ = int(self.sensor.sensor_range/2)
+            min_x = np.max([r - range_, 0])
+            min_y = np.max([c - range_, 0])
+            max_x = np.min([r + range_+1, self.beliefMap.shape[0]])
+            max_y = np.min([c + range_+1, self.beliefMap.shape[1]])
+            measurement = self.sensor.getMeasurement(state,worldTargetMap)
+            measurement_list.append(measurement)
+            for j in range(min_x,max_x):
+                for k in range(min_y,max_y):
+                    logodds_b_map = np.log(self.beliefMap[j,k]/(1-self.beliefMap[j,k]))
+                    sensor_log_odds = np.log((1-self.sensor.sensor_unc[j-(r-range_),k-(c-range_)])/ \
+                                            self.sensor.sensor_unc[j-(r-range_),k-(c-range_)])
+                    #print(sensor_log_odds)
+                    if measurement[j-(r-range_),k-(c-range_)]==0:
+                        logodds_b_map -= sensor_log_odds
+                    else:
+                        logodds_b_map += sensor_log_odds
+                    self.beliefMap[j,k] = 1/(np.exp(-logodds_b_map)+1)
+
+                # Update whether target is found
+
+                    if self.beliefMap[j,k]>=beliefThresh:
+                        self.targetMap[j,k]=2
+
+        return measurement_list

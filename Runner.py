@@ -17,9 +17,9 @@ import Utilities
 class Runner(object):
     def __init__(self,id,args_dict):
         self.ID= id
-        self.env = env_setter.set_env(ENV_TYPE)
+        self.env = env_setter.set_env(args_dict)
         self.model =  alg_setter.set_model(self.env,args_dict)
-        self.worker = Worker(self.ID,self.model,self.env)
+        self.worker = Worker(self.ID,self.model,self.env,args_dict)
 
     def job(self,glob_weights,episode_num):
         self.model.load_state_dict(glob_weights)
@@ -46,4 +46,4 @@ if __name__ == '__main__':
     #neptune_run = Utilities.setup_neptune(params)
 
     rs = Runner(0,params)
-    rs.singleThreadedJob(500)
+    rs.singleThreadedJob(00)

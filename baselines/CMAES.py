@@ -8,44 +8,19 @@ from Utilities import set_dict
 from cmaes import CMA
 from multiprocessing import Pool as pool
 import functools
-class CMAES:
-    def __init__(self,params_dict):
+class CMAES(il_wrapper):
+    def __init__(self,params_dict,home_dir="/"):
+        super(CMAES).__init__(home_dir)
         self.population_size = params_dict['population_size']
         self.depth = params_dict['depth']
         self.threads = params_dict['threads']
         self.min_iterations = params_dict['min_iterations']
         self.iterations = params_dict['iterations']
         self.thresh = params_dict['thresh']
-        import env_params.MotionPrim as parameters
-        env_params_dict = set_dict(parameters)
-        env_params_dict['home_dir'] = os.getcwd()+"/.."
-        self.env = SearchEnvMP(env_params_dict)
+        self.counter = 0
 
-        self.mp_graph = self.env.minimum_action_mp_graph
-        self.lookup = self.env.lookup_dictionary
-        self.num_tiles = self.env.mp_graph.num_tiles
-        self.spatial_dim = self.env.mp_graph.num_dims
 
-    def isValidMP(self,pos,mp,agentID):
-        is_valid = mp.is_valid
-        mp.translate_start_position(pos)
-        _, sp = mp.get_sampled_position()
-        # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
-        visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
-        is_valid = is_valid and self.isValidPoses(visited_states,agentID)
-        return is_valid,visited_states
 
-    def isValidPoses(self, poses,agentID):
-        is_valid = True
-        for state in poses.T:
-            is_valid = is_valid and self.isValidPos(state,agentID)
-        return is_valid
-
-    def isValidPos(self, pos,agentID):
-        is_valid = (np.array(pos - self.env.agents[agentID].pad) > -1).all()
-        is_valid = is_valid and (np.array(pos + self.env.agents[agentID].pad) \
-                                 < self.env.agents[agentID].world_size).all()
-        return is_valid
 
     def objective(self,args,vector):
         pos = np.stack(args[0])
@@ -145,6 +120,14 @@ class CMAES:
 
         return action_list,cost
 
+    def return_action(self,agentID):
+        agent  = self.env.agents[agentID]
+        if self.counter>=self.depth:
+            self.counter = 0
+            self.action_list, self.costs = self.plan_action(deepcopy(agent.pos), deepcopy(agent.index), agentID,
+                                              deepcopy(self.env.worldMap.copy()))
+        self.counter+=1
+        return self.action_list[self.counter-1],self.costs[self.counter-1]
     def run_test(self,rewardMap):
         episode_step = 0
         episode_rewards = 0
@@ -154,7 +137,8 @@ class CMAES:
         while(episode_step <self.env.episode_length):
             action_dicts = [{} for j in range(self.depth)]
             for j,agent in enumerate(self.env.agents):
-                action_list,costs  = self.plan_action(deepcopy(agent.pos),deepcopy(agent.index),j,deepcopy(self.env.worldMap.copy()))
+                action_list,costs  = self.plan_action(deepcopy(agent.pos),deepcopy(agent.index),\
+                                                      j,deepcopy(self.env.worldMap.copy()))
                 for k,action in enumerate(action_list):
                     action_dicts[k][j] = action
 

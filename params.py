@@ -42,7 +42,10 @@ RAY_RESET_EPS = 1000
 SPAWN_RANDOM_AGENTS = True
 SET_SEED = False # Sets seed to ensure similar form of training
 SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawned deterministically
-ENV_TYPE = 'MotionPrim' # MotionPrim or Discrete
+ENV_TYPE = 'GPPrim' # MotionPrim or Discrete or GPPrim
+#Episode Parameters
+FIXED_BUDGET = True
+BUDGET = 10
 
 #MODEL TYPE
 MODEL_TYPE = 'Model5'#Model1 Model2 etc
@@ -74,3 +77,4 @@ RANGE = 16
 
 # Test directory
 MAP_TEST_DIR = 'tests/maps/'
+

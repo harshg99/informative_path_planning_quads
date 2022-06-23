@@ -33,7 +33,7 @@ class AC:
         rewards_plus = np.copy(train_buffer['rewards']).tolist()
         dones = np.array(train_buffer['dones'])
 
-        rewards_plus.append((1 - dones[-1])*train_buffer['bootstrap_value'][:,0].tolist())
+        rewards_plus.append(((1 - dones[-1])*train_buffer['bootstrap_value'][:,0]).tolist())
 
         rewards_plus = np.array(rewards_plus).squeeze()
         discount_rewards = Utilities.discount(rewards_plus,self.args_dict['DISCOUNT'])[:-1]

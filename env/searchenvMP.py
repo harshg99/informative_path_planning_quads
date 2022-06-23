@@ -12,72 +12,7 @@ from params import *
 from motion_primitives_py import MotionPrimitiveLattice
 from copy import deepcopy
 import os
-
-class AgentMP():
-    def __init__(self,ID,row,col,map_size,pad,world_size,mp_graph,lookup,spatial_dim,tiles):
-        self.ID = ID
-        self.pos = np.array([row,col])
-        self.reward_map_size = map_size
-        self.pad = pad
-        self.tiles = tiles
-        self.world_size = world_size
-        self.worldMap = None
-        self.visited_states = None
-        self.mp_graph = mp_graph
-        self.lookup = lookup
-        self.index = 0
-        self.spatial_dim = spatial_dim
-        self.prev_action = 0
-
-    def updateMap(self,worldMap):
-        self.worldMap= worldMap
-
-    def updatePos(self,action):
-        mp = deepcopy(self.mp_graph[self.index, action])
-        if mp is not None:
-            #mp.translate_start_position(self.pos)
-            #_, sp = mp.get_sampled_position()
-            # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
-            #visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
-            is_valid,visited_states = self.isValidMP(mp)
-            if is_valid:
-                next_index = self.lookup[self.index, action]
-                next_index = int(np.floor(next_index / self.tiles))
-                self.index = next_index
-                self.pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
-                #print("{:d} {:d} {:d} {:d}".format(self.pos[0], self.pos[1], visited_states[0,0], visited_states[1,0]))
-                self.visited_states = visited_states
-                return is_valid, visited_states, mp.cost / mp.subclass_specific_data.get('rho', 1) / 10
-            return False,visited_states,None
-        self.prev_action = action
-        return False,None, None
-
-    def isValidMP(self,mp):
-        is_valid = mp.is_valid
-        mp.translate_start_position(self.pos)
-        _, sp = mp.get_sampled_position()
-        # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
-        visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
-        #is_valid = is_valid and self.isValidPoses(visited_states)
-        final_pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
-        is_valid = is_valid and self.isValidFinalPose(final_pos)
-        return is_valid,visited_states 
-
-    def isValidPoses(self, poses):
-        is_valid = True
-        for state in poses.T:
-            is_valid = is_valid and self.isValidPos(state)
-        return is_valid
-
-    def isValidFinalPose(self, final_pose):
-        is_valid = True
-        is_valid = is_valid and self.isValidPos(final_pose.T)
-        return is_valid
-
-    def isValidPos(self, pos):
-        is_valid = (np.array(pos - self.pad) > -1).all()
-        is_valid = is_valid and (np.array(pos + self.pad) < self.world_size).all()
-        return is_valid
+from env.agents import AgentMP
 
 
 class SearchEnvMP(SearchEnv):
@@ -85,8 +20,8 @@ class SearchEnvMP(SearchEnv):
     '''
     Handles the motion primitive search
     '''
-    def __init__(self, params_dict):
-        super().__init__(params_dict)
+    def __init__(self, params_dict,args_dict):
+        super().__init__(params_dict,args_dict)
         if 'home_dir' not in params_dict.keys():
             self.mp_graph_file_name = os.getcwd()+ '/env/'+params_dict['graph_file_name']
         else:
@@ -199,12 +134,14 @@ class SearchEnvMP(SearchEnv):
             # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
             visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
             is_valid = mp.is_valid
+
             for state in visited_states.T:
                 is_valid = is_valid and self.isValidPos(state)
             if is_valid:
                 next_index = self.lookup_dictionary[index, action]
                 next_index = int(np.floor(next_index/self.mp_graph.num_tiles))
-                return mp.end_state[:self.spatial_dim], next_index, is_valid, visited_states, mp.cost/mp.subclass_specific_data.get('rho', 1)/10
+                return mp.end_state[:self.spatial_dim], next_index, is_valid, \
+                       visited_states, mp.cost/mp.subclass_specific_data.get('rho', 1)/10
         # else:
         #     print('Warning: invalid MP is being selected')
         return pos, index, False, None, None
@@ -216,17 +153,25 @@ class SearchEnvMP(SearchEnv):
     def createWorld(self, rewardMap=None):
         super().createWorld(rewardMap)
         # Creating the agents
+        if self.args_dict['FIXED_BUDGET']:
+            agentBudget = self.args_dict['BUDGET']*REWARD.MP.value
+        else:
+            agentBudget = None
+
         if SPAWN_RANDOM_AGENTS:
             row = np.random.randint(self.pad_size,self.reward_map_size+self.pad_size,(self.numAgents,))
             col = np.random.randint(self.pad_size, self.reward_map_size + self.pad_size, (self.numAgents,))
+
             self.agents = [
                 AgentMP(j, row[j],col[j], \
                       self.reward_map_size, self.pad_size, self.world_map_size,\
-                        self.minimum_action_mp_graph,self.lookup_dictionary,self.spatial_dim,self.mp_graph.num_tiles) for j in range(self.numAgents)]
+                        self.minimum_action_mp_graph,self.lookup_dictionary,\
+                        self.spatial_dim,self.mp_graph.num_tiles,agentBudget) for j in range(self.numAgents)]
         else:
             self.agents = [AgentMP(j,self.reward_map_size+int(j/(int(j/2))),self.reward_map_size+(j%(int(j/2))),\
                                  self.reward_map_size,self.pad_size,self.world_map_size,\
-                        self.minimum_action_mp_graph,self.lookup_dictionary,self.spatial_dim,self.mp_graph.num_tiles) for j in range(self.numAgents)]
+                        self.minimum_action_mp_graph,self.lookup_dictionary,\
+                                   self.spatial_dim,self.mp_graph.num_tiles,agentBudget) for j in range(self.numAgents)]
 
     def step_all(self,action_dict):
         rewards = []
@@ -239,10 +184,18 @@ class SearchEnvMP(SearchEnv):
             done = True
 
         # If no agent has valid motion primitives terminate
+        if self.args_dict['FIXED_BUDGET']:
+            agentsDone = False
         for agent_idx,_ in enumerate(self.agents):
             _,valids = self.get_mps(agent_idx)
             if np.array(valids).sum()==0:
                 done = True
+            if self.args_dict['FIXED_BUDGET']:
+                if self.agents[agent_idx].agentBudget != None and self.agents[agent_idx].agentBudget<0:
+                    agentsDone = agentsDone or True
+
+        if self.args_dict['FIXED_BUDGET']:
+            done = done or agentsDone
 
         return rewards, done
 
@@ -250,23 +203,26 @@ class SearchEnvMP(SearchEnv):
         """
         Given the current state and action, return the next state
         """
-        valid,visited_states,cost = self.agents[agentID].updatePos(action)
-        reward = 0
-        if valid:
-            for state in visited_states.T:
-                reward += self.worldMap[state[0], state[1]]
-                self.worldMap[state[0], state[1]] = 0
-            reward -= cost/10000
-        elif visited_states is not None:
-            #reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
-            reward += REWARD.COLLISION.value
-        else:
-            reward += REWARD.COLLISION.value*1.5
+        if not self.args_dict['FIXED_BUDGET'] or (self.args_dict['FIXED_BUDGET']\
+                                              and self.agents[agentID].agentBudget>0):
+            valid,visited_states,cost = self.agents[agentID].updatePos(action)
+            reward = 0
+            if valid:
+                for state in visited_states.T:
+                    reward += self.worldMap[state[0], state[1]]
+                    self.worldMap[state[0], state[1]] = 0
+                reward -= cost/REWARD.MP.value
+            elif visited_states is not None:
+                #reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
+                reward += REWARD.COLLISION.value
+            else:
+                reward += REWARD.COLLISION.value*1.5
 
-        reward += self.worldMap[int(self.agents[agentID].pos[0]), int(self.agents[agentID].pos[1])]
-        self.worldMap[self.agents[agentID].pos[0], self.agents[agentID].pos[1]] = 0
-        self.agents[agentID].updateMap(self.worldMap)
-        return reward
+            reward += self.worldMap[int(self.agents[agentID].pos[0]), int(self.agents[agentID].pos[1])]
+            self.worldMap[self.agents[agentID].pos[0], self.agents[agentID].pos[1]] = 0
+            self.agents[agentID].updateMap(self.worldMap)
+            return reward
+        return 0
 
     def render(self, mode='visualise', W=800, H=800):
 

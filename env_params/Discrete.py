@@ -9,3 +9,4 @@ rewardMapSizeList = [30,45,60,90]
 randomMapSize = False
 defaultMapChoice = 0
 scale = [1,2,4]
+sensor_range = 5
