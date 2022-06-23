@@ -63,7 +63,7 @@ class AgentMP():
 
     def updatePos(self,action):
         mp = deepcopy(self.mp_graph[self.index, action])
-        mpcost = 10000
+        mpcost = 5000
         if mp is not None:
             #mp.translate_start_position(self.pos)
             #_, sp = mp.get_sampled_position()
