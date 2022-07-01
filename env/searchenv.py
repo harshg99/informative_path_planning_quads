@@ -462,6 +462,9 @@ class SearchEnv(gym.Env):
                 obsmap_feature = block_reduce(obsmap_feature,(s,s),np.max)
                 features = np.concatenate((features,np.expand_dims(infomap_feature, axis=-1)), axis=-1)
                 features = np.concatenate((features,np.expand_dims(obsmap_feature, axis=-1)), axis=-1)
+
+
+
         # print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
         return np.array(features)
 

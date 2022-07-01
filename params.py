@@ -48,9 +48,23 @@ FIXED_BUDGET = True
 BUDGET = 10
 
 #MODEL TYPE
-MODEL_TYPE = 'Model5'#Model1 Model2 etc
-ALG_TYPE = 'AC' #AC or PPO
-COMPUTE_VALIDS = True # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
+CLASS_CONFIG = 'Transformer' #Linear or Transformer
+if CLASS_CONFIG =='Linear':
+    MODEL_TYPE = 'Model5'#Model1 Model2 etc
+    ALG_TYPE = 'AC' #AC or PPO
+    QVALUE = False
+    COMPUTE_VALIDS = True # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
+    # Observation Type
+    OBSERVER = 'RANGEwOBSwMULTI'  # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS,RANGEwOBSwPENC,RANGEwOBSwMULTI
+    RANGE = 16
+elif CLASS_CONFIG == 'Transformer':
+    MODEL_TYPE = 'ModelTrans1'  # Model1 Model2 etc
+    ALG_TYPE = 'AC'  # AC or PPO
+    QVALUE = True
+    COMPUTE_VALIDS = True  # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
+    # Observation Type
+    OBSERVER = 'RANGEwOBSwMULTI'
+    RANGE = 16
 
 if ALG_TYPE=='PPO':
     JOB_TYPE = JOB_TYPES.getExperience
@@ -72,7 +86,7 @@ neptune_project        = "harshg99/SearchKR2" # USER-ID
 NEPTUNE_API_TOKEN      = "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOTI4NjE0Yi00ZjNmLTQ5NjktOTdhNy04YTk3ZGQyZTg1MDIifQ=="
 
 # Observation Type
-OBSERVER = 'RANGEwOBSwMULTI' # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS,RANGEwOBSwPENC,RANGEwOBSwMULTI
+#OBSERVER = 'RANGEwOBSwMULTI' # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS,RANGEwOBSwPENC,RANGEwOBSwMULTI
 RANGE = 16
 
 # Test directory

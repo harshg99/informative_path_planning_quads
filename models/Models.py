@@ -420,3 +420,6 @@ class Model5(Model4):
         valids = torch.tensor(valids,dtype = torch.float32).to(self.args_dict['DEVICE'])
         return policy.squeeze(),value.squeeze(), \
                valids.squeeze(), valids_net.squeeze()
+
+
+

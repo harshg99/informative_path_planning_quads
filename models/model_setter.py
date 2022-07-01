@@ -38,6 +38,11 @@ class model_setter:
             import model_params.Transformer as parameters
             model_params_dict = model_setter.set_dict(parameters)
             return TransformerAC2(env, model_params_dict,args_dict)
+        elif type == 'ModelTrans1':
+            from models.ModelsTrans2 import ModelTrans1
+            import model_params.ModelTrans1 as parameters
+            model_params_dict = model_setter.set_dict(parameters)
+            return ModelTrans1(env, model_params_dict,args_dict)
         elif type == 'DQN':
             import model_params.Transformer as parameters
             model_params_dict = model_setter.set_dict(parameters)

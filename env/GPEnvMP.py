@@ -104,7 +104,7 @@ class GPEnvMP(SearchEnvMP):
         if self.args_dict['FIXED_BUDGET']:
             agentsDone = False
         for agent_idx, _ in enumerate(self.agents):
-            _, valids = self.get_mps(agent_idx)
+            _, valids,_ = self.get_mps(agent_idx)
             if np.array(valids).sum() == 0:
                 done = True
             if self.args_dict['FIXED_BUDGET']:

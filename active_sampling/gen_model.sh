@@ -33,10 +33,6 @@ WORLD_NAME=$1
 if [ ! -f ${CONFIG_FOLDER}/${WORLD_NAME}.yml ]; then
     usage
 else
-    if [ ! -d ${WORLDS_FOLDER} ]; then
-        mkdir -p ${WORLDS_FOLDER}
-    fi
-    
     if [[ -w ${HOME} ]]; then
         WORLDS_FOLDER=${HOME}/.gazebo/worlds
     else

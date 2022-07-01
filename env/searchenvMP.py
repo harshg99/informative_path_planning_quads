@@ -27,6 +27,7 @@ class SearchEnvMP(SearchEnv):
         else:
             self.mp_graph_file_name = params_dict['home_dir'] + '/env/' + params_dict['graph_file_name']
         self.load_graph()
+        self.create_mp_graph_encodings()
         self.spatial_dim = self.mp_graph.num_dims
 
     def load_graph(self):
@@ -47,6 +48,20 @@ class SearchEnvMP(SearchEnv):
         self.num_vertices = len(self.mp_graph.vertices)
         self.num_other_states = self.minimum_action_mp_graph.shape[0]
         self.num_actions_per_state = [len([j for j in i if j != None]) for i in self.minimum_action_mp_graph]
+
+    def create_mp_graph_encodings(self):
+        self.motionprim_tokensize = self.num_graph_nodes + self.mp_graph.edges.shape[1]
+        self.mp_graph_embeddings = np.zeros((self.mp_graph.edges.shape[0],self.mp_graph.edges.shape[1],self.motionprim_tokensize))
+        for j in range(self.mp_graph.edges.shape[0]):
+            for k in range(self.action_size):
+                node_embed = np.zeros((self.mp_graph.edges.shape[0],))
+                node_embed[j] = 1
+                edge_embed = np.zeros((self.mp_graph.edges.shape[1],))
+                if self.lookup_dictionary[j,k]>0:
+                    edge_embed[self.lookup_dictionary[j,k]] = 1
+                else:
+                    edge_embed -=1
+                self.mp_graph_embeddings[j,k] = np.array(node_embed.tolist()+edge_embed.tolist())
 
     ''' Get future states from the primitive for encoding'''
     def get_states(self,pos,action,index):
@@ -71,20 +86,23 @@ class SearchEnvMP(SearchEnv):
         action_coeffs =[]
         index = self.agents[agent_idx].index
         valids = []
+        mp_embeds = []
         poly_order = 0
-        for mp in self.minimum_action_mp_graph[index,:]:
+        for j,mp in enumerate(self.minimum_action_mp_graph[index,:]):
             mp = deepcopy(mp)
+            mp_embeds.append(self.mp_graph_embeddings[index, j])
             if mp is not None:
                 action_coeffs.append(np.array(mp.poly_coeffs).reshape(-1))
                 if self.agents[agent_idx].isValidMP(mp):
                     valids.append(1)
+
                 else:
                     valids.append(0)
                 poly_order = 2*(mp.poly_order+1)
             else:
                 action_coeffs.append(np.zeros(poly_order))
                 valids.append(0)
-        return np.array(action_coeffs),valids
+        return np.array(action_coeffs),valids,np.array(mp_embeds)
 
     def get_obs_all(self):
         obs = []
@@ -93,6 +111,7 @@ class SearchEnvMP(SearchEnv):
         position = []
         previous_actions = []
         agent_idx = []
+        mp_embeds = []
         for j in range(self.numAgents):
             if OBSERVER == 'TILED':
                 obs.append(self.get_obs_tiled(agentID=j))
@@ -107,8 +126,9 @@ class SearchEnvMP(SearchEnv):
             elif OBSERVER == 'RANGEwOBSwMULTI':
                 obs.append(self.get_obs_range_wobs_multi(agentID=j))
 
-            coeffs,valid = self.get_mps(j)
+            coeffs,valid,mp_embed = self.get_mps(j)
             agents_actions.append(coeffs)
+            mp_embeds.append(mp_embed)
             valids.append(valid)
             position.append([self.agents[j].pos[0]/self.reward_map_size,\
                              self.agents[j].pos[1]/self.reward_map_size])
@@ -118,6 +138,7 @@ class SearchEnvMP(SearchEnv):
         obs_dict = dict()
         obs_dict['obs'] = obs
         obs_dict['mps'] = np.array(agents_actions)
+        obs_dict['mp_embeds'] = np.stack(mp_embeds)
         obs_dict['valids'] = np.array(valids)
         obs_dict['position'] = np.array(position)
         obs_dict['previous_actions'] = np.array(previous_actions)
@@ -187,7 +208,7 @@ class SearchEnvMP(SearchEnv):
         if self.args_dict['FIXED_BUDGET']:
             agentsDone = False
         for agent_idx,_ in enumerate(self.agents):
-            _,valids = self.get_mps(agent_idx)
+            _,valids,_ = self.get_mps(agent_idx)
             if np.array(valids).sum()==0:
                 done = True
             if self.args_dict['FIXED_BUDGET']:

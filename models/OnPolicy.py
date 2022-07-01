@@ -38,8 +38,12 @@ class AC:
         rewards_plus = np.array(rewards_plus).squeeze()
         discount_rewards = Utilities.discount(rewards_plus,self.args_dict['DISCOUNT'])[:-1]
 
-        values_plus = train_buffer['values']
-        values_plus.append((1 - dones[-1])*train_buffer['bootstrap_value'])
+        if self.args_dict['QVALUE']:
+            values_plus = (np.stack(train_buffer['values'])*np.stack(train_buffer['policy'])).sum(axis=-1).tolist()
+            values_plus.append(((1 - dones[-1]) * np.max(train_buffer['bootstrap_value'],axis=-1)).tolist())
+        else:
+            values_plus = train_buffer['values']
+            values_plus.append((1 - dones[-1])*train_buffer['bootstrap_value'])
         values_plus = np.array(values_plus).squeeze()
         advantages = np.array(train_buffer['rewards']).squeeze() + \
                      self.args_dict['DISCOUNT']*values_plus[1:] - values_plus[:-1]
@@ -66,20 +70,23 @@ class AC:
         a_batch = torch.tensor(a_batch, dtype=torch.int64).to(self.args_dict['DEVICE'])
         advantages = torch.tensor(advantages, dtype=torch.float32).to(self.args_dict['DEVICE'])
         dones = torch.tensor(np.array(dones), dtype=torch.float32).to(self.args_dict['DEVICE'])
-
         responsible_outputs = policy.gather(-1, a_batch)
-        v_l = (1-dones)*self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
-        e_l = -(1-dones)*torch.sum(self.params_dict['entropy_weight'] * \
+        if self.args_dict['QVALUE']:
+            v_l = self.params_dict['value_weight'] * torch.square((value.squeeze()*\
+                                                F.one_hot(a_batch,self.env.action_size).squeeze()).sum(dim=-1)- target_v)
+        else:
+            v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
+        e_l = -torch.sum(self.params_dict['entropy_weight'] * \
                                    (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))),dim=-1)
-        p_l = -(1-dones)*self.params_dict['policy_weight'] * torch.log(
+        p_l = -self.params_dict['policy_weight'] * torch.log(
         torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
 
 
 
-        valid_l1 = -(1-dones)*self.params_dict['valids_weight1'] * torch.sum((1 - valids) * \
-                                                        torch.log(torch.clip(1 - valids_net, 1e-7, 1)),dim=-1)
-        valid_l2 = -(1 - dones) * self.params_dict['valids_weight2'] * torch.sum(valids * \
-                                                                    torch.log(torch.clip(valids_net, 1e-7, 1)),dim=-1)
+        valid_l1 = -self.params_dict['valids_weight1'] * torch.sum((1 - valids) * \
+                                                    torch.log(torch.clip(1 - valids_net, 1e-7, 1)),dim=-1)
+        valid_l2 = -self.params_dict['valids_weight2'] * torch.sum(valids * \
+                                                        torch.log(torch.clip(valids_net, 1e-7, 1)),dim=-1)
         valid_l = valid_l1 + valid_l2
         return v_l,p_l,e_l,valid_l
 
@@ -158,10 +165,11 @@ class PPO(AC):
         valid_l1 = -(1 - dones) * self.params_dict['valids_weight1'] * torch.sum((1 - valids) * \
                                                                                  torch.log(
                                                                                      torch.clip(1 - valids_net, 1e-7,
-                                                                                                1)),dim-1)
+                                                                                                1)),dim=1)
         valid_l2 = -(1 - dones) * self.params_dict['valids_weight2'] * torch.sum(valids * \
                                                                                  torch.log(
                                                                                      torch.clip(valids_net, 1e-7, 1)),
                                                                                  dim=-1)
         valid_l = valid_l1 + valid_l2
         return v_l, p_l, e_l,valid_l
+
