@@ -71,7 +71,7 @@ class ModelTrans1(Vanilla):
         self.Encoder.to(self.args_dict['DEVICE'])
         self.Decoder = Decoder(self.config)
         self.Decoder.to(self.args_dict['DEVICE'])
-        self.query_embed = nn.Linear(self.env.motionprim_tokensize,self.config['embed_size'])
+        self.query_embed = nn.Linear(self.env.motionprim_tokensize,self.config['embed_size'],bias=False)
 
     def tokenise_obs(self,conv_outputs):
         '''

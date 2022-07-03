@@ -33,7 +33,10 @@ class AC:
         rewards_plus = np.copy(train_buffer['rewards']).tolist()
         dones = np.array(train_buffer['dones'])
 
-        rewards_plus.append(((1 - dones[-1])*train_buffer['bootstrap_value'][:,0]).tolist())
+        if self.args_dict['QVALUE']:
+            rewards_plus.append(((1 - dones[-1]) * np.max(train_buffer['bootstrap_value'],axis=-1)).tolist())
+        else:
+            rewards_plus.append(((1 - dones[-1]) * train_buffer['bootstrap_value'][:, 0]).tolist())
 
         rewards_plus = np.array(rewards_plus).squeeze()
         discount_rewards = Utilities.discount(rewards_plus,self.args_dict['DISCOUNT'])[:-1]
@@ -96,7 +99,8 @@ class AC:
         loss = v_l.sum() + p_l.sum() - e_l.sum() + valid_l.sum()
 
         self.optim.zero_grad()
-        loss.sum().backward()
+        with torch.autograd.detect_anomaly():
+            loss.sum().backward()
         # self.optimizer.step()
         norm = torch.nn.utils.clip_grad_norm_(self._model.parameters(), 50)
         v_n = torch.linalg.norm(

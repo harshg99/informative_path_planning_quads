@@ -4,7 +4,7 @@ GPU = True and torch.cuda.is_available()
 DEVICE = 'cuda:0' if GPU else 'cpu'
 NUM_DEVICES = torch.cuda.device_count()
 
-NUM_META_AGENTS = 25
+NUM_META_AGENTS = 1
 MAX_EPISODES = 50000
 DISCOUNT = 0.9
 LR = 1e-3
@@ -32,7 +32,7 @@ TRAINING_TYPE = TRAINING_OPTIONS.singleThreaded
 
 GRADIENT_TYPE = GRADIENT_OPTIONS.batches
 
-RENDER_TRAINING = True
+RENDER_TRAINING = False
 RENDER_TRAINING_WINDOW = 300
 RAY_RESET_EPS = 1000
 

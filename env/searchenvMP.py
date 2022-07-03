@@ -49,18 +49,29 @@ class SearchEnvMP(SearchEnv):
         self.num_other_states = self.minimum_action_mp_graph.shape[0]
         self.num_actions_per_state = [len([j for j in i if j != None]) for i in self.minimum_action_mp_graph]
 
-    def create_mp_graph_encodings(self):
-        self.motionprim_tokensize = self.num_graph_nodes + self.mp_graph.edges.shape[1]
+    def create_mp_graph_encodings(self,bits= True):
+        if bits:
+            self.motionprim_tokensize = 20
+        else:
+            self.motionprim_tokensize = self.num_graph_nodes + self.mp_graph.edges.shape[1]
         self.mp_graph_embeddings = np.zeros((self.mp_graph.edges.shape[0],self.mp_graph.edges.shape[1],self.motionprim_tokensize))
         for j in range(self.mp_graph.edges.shape[0]):
             for k in range(self.action_size):
-                node_embed = np.zeros((self.mp_graph.edges.shape[0],))
-                node_embed[j] = 1
-                edge_embed = np.zeros((self.mp_graph.edges.shape[1],))
-                if self.lookup_dictionary[j,k]>0:
-                    edge_embed[self.lookup_dictionary[j,k]] = 1
+                if not bits:
+                    node_embed = np.zeros((self.mp_graph.edges.shape[0],))
+                    node_embed[j] = 1
+                    edge_embed = np.zeros((self.mp_graph.edges.shape[1],))
+                    if self.lookup_dictionary[j,k]>0:
+                        edge_embed[self.lookup_dictionary[j,k]] = 1
+                    else:
+                        edge_embed -=1
                 else:
-                    edge_embed -=1
+                    node_embed = np.unpackbits(np.uint8([j]),count=8)
+                    edge_embed = np.zeros((12,))
+                    if self.lookup_dictionary[j, k] > 0:
+                        edge_embed = np.unpackbits(np.uint8([k]),count=12)
+                    else:
+                        edge_embed -= 1
                 self.mp_graph_embeddings[j,k] = np.array(node_embed.tolist()+edge_embed.tolist())
 
     ''' Get future states from the primitive for encoding'''

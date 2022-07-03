@@ -108,6 +108,60 @@ class ConvEncLayer(nn.Module):
         self.input_size = input_size
         self.layers = []
         self.device = device
+        self.relu = nn.LeakyReLU()
+        self.layers.append(conv_block(self.kernel_size,self.input_size[-1],\
+                                      self.hidden_layers[0],stride=1,\
+                                      activation=nn.LeakyReLU,device=self.device))
+        for j in range(len(self.hidden_layers)-1):
+            self.layers.append(conv_block(self.kernel_size,self.hidden_layers[j],\
+                                          self.hidden_layers[j+1],stride=1,\
+                                          activation=nn.LeakyReLU,device=self.device))
+        self.pool = nn.MaxPool2d(kernel_size=2,stride=2,padding=0).to(self.device)
+        self.identitylayers = []
+        # self.identitylayers.append(conv_block(1,self.input_size[-1],\
+        #                               self.hidden_layers[0],stride=2,\
+        #                               activation=nn.LeakyReLU,padding = 0))
+        #
+        # for j in range(len(self.hidden_layers)-1):
+        #     self.identitylayers.append(conv_block(1,self.hidden_layers[j],\
+        #                               self.hidden_layers[j+1],stride=2,\
+        #                               activation=nn.LeakyReLU,padding = 0))
+        self.identitylayers.append(nn.Conv2d(in_channels=self.input_size[-1],\
+                                             out_channels=self.hidden_layers[0],\
+                                             kernel_size=1,stride=1,padding=0).to(self.device))
+
+        for j in range(len(self.hidden_layers)-1):
+            self.identitylayers.append(nn.Conv2d(in_channels=self.hidden_layers[j],\
+                                                 out_channels=self.hidden_layers[j+1],\
+                                                 kernel_size=1,stride=1,padding=0).to(self.device))
+
+    def forward(self, input):
+
+        # shape is (batch,num_agents,H,W,C)
+        B,N,H,W,C = input.shape
+        intermediate = input.reshape([B*N,H,W,C])
+        intermediate = torch.permute(intermediate, [0,3,1,2])
+        for layer,downsample in zip(self.layers,self.identitylayers):
+            identity = downsample(intermediate)
+            intermediate = layer(intermediate)
+            intermediate += identity
+            intermediate = self.pool(intermediate)
+            intermediate = self.relu(intermediate)
+        B_,C_,H_,W_ = intermediate.shape
+        intermediate = intermediate.reshape([B, N, C_,H_,W_])
+        return intermediate
+
+class MLPEncLayer(nn.Module):
+    def __init__(self, hidden_size,input_size,device):
+        super(MLPEncLayer, self).__init__()
+        self.hidden_layers = hidden_size
+        self.kernel_size = 3
+        self.input_size = input_size
+        self.layers = []
+        self.device = device
+        self.relu = nn.ReLU
+        self.patch_size = np.power(2,len(self.hidden_layers))
+
         self.layers.append(conv_block(self.kernel_size,self.input_size[-1],\
                                       self.hidden_layers[0],stride=1,\
                                       activation=nn.LeakyReLU,device=self.device))
@@ -145,7 +199,7 @@ class ConvEncLayer(nn.Module):
             intermediate = layer(intermediate)
             intermediate = self.pool(intermediate)
             intermediate+=identity
-            intermediate = nn.LeakyReLU()(intermediate)
+            intermediate = nn.ReLU()(intermediate)
         B_,C_,H_,W_ = intermediate.shape
         intermediate = intermediate.reshape([B, N, C_,H_,W_])
         return intermediate
@@ -182,9 +236,9 @@ class ScaledDotProductAttention(nn.Module):
         self.embed_in_size = config['embed_size']
         #self.key_size = config['key_size']
         self.embed_out_size = config['head_embed_size']
-        self.key_network = nn.Linear(self.embed_in_size,self.embed_out_size).to(self.config['DEVICE'])
-        self.value_network = nn.Linear(self.embed_in_size,self.embed_out_size).to(self.config['DEVICE'])
-        self.query_network = nn.Linear(self.embed_in_size,self.embed_out_size).to(self.config['DEVICE'])
+        self.key_network = nn.Linear(self.embed_in_size,self.embed_out_size,bias=False).to(self.config['DEVICE'])
+        self.value_network = nn.Linear(self.embed_in_size,self.embed_out_size,bias=False).to(self.config['DEVICE'])
+        self.query_network = nn.Linear(self.embed_in_size,self.embed_out_size,bias=False).to(self.config['DEVICE'])
 
     def forward(self,keys_in,query_in,value_in,mask = None):
         if query_in is None:
@@ -223,8 +277,8 @@ class EncoderLayer(nn.Module):
         self.embed_size = config['embed_size']
         self.mhablock = MHA(config).to(self.config['DEVICE'])
         self.layernorm = LayerNormalisation(self.embed_size).to(self.config['DEVICE'])
-        self.fclayers = [nn.Linear(self.num_heads*int(self.embed_size/self.num_heads),2*self.embed_size),\
-                                 nn.ReLU(),nn.Linear(2*self.embed_size,self.embed_size)]
+        self.fclayers = [nn.Linear(self.num_heads*int(self.embed_size/self.num_heads),self.embed_size),\
+                         nn.ReLU(),nn.Linear(self.embed_size,self.embed_size)]
         self.fc = nn.Sequential(*self.fclayers).to(self.config['DEVICE'])
 
     def forward(self,input,mask=None):
@@ -246,8 +300,8 @@ class DecoderLayer(nn.Module):
         self.embed_size = config['embed_size']
         self.mhablock = MHA(config).to(self.config['DEVICE'])
         self.layernorm = LayerNormalisation(self.embed_size).to(self.config['DEVICE'])
-        self.fclayers = [nn.Linear(self.num_heads*int(self.embed_size/self.num_heads),2*self.embed_size),\
-                                 nn.ReLU(),nn.Linear(2*self.embed_size,self.embed_size)]
+        self.fclayers = [nn.Linear(self.num_heads*int(self.embed_size/self.num_heads),self.embed_size),\
+                         nn.ReLU(),nn.Linear(self.embed_size,self.embed_size)]
         self.fc = nn.Sequential(*self.fclayers).to(self.config['DEVICE'])
 
     def forward(self,keys,query,mask=None):
@@ -265,9 +319,7 @@ class Encoder(nn.Module):
         self.config = config
         self.n_layers = config['num_encoder_layers']
         self.patches = config['patches']
-        layers = [nn.Linear(config['input_size'],config['embed_size']),nn.ReLU()]
         self.pos_embed1D = nn.Parameter(torch.randn((1, self.patches, config['embed_size'])))
-        self.fc = nn.Sequential(*layers)
         self.layers = [EncoderLayer(config).to(self.config['DEVICE']) for _ in range(self.n_layers)]
         self.config = config
 
@@ -289,9 +341,10 @@ class Decoder(nn.Module):
         self.pos_embed1D = nn.Parameter(nn.Parameter(torch.randn(1, self.patches, config['embed_size'])))
         self.layers = DecoderLayer(self.config).to(self.config['DEVICE'])
 
-    def forward(self,keys,query,mask=None):
-        pos_embed = self.pos_embed1D.repeat(query.shape[0], 1, 1)
-        query += (pos_embed)
+    def forward(self,keys,query,mask=None,embedding = False):
+        if embedding:
+            pos_embed = self.pos_embed1D.repeat(query.shape[0], 1, 1)
+            query += (pos_embed)
         x = self.layers(keys,query,mask=mask)
         return x
 
