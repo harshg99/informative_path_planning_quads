@@ -423,3 +423,15 @@ class Model5(Model4):
 
 
 
+class Model6(Model5):
+    def __init__(self,env,params_dict,args_dict):
+        super(Model6, self).__init__(env, params_dict, args_dict)
+        self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+                                      self.action_size + self.graph_layer_size[-1], \
+                                        self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        # for j in range(2):
+        #     self.value_layers.extend(mlp_block(self.hidden_sizes[-1],\
+        #                                             self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
+        self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], self.action_size)])
+        self.value_net = nn.Sequential(*self.value_layers)
+        self.value_net.to(self.args_dict['DEVICE'])

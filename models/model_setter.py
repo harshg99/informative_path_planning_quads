@@ -27,7 +27,10 @@ class model_setter:
             import model_params.Model5 as parameters
             model_params_dict = model_setter.set_dict(parameters)
             return Model5(env, model_params_dict,args_dict)
-
+        elif type == 'Model6':
+            import model_params.Model5 as parameters
+            model_params_dict = model_setter.set_dict(parameters)
+            return Model6(env, model_params_dict,args_dict)
         elif type == 'Transformer1':
             from models.Transformer import TransformerAC
             import model_params.Transformer as parameters

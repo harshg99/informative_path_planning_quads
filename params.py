@@ -48,15 +48,16 @@ FIXED_BUDGET = True
 BUDGET = 10
 
 #MODEL TYPE
-CLASS_CONFIG = 'Transformer' #Linear or Transformer
+CLASS_CONFIG = 'Linear' #Linear or Transformer
 if CLASS_CONFIG =='Linear':
-    MODEL_TYPE = 'Model5'#Model1 Model2 etc
+    MODEL_TYPE = 'Model6'#Model1 Model2 etc
     ALG_TYPE = 'AC' #AC or PPO
-    QVALUE = False
+    QVALUE = True
     COMPUTE_VALIDS = True # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
     # Observation Type
     OBSERVER = 'RANGEwOBSwMULTI'  # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS,RANGEwOBSwPENC,RANGEwOBSwMULTI
     RANGE = 16
+
 elif CLASS_CONFIG == 'Transformer':
     MODEL_TYPE = 'ModelTrans1'  # Model1 Model2 etc
     ALG_TYPE = 'AC'  # AC or PPO
