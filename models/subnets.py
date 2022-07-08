@@ -218,12 +218,12 @@ class MHA(nn.Module):
         # Feedforward to compressed state
 
 
-    def forward(self,keys_in,query_in=None,mask = None):
+    def forward(self,query_in,keys_in,value_in,mask = None):
         for j,blocks in enumerate(self.attnblocks):
             if j==0:
-                concat_output = blocks(keys_in,query_in,keys_in,mask).unsqueeze(-1)
+                concat_output = blocks(keys_in,query_in,value_in,mask).unsqueeze(-1)
             else:
-                concat_output = torch.concat([concat_output,blocks(keys_in,query_in,keys_in,mask)\
+                concat_output = torch.concat([concat_output,blocks(keys_in,query_in,value_in,mask)\
                                              .unsqueeze(-1)],dim=-1)
         return concat_output.view(concat_output.shape[0],concat_output.shape[1],-1)
 
@@ -240,7 +240,7 @@ class ScaledDotProductAttention(nn.Module):
         self.value_network = nn.Linear(self.embed_in_size,self.embed_out_size,bias=False).to(self.config['DEVICE'])
         self.query_network = nn.Linear(self.embed_in_size,self.embed_out_size,bias=False).to(self.config['DEVICE'])
 
-    def forward(self,keys_in,query_in,value_in,mask = None):
+    def forwartd(self,keys_in,query_in,value_in,mask = None):
         if query_in is None:
             query_in = keys_in
         keys = self.key_network(keys_in)
@@ -265,7 +265,7 @@ class LayerNormalisation(nn.Module):
         self.norm = nn.LayerNorm(embed_dim)
 
     def forward(self, x):
-        return self.norm(x.view(-1, x.size(-1))).view(*x.size())
+        return self.norm(x.reshape(-1, x.size(-1))).reshape(x.shape)
 
 class EncoderLayer(nn.Module):
     def __init__(self,config):
@@ -275,14 +275,16 @@ class EncoderLayer(nn.Module):
         self.num_heads = config['num_heads']
         self.input_size = config['input_size']
         self.embed_size = config['embed_size']
-        self.mhablock = MHA(config).to(self.config['DEVICE'])
+        #self.mhablock = MHA(config).to(self.config['DEVICE'])
+        self.mhablock = nn.MultiheadAttention(self.embed_size,self.num_heads,\
+                                              batch_first=True).to(self.config['DEVICE'])
         self.layernorm = LayerNormalisation(self.embed_size).to(self.config['DEVICE'])
         self.fclayers = [nn.Linear(self.num_heads*int(self.embed_size/self.num_heads),self.embed_size),\
                          nn.ReLU(),nn.Linear(self.embed_size,self.embed_size)]
         self.fc = nn.Sequential(*self.fclayers).to(self.config['DEVICE'])
 
     def forward(self,input,mask=None):
-        x = self.mhablock(input,mask=mask)
+        x,_ = self.mhablock(input,input,input)
         x += input
         x = self.layernorm(x)
         x0 = self.fc(x)
@@ -298,14 +300,16 @@ class DecoderLayer(nn.Module):
         self.num_heads = config['num_heads']
         self.input_size = config['input_size']
         self.embed_size = config['embed_size']
-        self.mhablock = MHA(config).to(self.config['DEVICE'])
+        #self.mhablock = MHA(config).to(self.config['DEVICE'])
+        self.mhablock = nn.MultiheadAttention(self.embed_size, self.num_heads, \
+                                              batch_first=True).to(self.config['DEVICE'])
         self.layernorm = LayerNormalisation(self.embed_size).to(self.config['DEVICE'])
         self.fclayers = [nn.Linear(self.num_heads*int(self.embed_size/self.num_heads),self.embed_size),\
                          nn.ReLU(),nn.Linear(self.embed_size,self.embed_size)]
         self.fc = nn.Sequential(*self.fclayers).to(self.config['DEVICE'])
 
     def forward(self,keys,query,mask=None):
-        x = self.mhablock(keys,query)
+        x,_ = self.mhablock(query,keys,keys)
         x += query
         x = self.layernorm(x)
         x0 = self.fc(x)
