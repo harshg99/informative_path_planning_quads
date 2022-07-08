@@ -132,6 +132,7 @@ class ModelTrans1(Vanilla):
         attention_tokens = self.Encoder(obs_tokens.reshape((B*N,D1,D2)))
 
         query_tokens = self.query_embed(motion_prims.reshape((B*N,motion_prims.shape[-2],motion_prims.shape[-1])))
+
         decoded_values = self.Decoder(attention_tokens,query_tokens,mask = valid_motion_prims)
 
         graph_node = graph_node.reshape((B*N,graph_node.shape[-1]))
@@ -192,3 +193,73 @@ class ModelTrans1(Vanilla):
         valids = torch.tensor(valids,dtype = torch.float32).to(self.args_dict['DEVICE'])
         return policy.squeeze(),value.squeeze(), \
                valids.squeeze(), valids_net.squeeze()
+
+class ModelTrans2(ModelTrans1):
+    def __init__(self,env,params_dict,args_dict):
+        super(ModelTrans1,self).__init__(env,params_dict,args_dict)
+        self.conv_sizes = params_dict['conv_sizes']
+        self.env = env
+        self.input_size = env.input_size
+        self.action_size = env.action_size
+        self.num_graph_nodes = env.num_graph_nodes
+        self.params_dict = params_dict
+        self.args_dict = args_dict
+
+        # initialises the config for transformer backbone
+        self.subnet_config()
+        self.obstoken_pos_embedding = self.obstoken_pos_embed()
+
+        self._backbone = self.init_backbone()
+
+
+        self.policy_layers = mlp_block(self.config['embed_size'] +\
+                                       self.action_size + self.num_graph_nodes, \
+                                        self.config['embed_size'], dropout=False, activation=nn.LeakyReLU)
+        # for j in range(2):
+        #     self.policy_layers.extend(mlp_block(self.hidden_sizes[-1],\
+        #                                              self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
+
+        self.policy_layers.extend([nn.Linear(self.config['embed_size'],self.action_size)])
+        self.policy_net = nn.Sequential(*self.policy_layers)
+        self.policy_net.to(self.args_dict['DEVICE'])
+        self.softmax = nn.Softmax(dim=-1)
+        self.sigmoid = nn.Sigmoid()
+
+        self.value_layers = mlp_block(self.config['embed_size']+ \
+                                      self.action_size + self.num_graph_nodes, \
+                                        self.config['embed_size'], dropout=False, activation=nn.LeakyReLU)
+        # for j in range(2):
+        #     self.value_layers.extend(mlp_block(self.hidden_sizes[-1],\
+        #                                             self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
+        self.value_layers.extend([nn.Linear(self.config['embed_size'], self.action_size)])
+        self.value_net = nn.Sequential(*self.value_layers)
+        self.value_net.to(self.args_dict['DEVICE'])
+
+
+    def forward(self,input,prev_a,graph_node,motion_prims,valid_motion_prims):
+        #print(input.shape)
+        conv_embedding = self.get_conv_embeddings(input)
+        obs_tokens = self.tokenise_obs(conv_embedding)
+
+        B,N,D1,D2 = obs_tokens.shape
+        attention_tokens = self.Encoder(obs_tokens.reshape((B*N,D1,D2)))
+
+        query_tokens = self.query_embed(motion_prims.reshape((B*N,motion_prims.shape[-2],motion_prims.shape[-1])))
+        #decoded_values = self.Decoder(attention_tokens,query_tokens,mask = valid_motion_prims)
+        attention_token = attention_tokens[:,0]
+
+        graph_node = graph_node.reshape((B*N,graph_node.shape[-1]))
+        prev_a = prev_a.reshape((B * N, prev_a.shape[-1]))
+        graph_node_embed = graph_node
+        prev_a_embed = prev_a
+
+        decoded_values_embedded = torch.cat([attention_token,graph_node_embed,prev_a_embed],dim=-1)
+        p_net = self.policy_net(decoded_values_embedded)
+        #valid_motion_prims = valid_motion_prims.reshape((B*N,valid_motion_prims.shape[-1]))
+        #p_net = p_net.masked_fill(valid_motion_prims==0,-1e8)
+        policy = self.softmax(p_net).reshape((B,N,p_net.shape[-1]))
+        value = self.value_net(decoded_values_embedded)
+        value = value.reshape((B,N,value.shape[-1]))
+        valids = self.sigmoid(p_net).reshape((B,N,p_net.shape[-1]))
+
+        return policy,value,valids
