@@ -7,6 +7,7 @@ import os
 from Utilities import set_dict
 from env.render import *
 from multiprocessing import Pool as pool
+from env.env_setter import env_setter
 
 class il_wrapper:
     def __init__(self,home_dir):
@@ -14,7 +15,10 @@ class il_wrapper:
         import env_params.MotionPrim as parameters
         env_params_dict = set_dict(parameters)
         env_params_dict['home_dir'] = os.getcwd() + home_dir
-        self.env = SearchEnvMP(env_params_dict)
+
+        import params as args
+        args_dict = set_dict(args)
+        self.env = SearchEnvMP(env_params_dict,args_dict)
 
         self.mp_graph = self.env.minimum_action_mp_graph
         self.lookup = self.env.lookup_dictionary

@@ -7,19 +7,24 @@ from env.searchenv import *
 from env.env_setter import *
 from params import *
 import getopt,sys
+import Utilities
 
-ENVTYPE = 'Discrete'
-TESTS = 250
+TESTS = 1000
 
-def create_test_reward_maps(env,nummaps:int,index):
-    dir_name = os.getcwd() + '/' + MAP_TEST_DIR
+def create_test_reward_maps(env,nummaps:int,index=None):
+    dir_name = os.getcwd() + '/' + MAP_TEST_DIR + '/' + args_dict['ENV_TYPE']+'/'
     if not os.path.isdir(dir_name):
         os.makedirs(dir_name)
+    if index is None:
+        index = 0
     for j in range(nummaps):
         env.reset()
         file_name = dir_name+ "tests{}".format(j+index*nummaps)
-        np.save(file_name,env.rewardMap)
+        np.save(file_name+"env",env.rewardMap)
+        if args_dict['ENV_TYPE']=='GPPrim':
+            np.save(file_name+"target",env.targetMap)
     pass
+
 
 if __name__=="__main__":
     map_size = 0
@@ -36,5 +41,7 @@ if __name__=="__main__":
         elif opt in ("-n","-map size"):
             map_size = arg
 
-    environment = env_setter().set_env(ENVTYPE)
+    import params as args
+    args_dict = Utilities.set_dict(parameters=args)
+    environment = env_setter().set_env(args_dict)
     create_test_reward_maps(environment,TESTS)

@@ -72,7 +72,7 @@ if ALG_TYPE=='PPO':
     TRAINING_TYPE = TRAINING_OPTIONS.singleThreaded
 
 #Logging Params
-MODEL_NAME = 'MPAC_Model5_MLP'
+MODEL_NAME = 'GPAC_Transformer2'
 DESCRIPTION = 'MP_Range_wObs_Lambda'
 TRAIN_PATH = 'data/train/'+MODEL_NAME+'_'+DESCRIPTION
 MODEL_PATH = 'data/models/'+MODEL_NAME+'_'+DESCRIPTION

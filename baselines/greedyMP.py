@@ -102,13 +102,15 @@ class GreedyMP(il_wrapper):
         action, cost = self.plan_action(deepcopy(agent.pos), deepcopy(agent.index), agentID)
         return action,cost
 
-    def run_test(self,rewardmap,ID=0):
+    def run_test(self,rewardmap,ID=0,targetMap=None):
         episode_step = 0
         episode_rewards = 0
 
         self.env.reset(rewardmap)
         frames = []
-        while(episode_step <self.env.episode_length):
+        metrics = dict()
+        done = False
+        while(episode_step <self.env.episode_length) and not done:
             if self.gifs:
                 frames.append(self.env.render(mode='rgb_array'))
             action_dict = {}
@@ -117,10 +119,12 @@ class GreedyMP(il_wrapper):
             rewards,done = self.env.step_all(action_dict)
             episode_rewards += np.array(rewards).sum()
             episode_step+=1
+        metrics['episode_length'] = episode_step
+        metrics['episode_rewards'] = episode_rewards
         if self.gifs:
             make_gif(np.array(frames),
                  '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(self.gifs_path,ID , 0, episode_rewards))
-        return episode_rewards
+        return metrics
 
 if __name__=="__main__":
     import baseline_params.GreedyMPparams as parameters

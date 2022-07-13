@@ -8,6 +8,11 @@ class baseline_setter:
             from baselines.greedyMP import GreedyMP
             env_params_dict = baseline_setter.set_dict(parameters)
             return GreedyMP(env_params_dict)
+        elif type == 'GreedyGP':
+            import baseline_params.GreedyGPparams as parameters
+            from baselines.greedyGP import GreedyGP
+            env_params_dict = baseline_setter.set_dict(parameters)
+            return GreedyGP(env_params_dict)
         elif type == 'CMAES':
             import baseline_params.CMAESparams as parameters
             from baselines.CMAES import CMAES

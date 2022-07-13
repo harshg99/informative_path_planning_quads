@@ -14,6 +14,7 @@ from motion_primitives_py import MotionPrimitiveLattice
 from copy import deepcopy
 from env.agents import AgentGP
 import os
+from env.Metrics import Metrics
 
 ACTIONS = [(-1, 0), (0, -1), (1, 0), (0, 1)]
 ZEROREWARDCOLOR = (1.0,1.0,1.0)
@@ -35,8 +36,12 @@ class GPEnvMP(SearchEnvMP):
         self.sensor_params = params_dict['sensor_params']
         self.numrand_targets = params_dict['num_targets']
         self.targetBeliefThresh = params_dict['targetBeliefThresh']
+        self.metrics = Metrics()
 
-    def createWorld(self, rewardMap=None):
+    def reset(self,rewardMap=None,targetMap = None):
+        self.createWorld(rewardMap,targetMap)
+
+    def createWorld(self, rewardMap=None,targetMap = None):
         # this is the proabbility map
         super().createWorld(rewardMap)
         num_targets = np.random.randint(self.numrand_targets[0], self.numrand_targets[1])
@@ -55,12 +60,21 @@ class GPEnvMP(SearchEnvMP):
 
         flat_reward_map = self.rewardMap.flatten()+0.001
         self.target_locations = np.random.choice(a=flat_reward_map.size,size = num_targets,p = flat_reward_map/flat_reward_map.sum()).tolist()
-        self.targetMap = np.zeros(self.rewardMap.shape)
-        self.targetList = []
-        for j,target in enumerate(self.target_locations):
-            target_index= np.unravel_index(target,self.rewardMap.shape)
-            self.targetMap[target_index[0],target_index[1]] = 1
-            self.targetList.append(list(target_index))
+        if targetMap is None:
+            self.targetMap = np.zeros(self.rewardMap.shape)
+            self.targetList = []
+            for j,target in enumerate(self.target_locations):
+                target_index= np.unravel_index(target,self.rewardMap.shape)
+                self.targetMap[target_index[0],target_index[1]] = 1
+                self.targetList.append(list(target_index))
+        else:
+            self.targetMap = targetMap
+            self.targetList = []
+            for j in range(targetMap.shape[0]):
+                for k in range(targetMap.shape[1]):
+                    if targetMap[j,k]==1:
+                        target_index = [j,k]
+                        self.targetList.append(list(target_index))
 
         self.worldTargetMap = np.zeros((self.world_map_size, self.world_map_size))  # for boundaries
         self.worldTargetMap[self.pad_size:self.pad_size + self.reward_map_size, \
@@ -90,6 +104,9 @@ class GPEnvMP(SearchEnvMP):
 
         for agent in self.agents:
             agent.initBeliefMap(self.worldBeliefMap)
+
+        self.metrics.update(self.worldBeliefMap,self.worldTargetMap)
+
     def step_all(self, action_dict):
         rewards = []
         for j in range(self.numAgents):
@@ -116,6 +133,9 @@ class GPEnvMP(SearchEnvMP):
 
         return rewards, done
 
+    def get_final_metrics(self):
+        return self.metrics.compute_metrics(self.worldBeliefMap,self.worldTargetMap)
+
     def step(self, agentID, action):
         """
         Given the current state and action, return the next state
@@ -139,19 +159,26 @@ class GPEnvMP(SearchEnvMP):
         else:
             reward += REWARD.COLLISION.value * 1.5
 
+
         #reward += self.worldMap[int(self.agents[agentID].pos[0]), int(self.agents[agentID].pos[1])]
         #self.worldMap[self.agents[agentID].pos[0], self.agents[agentID].pos[1]] = 0
         self.worldMap = self.worldBeliefMap.copy()
         #self.agents[agentID].updateMap(self.worldMap)
         return reward
 
+    def getEntropy(self,belief):
+        entropy = belief*np.log(np.clip(belief,1e-7,1)) + (1-belief)*np.log(np.clip(1-belief,1e-7,1))
+        return entropy
+
     def getReward(self,oldBelief,newBelief):
-        oldentropy = oldBelief*np.log(np.clip(oldBelief,1e-7,1)) + (1-oldBelief)*np.log(np.clip(1-oldBelief,1e-7,1))
-        newEntropy = newBelief*np.log(np.clip(newBelief,1e-7,1)) + (1-newBelief)*np.log(np.clip(1-newBelief,1e-7,1))
-
+        oldentropy = self.getEntropy(oldBelief)
+        newEntropy = self.getEntropy(newBelief)
         # Normalising total entropy reward to between 0 and 100
-        return (-oldentropy.sum()+newEntropy.sum())/(np.log(2)*self.world_map_size*self.world_map_size)*REWARD.MAP.value
+        return (newEntropy-oldentropy)/(np.log(2)*self.world_map_size*self.world_map_size)*REWARD.MAP.value
 
+    '''
+    Returns the total entropy at the desired locations
+    '''
     def updateRewardTarget(self,visited_states,measurement_list,agentID):
         for state,measurement in zip(visited_states.tolist(),measurement_list):
             r = state[0]

@@ -128,13 +128,15 @@ class CMAES(il_wrapper):
                                               deepcopy(self.env.worldMap.copy()))
         self.counter+=1
         return self.action_list[self.counter-1],self.costs[self.counter-1]
-    def run_test(self,rewardMap):
+
+    def run_test(self,rewardmap,ID=0,targetMap=None):
         episode_step = 0
         episode_rewards = 0
 
         self.env.reset(rewardMap)
-
-        while(episode_step <self.env.episode_length):
+        metrics = dict()
+        done = False
+        while(episode_step <self.env.episode_length) and not done:
             action_dicts = [{} for j in range(self.depth)]
             for j,agent in enumerate(self.env.agents):
                 action_list,costs  = self.plan_action(deepcopy(agent.pos),deepcopy(agent.index),\
@@ -146,7 +148,7 @@ class CMAES(il_wrapper):
                 rewards,done = self.env.step_all(action_dicts[j])
                 episode_rewards += np.array(rewards).sum()
                 episode_step+=1
-
+        metrics['episode_reward'] = episode_rewards
         return episode_rewards
 
 if __name__=="__main__":

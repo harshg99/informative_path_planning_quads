@@ -235,7 +235,11 @@ class ModelTrans2(ModelTrans1):
         self.value_net = nn.Sequential(*self.value_layers)
         self.value_net.to(self.args_dict['DEVICE'])
 
-
+    def init_backbone(self):
+        # Different conv layers for different scales
+        super().init_backbone()
+        self.Encoder = Encoder(self.config)
+        self.Encoder.to(self.args_dict['DEVICE'])
     def forward(self,input,prev_a,graph_node,motion_prims,valid_motion_prims):
         #print(input.shape)
         conv_embedding = self.get_conv_embeddings(input)
@@ -263,3 +267,4 @@ class ModelTrans2(ModelTrans1):
         valids = self.sigmoid(p_net).reshape((B,N,p_net.shape[-1]))
 
         return policy,value,valids
+
