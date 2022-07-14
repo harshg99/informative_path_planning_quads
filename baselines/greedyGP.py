@@ -18,6 +18,12 @@ class GreedyGP(il_wrapper):
         self.gifs_path = params_dict['GIFS_PATH']
         self.results_path = params_dict['RESULTS_PATH']
         self.depth = params_dict['depth']
+
+        if not os.path.isdir(self.gifs_path):
+            os.makedirs(self.gifs_path)
+        if not os.path.isdir(self.results_path):
+            os.makedirs(self.results_path)
+
         import env_params.GPPrim as parameters
         env_params_dict = set_dict(parameters)
         env_params_dict['home_dir'] = os.getcwd() + home_dir
@@ -194,6 +200,7 @@ class GreedyGP(il_wrapper):
         metrics = self.env.get_final_metrics()
         metrics['episode_reward'] = episode_rewards
         metrics['episode_length'] = episode_step
+
         if self.gifs:
             make_gif(np.array(frames),
                  '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(self.gifs_path,ID , 0, episode_rewards))
