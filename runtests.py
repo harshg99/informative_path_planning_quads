@@ -64,7 +64,7 @@ if __name__=="__main__":
     for j,result in enumerate(results):
         result_dict[j] = result
 
-    T()
+    #T()
     results_path = TestObj.get_results_path(type)+"/all_results.json"
     out_file = open(results_path, "w")
     json.dump(result_dict,out_file)
