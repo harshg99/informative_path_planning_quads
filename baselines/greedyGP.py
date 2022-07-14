@@ -105,13 +105,14 @@ class GreedyGP(il_wrapper):
             #                                  entropy
             #             worldMap[j,k] = map_occ
 
-        return entropy_reduction
+        return entropy_reduction/np.square(self.env.sensor_params['sensor_range'])
 
     def getmpcost(self,pos,index,action,agentID,worldMap):
         mp = deepcopy(self.mp_graph[index, action])
         reward = 0
         next_pos = pos
         next_index = index
+        is_valid = False
         if mp is not None:
             # mp.translate_start_position(self.pos)
             # _, sp = mp.get_sampled_position()
@@ -133,7 +134,7 @@ class GreedyGP(il_wrapper):
             else:
                 reward += REWARD.COLLISION.value * 1.5
 
-        return reward,next_index,next_pos
+        return reward,next_index,next_pos,is_valid
 
     def get_action_cost(self,args,action):
         pos = args[0]
@@ -144,7 +145,7 @@ class GreedyGP(il_wrapper):
 
     def plan_action(self,pos,index,agentID,current_depth=0,worldMap=None):
         if current_depth>=self.depth:
-            return 0
+            return self.env.getEntropy(worldMap.copy()).sum()
         else:
             costs = []
 
@@ -153,8 +154,11 @@ class GreedyGP(il_wrapper):
                     worldMap = deepcopy(self.env.worldMap.copy())
                 else:
                     worldMap = deepcopy(worldMap.copy())
-                cost,next_index,next_pos = self.getmpcost(pos,index,j,agentID,worldMap)
-                costs.append(cost + self.plan_action(next_pos,next_index,agentID,current_depth+1,worldMap))
+                cost,next_index,next_pos,is_valid = self.getmpcost(pos,index,j,agentID,worldMap)
+                if is_valid:
+                    costs.append(cost + self.plan_action(next_pos,next_index,agentID,current_depth+1,worldMap))
+                else:
+                    costs.append(cost + -100000)
             if current_depth==0:
                 best_action = np.argmax(np.array(costs))
                 return best_action,np.max(np.array(costs))
@@ -170,12 +174,13 @@ class GreedyGP(il_wrapper):
         return action,cost
 
     def run_test(self,rewardmap,ID=0,targetMap=None):
-        episode_step = 0
-        episode_rewards = 0
-
+        episode_step = 0.0
+        episode_rewards = 0.0
+        np.random.seed(seed=ID)
         self.env.reset(rewardmap,targetMap)
         frames = []
         done = False
+
         while(episode_step <self.env.episode_length) and not done:
             if self.gifs:
                 frames.append(self.env.render(mode='rgb_array'))
@@ -187,12 +192,11 @@ class GreedyGP(il_wrapper):
             episode_step+=1
 
         metrics = self.env.get_final_metrics()
-        metrics['episode_reward'] = episode_step
+        metrics['episode_reward'] = episode_rewards
         metrics['episode_length'] = episode_step
         if self.gifs:
             make_gif(np.array(frames),
                  '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(self.gifs_path,ID , 0, episode_rewards))
-        json.dump()
         return metrics
 
 if __name__=="__main__":

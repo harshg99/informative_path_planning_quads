@@ -6,7 +6,7 @@ import os
 import sys,getopt
 from params import *
 import json
-
+from pdb import set_trace as T
 
 class Tests:
     def unit_tests(self,type:str,testID:int):
@@ -37,8 +37,8 @@ class Tests:
 
 if __name__=="__main__":
     # Defaulkt test params
-    num_tests  = 15
-    num_threads = 15
+    num_tests  = 2
+    num_threads = 2
     type = 'GreedyGP'
 
     try:
@@ -64,8 +64,11 @@ if __name__=="__main__":
     for j,result in enumerate(results):
         result_dict[j] = result
 
+    T()
     results_path = TestObj.get_results_path(type)+"/all_results.json"
-    json.dump(result_dict,results_path)
+    out_file = open(results_path, "w")
+    json.dump(result_dict,out_file)
+    out_file.close()
 
 
     mean_results = {}
@@ -98,4 +101,6 @@ if __name__=="__main__":
     compiled_results['min'] = min_results
     compiled_results['std'] = std_results
     results_path = TestObj.get_results_path(type)+"/compiled_results.json"
-    json.dump(compiled_results,results_path)
+    out_file = open(results_path, "w")
+    json.dump(compiled_results,out_file)
+    out_file.close()

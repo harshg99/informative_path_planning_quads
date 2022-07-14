@@ -7,7 +7,7 @@ class Metrics:
     def __init__(self,initWorldMap=None,initTargetMap=None):
         self.initWorldMap = initWorldMap
         self.initTargetMap = initTargetMap
-        self.num_targets = np.sum(self.initTargetMap==1)
+
         self.coverage = None
         self.targetsfound = None
         self.map_entropy = None
@@ -17,10 +17,11 @@ class Metrics:
         assert initTargetMap is not None and initWorldMap is not None
         self.initWorldMap = initWorldMap.copy()
         self.initTargetMap = initTargetMap.copy()
-        self.initial_entropy =  self._map_entropy(self.initWorldMap)
+        self.initial_entropy =  self._map_entropy(self.initWorldMap).sum()
+        self.num_targets = np.sum(self.initTargetMap == 1)
 
     def compute_coverage_metric(self,beliefMap,targetMap):
-        covered_cells = (beliefMap-self.initWorldMap)>0.001
+        covered_cells = np.abs((beliefMap-self.initWorldMap))>0.001
         coverage = np.sum(covered_cells)/self.initWorldMap.shape[0]/self.initWorldMap.shape[1]*100
         return coverage
 
@@ -30,7 +31,7 @@ class Metrics:
         return targetsfound
 
     def compute_map_entropy(self,beliefMap,targetMap):
-        current_entropy = self._map_entropy(beliefMap)
+        current_entropy = self._map_entropy(beliefMap).sum()
         return (1 - current_entropy/self.initial_entropy)*100
 
     def compute_metrics(self,beliefMap,targetMap):
