@@ -61,7 +61,7 @@ class SAC:
         _,values2,_,_ = self._qnet2.forward_buffer(buffer['obs'])
         #responsible_outputs = policy.gather(-1, a_batch)
         log_probs = torch.log(torch.clamp(policy,1e-8,1))
-        min_Q = torch.minimu(values,values2,dim=-1)
+        min_Q = torch.minimum(values,values2,dim=-1)
 
         policy_loss = log_probs*(-min_Q + self.log_alpha.exp().detach()*log_probs)
 
