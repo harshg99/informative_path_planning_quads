@@ -171,10 +171,10 @@ class GPEnvMP(SearchEnvMP):
         return entropy
 
     def getReward(self,oldBelief,newBelief):
-        oldentropy = self.getEntropy(oldBelief)
-        newEntropy = self.getEntropy(newBelief)
+        oldentropy = self.getEntropy(oldBelief).mean()
+        newEntropy = self.getEntropy(newBelief).mean()
         # Normalising total entropy reward to between 0 and 100
-        return (newEntropy-oldentropy)/(np.log(2)*self.world_map_size*self.world_map_size)*REWARD.MAP.value
+        return (newEntropy-oldentropy)/(np.log(2))*REWARD.MAP.value
 
     '''
     Returns the total entropy at the desired locations
