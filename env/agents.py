@@ -54,6 +54,7 @@ class AgentMP():
         self.index = 0
         self.spatial_dim = spatial_dim
         self.prev_action = 0
+        self.pos_actual = self.pos.copy()
         if budget is not None:
             self.agentBudget = budget
 
@@ -70,12 +71,15 @@ class AgentMP():
             # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
             #visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
             is_valid,visited_states = self.isValidMP(mp)
+            mask = [np.all(visited_states[:,j]==self.pos) for j in range(visited_states.shape[-1])]
+            visited_states = np.delete(visited_states,np.where(mask),axis= -1)
             self.prev_action = action
             if is_valid:
                 next_index = self.lookup[self.index, action]
                 next_index = int(np.floor(next_index / self.tiles))
                 self.index = next_index
                 self.pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
+                self.pos_actual = mp.end_state[:self.spatial_dim]
                 #print("{:d} {:d} {:d} {:d}".format(self.pos[0], self.pos[1], visited_states[0,0], visited_states[1,0]))
                 self.visited_states = visited_states
                 mpcost = mp.cost / mp.subclass_specific_data.get('rho', 1) / 10
@@ -91,7 +95,7 @@ class AgentMP():
 
     def isValidMP(self,mp):
         is_valid = mp.is_valid
-        mp.translate_start_position(self.pos)
+        mp.translate_start_position(self.pos_actual)
         _, sp = mp.get_sampled_position()
         # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
         visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
