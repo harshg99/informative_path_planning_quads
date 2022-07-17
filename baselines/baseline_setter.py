@@ -13,6 +13,11 @@ class baseline_setter:
             from baselines.greedyGP import GreedyGP
             env_params_dict = baseline_setter.set_dict(parameters)
             return GreedyGP(env_params_dict)
+        elif type == 'CMAESGP':
+            import baseline_params.CMAESGPparams as parameters
+            from baselines.CMAESGP import CMAESGP
+            env_params_dict = baseline_setter.set_dict(parameters)
+            return CMAESGP(env_params_dict)
         elif type == 'CMAES':
             import baseline_params.CMAESparams as parameters
             from baselines.CMAES import CMAES
