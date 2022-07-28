@@ -1,3 +1,4 @@
+TYPE = 'MLP'
 conv_sizes         = [16,48]
 pos_embed_bits     = 16
 embed_size         = 64
