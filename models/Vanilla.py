@@ -19,3 +19,6 @@ class Vanilla(nn.Module):
 
     def reset(self):
         pass
+
+    def get_buffer_keys(self):
+        keysList = ['observation','next_observation','actions','rewards','dones']

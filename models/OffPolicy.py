@@ -42,7 +42,7 @@ class SAC:
     Return a policy
     '''
     def forward_step(self,input):
-        pass
+        return self._policy.forward_step(input)
 
     def reset(self, episodeNum):
         self.episodeNum = episodeNum
@@ -64,8 +64,12 @@ class SAC:
         min_Q = torch.minimum(values,values2,dim=-1)
 
         policy_loss = log_probs*(-min_Q + self.log_alpha.exp().detach()*log_probs)
-
-        alpha_loss = -self.log_alpa.exp()*(log_probs+self.target_entropy).detach()
+        alpha_loss = -self.log_alpha.exp()*(log_probs+self.target_entropy).detach()
+        valid_l1 = -self.params_dict['valids_weight1'] * torch.sum((1 - valids) * \
+                                                    torch.log(torch.clip(1 - valids_net, 1e-7, 1)),dim=-1)
+        valid_l2 = -self.params_dict['valids_weight2'] * torch.sum(valids * \
+                                                        torch.log(torch.clip(valids_net, 1e-7, 1)),dim=-1)
+        valid_l = valid_l1 + valid_l2
 
         with torch.no_grad():
             values_target = self._qnet.forward_buffer(buffer['next_obs'])
@@ -82,7 +86,8 @@ class SAC:
 
         critic_loss = critic_square_error.mean()
         critic2_loss = critic2_square_error.mean()
-        return policy_loss,alpha_loss,critic_loss,critic2_loss
+
+        return policy_loss,alpha_loss,critic_loss,critic2_loss,valid_l
 
 
     def update_target_weights(self):
@@ -96,9 +101,10 @@ class SAC:
 
     def backward(self,buffer):
 
-        p_loss,alpha_loss,q1_loss,q2_loss = self.compute_loss(buffer)
+        p_loss,alpha_loss,q1_loss,q2_loss,valid_l = self.compute_loss(buffer)
         self.policyoptim.zero_grad()
-        p_loss.sum().backward()
+        (p_loss.sum() + valid_l.sum()).backward()
+
 
         self.q1optim.zero_grad()
         q1_loss.sum().backward()
@@ -108,5 +114,18 @@ class SAC:
 
         self.alphaoptim.zero_grad()
         alpha_loss.sum().backward()
+        buffkeys = list(buffer.keys())
+        episode_length = len(buffer[buffkeys[0]])
+        train_metrics = {'Q1 Loss': q1_loss.sum().cpu().detach().numpy().item()/episode_length,
+                         'Q2 Loss': q2_loss.sum().cpu().detach().numpy().item()/episode_length,
+                         'Policy Loss': p_loss.sum().cpu().detach().numpy().item()/episode_length,
+                         'Valid Loss': valid_l.sum().cpu().detach().numpy().item() / episode_length}
+        return train_metrics,_
+
+    def gradient_step(self):
+        self.q1optim.step()
+        self.q2optim.step()
+        self.policyoptim.step()
+        self.alphaoptim.step()
 
 

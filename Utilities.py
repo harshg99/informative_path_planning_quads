@@ -12,6 +12,14 @@ def sample_actions(policy):
         actions[k] = a
     return actions
 
+def best_actions(policy):
+    actions= {}
+    for k in range(policy.shape[1]):
+        p = policy[0,k,:]
+        a = np.argmax(p.ravel())
+        actions[k] = a
+    return actions
+
 def discount(x, gamma):
     return signal.lfilter([1], [1, -gamma], x[::-1], axis=0)[::-1]
 

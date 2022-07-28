@@ -152,7 +152,12 @@ class ConvEncLayer(nn.Module):
         return intermediate
 
 class MLPEncLayer(nn.Module):
-    def __init__(self, hidden_size,input_size,device):
+    '''
+    @params:
+    input_size = size pf the flattened patches
+    hidden_size = size of hidden layers
+    '''
+    def __init__(self, hidden_size,input_size,device,config_dict):
         super(MLPEncLayer, self).__init__()
         self.hidden_layers = hidden_size
         self.kernel_size = 3
@@ -160,49 +165,36 @@ class MLPEncLayer(nn.Module):
         self.layers = []
         self.device = device
         self.relu = nn.ReLU
-        self.patch_size = np.power(2,len(self.hidden_layers))
+        self.patch_size = [int(input_size[0]/np.sqrt(config_dict['token_length'])),
+                           int(input_size[1]/np.sqrt(config_dict['token_length']))]
 
-        self.layers.append(conv_block(self.kernel_size,self.input_size[-1],\
-                                      self.hidden_layers[0],stride=1,\
-                                      activation=nn.LeakyReLU,device=self.device))
-        for j in range(len(self.hidden_layers)-1):
-            self.layers.append(conv_block(self.kernel_size,self.hidden_layers[j],\
-                                          self.hidden_layers[j+1],stride=1,\
-                                          activation=nn.LeakyReLU,device=self.device))
-        self.pool = nn.MaxPool2d(kernel_size=2,stride=2,padding=0).to(self.device)
-        self.identitylayers = []
-        # self.identitylayers.append(conv_block(1,self.input_size[-1],\
-        #                               self.hidden_layers[0],stride=2,\
-        #                               activation=nn.LeakyReLU,padding = 0))
-        #
-        # for j in range(len(self.hidden_layers)-1):
-        #     self.identitylayers.append(conv_block(1,self.hidden_layers[j],\
-        #                               self.hidden_layers[j+1],stride=2,\
-        #                               activation=nn.LeakyReLU,padding = 0))
-        self.identitylayers.append(nn.Conv2d(in_channels=self.input_size[-1],\
-                                             out_channels=self.hidden_layers[0],\
-                                             kernel_size=1,stride=2,padding=0).to(self.device))
+
+        self.layers.extend(mlp_block(hidden_size=int(self.input_size[-1]*self.patch_size[0]*self.patch_size[1]),
+                                     out_size=self.hidden_layers[0],
+                                     activation=nn.LeakyReLU))
 
         for j in range(len(self.hidden_layers)-1):
-            self.identitylayers.append(nn.Conv2d(in_channels=self.hidden_layers[j],\
-                                                 out_channels=self.hidden_layers[j+1],\
-                                                 kernel_size=1,stride=2,padding=0).to(self.device))
+            self.layers.extend(mlp_block(hidden_size = self.hidden_layers[j],
+                                         out_size = self.hidden_layers[j+1],
+                                         activation=nn.LeakyReLU))
+
+        self.layers = nn.Sequential(*self.layers).to(self.device)
+
+    def patchify(self,input):
+        BN, C,H, W = input.shape
+        intermediate_patched = torch.nn.Unfold(kernel_size=self.patch_size,stride=self.patch_size)(input)
+        intermediate_patched = torch.permute(intermediate_patched,[0,2,1])
+        return intermediate_patched
 
     def forward(self, input):
-
+        B, N, H, W, C = input.shape
+        intermediate = input.reshape([B * N, H, W, C])
+        intermediate = torch.permute(intermediate, [0, 3, 1, 2])
         # shape is (batch,num_agents,H,W,C)
-        B,N,H,W,C = input.shape
-        intermediate = input.reshape([B*N,H,W,C])
-        intermediate = torch.permute(intermediate, [0,3,1,2])
-        for layer,downsample in zip(self.layers,self.identitylayers):
-            identity = downsample(intermediate)
-            intermediate = layer(intermediate)
-            intermediate = self.pool(intermediate)
-            intermediate+=identity
-            intermediate = nn.ReLU()(intermediate)
-        B_,C_,H_,W_ = intermediate.shape
-        intermediate = intermediate.reshape([B, N, C_,H_,W_])
-        return intermediate
+        tokens = self.layers(self.patchify(intermediate))
+        B_,H_,W_ = tokens.shape
+        tokens = tokens.reshape([B, N, H_, W_])
+        return tokens
 
 class MHA(nn.Module):
     def __init__(self,config):
@@ -351,4 +343,3 @@ class Decoder(nn.Module):
             query += (pos_embed)
         x = self.layers(keys,query,mask=mask)
         return x
-

@@ -5,6 +5,8 @@ from models.Models import *
 from models.Vanilla import *
 from models.subnets import *
 import torch.nn.functional as F
+from models.subnet_setter import subnet_enc_setter
+
 '''
 With transformer backbone, observations are tokenised and embedded and compared with motion primitives that 
 are also encoded.
@@ -65,8 +67,9 @@ class ModelTrans1(Vanilla):
         # Different conv layers for different scales
         size = self.input_size
         size[-1] = int(size[-1]/len(self.env.scale))
-        self.conv_blocks = [ConvEncLayer(self.conv_sizes,size\
-                                      ,self.args_dict['DEVICE']) for _ in self.env.scale]
+        self.conv_blocks = [subnet_enc_setter.set_model(self.config['TYPE'],self.conv_sizes,size\
+                                      ,self.args_dict['DEVICE'],self.config) for _ in self.env.scale]
+
         self.Encoder = Encoder(self.config)
         self.Encoder.to(self.args_dict['DEVICE'])
         self.Decoder = Decoder(self.config)
@@ -82,8 +85,12 @@ class ModelTrans1(Vanilla):
         pos_embed = torch.tensor(self.obstoken_pos_embedding,dtype=torch.float32,device=conv_outputs[-1].device)\
                         .unsqueeze(axis=0).unsqueeze(axis=0).repeat(conv_outputs[-1].shape[0],conv_outputs[-1].shape[1],1,1)
 
-        tokens= torch.stack(conv_outputs,dim=-1).reshape((conv_outputs[-1].shape[0],conv_outputs[-1].shape[1],\
-                                                          -1,conv_outputs[-1].shape[-1]))
+
+        tokens = torch.stack(conv_outputs,dim=-1)
+        tokens = torch.permute(tokens,[0,1,2,4,3])
+        tokens = tokens.reshape((conv_outputs[-1].shape[0],conv_outputs[-1].shape[1],\
+                                                      -1,conv_outputs[-1].shape[-1]))
+
 
         tokens_embedded = torch.cat([tokens,pos_embed],axis=-1)
         return tokens_embedded
@@ -119,9 +126,13 @@ class ModelTrans1(Vanilla):
         step = int(C/len(self.env.scale))
         for j,layers in enumerate(self.conv_blocks):
             embeddings = layers(input_obs[:,:,:,:,j*step:(j+1)*step])
-            conv_embeddings.append(embeddings.permute([0,1,3,4,2]))
+            if self.params_dict['TYPE']=='Conv':
+                conv_embeddings.append(embeddings.permute([0,1,3,4,2]))
+            else:
+                conv_embeddings.append(embeddings)
 
         return conv_embeddings
+
 
     def forward(self,input,prev_a,graph_node,motion_prims,valid_motion_prims):
         #print(input.shape)

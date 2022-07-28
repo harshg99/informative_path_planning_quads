@@ -18,6 +18,7 @@ from models.alg_setter import alg_setter
 
 from env.env_setter import env_setter
 from copy import deepcopy
+from buffer.replay_buffer import ReplayBuffer
 
 def apply_gradients(global_model, gradients,device):
     global_model.optim.zero_grad()
@@ -33,6 +34,22 @@ def compute_ppo_grads(global_model,train_buffer):
     train_buffer_adv = global_model.get_advantages(train_buffer)
     metric,gradients = global_model.backward(train_buffer_adv)
     return metric,deepcopy(gradients)
+
+def compute_sac_grads(global_model,replay_buffer,params_dict):
+    for _ in params_dict['SAC_GRAD_ITERATIONS']:
+        buffer = replay_buffer.get_next()
+        metrics,_  = global_model.backward(buffer)
+        global_model.gradient_step()
+
+    return metrics
+
+def compute_vae_reconstruction_loss(global_model,buffer,params_dict):
+    for _ in params_dict['VAE_GRAD_ITERATIONS']:
+        buffer = replay_buffer.get_next()
+        metrics,_  = global_model.backward(buffer)
+        global_model.gradient_step()
+
+    return metrics
 
 def init_ray():
     ray.init(num_gpus=int(GPU))
@@ -82,6 +99,9 @@ if __name__=='__main__':
     reinit_count = 0
     returns, best_return = [], -9999
 
+    if params['ALG_TYPE'] == 'SAC':
+        replay_buffer = ReplayBuffer(global_model.get_buffer_keys(), params['CAPACITY'])
+
     try:
         while curr_episode<MAX_EPISODES and len(joblist)!=0:
 
@@ -98,8 +118,11 @@ if __name__=='__main__':
             elif JOB_TYPE == JOB_TYPES.getExperience:
                 # apply gradient on the global network
                 for train_buffer in jobResults[0]:
-                    metrics['Losses'],gradients = compute_ppo_grads(global_model,train_buffer)
-                    apply_gradients(global_model, gradients, device)
+                    if params['ALG_TYPE'] =='SAC':
+                        metrics['Losses'] = compute_sac_grads(global_model,replay_buffer,params)
+                    else:
+                        metrics['Losses'],gradients = compute_ppo_grads(global_model,train_buffer)
+                        apply_gradients(global_model, gradients, device)
 
             if global_model.scheduler:
                 global_model.scheduler.step()

@@ -72,10 +72,13 @@ class Worker:
             train_buffer['actions'].append([action_dict[k] for k in action_dict.keys()])
             train_buffer['values'].append(value[0])
             train_buffer['policy'].append(policy[0])
+
             rewards,done = self.env.step_all(action_dict)
+
             train_buffer['rewards'].append(rewards)
             train_buffer['dones'].append(int(done))
             train_buffer['valids'].append(observation['valids'])
+
             observation = self.env.get_obs_all()
             train_buffer['next_obs'] = observation
 

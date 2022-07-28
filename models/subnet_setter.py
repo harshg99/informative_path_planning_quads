@@ -13,3 +13,11 @@ class subnet_setter:
             return MLPLayer(hidden_size,input_dims,device)
         elif type == 'Conv':
             return ConvLayer(hidden_size,input_size,device)
+
+class subnet_enc_setter:
+    @staticmethod
+    def set_model(type, hidden_size, input_size, device='cpu',config_dict = None):
+        if type == 'MLP':
+            return MLPEncLayer(hidden_size, input_size, device,config_dict)
+        elif type == 'Conv':
+            return ConvEncLayer(hidden_size, input_size, device)
