@@ -35,6 +35,7 @@ class SAC:
         self.scheduler3 = ExponentialLR(self.policyoptim,gamma=params_dict['DECAY'])
         self.alphaoptim = torch.optim.Adam([self.log_alpha], lr=params_dict['LR'], betas=(0.9, 0.99))
         self.scheduler4 = ExponentialLR(self.alphaoptim, gamma=params_dict['DECAY'])
+        self.optim = self.policyoptim
         # To indicate to global thread that there are schedulers
         self.scheduler = 1
 
