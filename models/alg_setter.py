@@ -1,4 +1,5 @@
 from models.OnPolicy import *
+from models.OffPolicy import *
 
 class alg_setter:
 
@@ -12,6 +13,10 @@ class alg_setter:
             import model_params.PPO as parameters
             model_params_dict = alg_setter.set_dict(parameters)
             return PPO(env,model_params_dict, args_dict)
+        elif args_dict['ALG_TYPE'] == 'SAC':
+            import model_params.SAC as parameters
+            model_params_dict = alg_setter.set_dict(parameters)
+            return SAC(env, model_params_dict, args_dict)
 
     @staticmethod
     def set_dict(parameters):

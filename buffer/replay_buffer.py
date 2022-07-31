@@ -35,7 +35,10 @@ class ReplayBuffer:
     if self.occupied_capacity + trajectory_length <= self.capacity:
         for key in items.keys():
             if key in self.buffer_keys:
-                self.buffer[key] =np.concatenate((self.buffer[key],\
+                if self.occupied_capacity==0:
+                    self.buffer[key] = np.array(items[key],dtype=np.object)
+                else:
+                    self.buffer[key] =np.concatenate((self.buffer[key],
                                     np.array(items[key],dtype = np.object)),axis=0)
         self.occupied_capacity += trajectory_length
 

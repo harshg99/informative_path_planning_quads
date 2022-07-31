@@ -36,10 +36,18 @@ def compute_ppo_grads(global_model,train_buffer):
     return metric,deepcopy(gradients)
 
 def compute_sac_grads(global_model,replay_buffer,params_dict):
-    for _ in params_dict['SAC_GRAD_ITERATIONS']:
-        buffer = replay_buffer.get_next()
-        metrics,_  = global_model.backward(buffer)
-        global_model.gradient_step()
+    metrics = {}
+    for _ in range(params_dict['SAC_GRAD_ITERATIONS']):
+        buffer = replay_buffer.get_next(params_dict['BATCH_SIZE'])
+        metric,_  = global_model.backward(buffer)
+        for key in metric.keys():
+            if not key in metrics.keys():
+                metrics[key] = [metric[key]]
+            else:
+                metrics[key].append(metric[key])
+
+    for key in metrics.keys():
+        metrics[key] = np.mean(np.array(metrics[key]))
 
     return metrics
 
@@ -100,7 +108,7 @@ if __name__=='__main__':
     returns, best_return = [], -9999
 
     if params['ALG_TYPE'] == 'SAC':
-        replay_buffer = ReplayBuffer(global_model.get_buffer_keys(), params['CAPACITY'])
+        replay_buffer = ReplayBuffer(global_model.buffer_keys_required(), params['CAPACITY'])
 
     try:
         while curr_episode<MAX_EPISODES and len(joblist)!=0:
@@ -119,19 +127,27 @@ if __name__=='__main__':
                 # apply gradient on the global network
                 for train_buffer in jobResults[0]:
                     if params['ALG_TYPE'] =='SAC':
-                        metrics['Losses'] = compute_sac_grads(global_model,replay_buffer,params)
+                        replay_buffer.add_batch(train_buffer)
+                        if replay_buffer.occupied_capacity>params['MIN_CAPACITY']:
+                            metrics['Losses'] = compute_sac_grads(global_model,replay_buffer,params)
+
                     else:
                         metrics['Losses'],gradients = compute_ppo_grads(global_model,train_buffer)
                         apply_gradients(global_model, gradients, device)
 
             if global_model.scheduler:
-                global_model.scheduler.step()
+                if params['ALG_TYPE'] =='SAC' and replay_buffer.occupied_capacity > params['MIN_CAPACITY']:
+                    global_model.scheduler_step()
+                if params['ALG_TYPE'] !='SAC':
+                    global_model.scheduler.step()
             elif JOB_TYPE == JOB_TYPES.getExperience:
                 pass
             else:
                 pass
 
-            tensorboard_writer.update(metrics, curr_episode, neptune_run)
+            if (params['ALG_TYPE']=='SAC' and replay_buffer.occupied_capacity>params['MIN_CAPACITY'])\
+                    or params['ALG_TYPE'] is not 'SAC':
+                tensorboard_writer.update(metrics, curr_episode, neptune_run)
                 # get the updated weights from the global network
             weights = global_model.state_dict()
             if reinit_count > RAY_RESET_EPS:

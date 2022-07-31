@@ -48,10 +48,10 @@ FIXED_BUDGET = True
 BUDGET = 10
 
 #MODEL TYPE
-CLASS_CONFIG = 'Transformer' #Linear or Transformer
+CLASS_CONFIG = 'Linear' #Linear OR Transformer OR RSSM
 if CLASS_CONFIG =='Linear':
     MODEL_TYPE = 'Model6'#Model1 Model2 etc
-    ALG_TYPE = 'AC' #AC or PPO
+    ALG_TYPE = 'SAC' #AC or PPO or SAC
     QVALUE = True
     COMPUTE_VALIDS = True # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
     # Observation Type
@@ -60,16 +60,34 @@ if CLASS_CONFIG =='Linear':
 
 elif CLASS_CONFIG == 'Transformer':
     MODEL_TYPE = 'ModelTrans2'  # Model1 Model2 etc
-    ALG_TYPE = 'AC'  # AC or PPO
+    ALG_TYPE = 'AC'  # AC or PPO or SAC
     QVALUE = True
     COMPUTE_VALIDS = True  # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
     # Observation Type
     OBSERVER = 'RANGEwOBSwMULTI'
     RANGE = 16
 
+elif CLASS_CONFIG == 'RSSM':
+    MODEL_TYPE = 'ModeL1'  # Model1 Model2 etc
+    ALG_TYPE = 'AC'  # AC or PPO or SAC
+    QVALUE = True
+    COMPUTE_VALIDS = True  # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
+    # Observation Type
+    OBSERVER = 'RANGEwOBSwMULTI'
+    RANGE = 8
+
 if ALG_TYPE=='PPO':
     JOB_TYPE = JOB_TYPES.getExperience
     TRAINING_TYPE = TRAINING_OPTIONS.singleThreaded
+
+if ALG_TYPE=='SAC':
+    JOB_TYPE = JOB_TYPES.getExperience
+    TRAINING_TYPE = TRAINING_OPTIONS.singleThreaded
+    CAPACITY = 12000
+    NUM_GPUS = 1
+    SAC_GRAD_ITERATIONS = 5
+    BATCH_SIZE = 512
+    MIN_CAPACITY = 1000
 
 #Logging Params
 MODEL_NAME = 'GPAC_Transformer2'
@@ -79,6 +97,10 @@ MODEL_PATH = 'data/models/'+MODEL_NAME+'_'+DESCRIPTION
 GIFS_PATH = 'data/gifs/'+MODEL_NAME+'_'+DESCRIPTION
 LOAD_MODEL = False
 SUMMARY_WINDOW = 10
+
+TEST_GIFS = True
+TEST_GIFS_PATH = "data/test/{}/GIFS/"
+TEST_RESULTS_PATH= "data/test/{}/RESULTS/"
 
 NEPTUNE = False
 NEPTUNE_RUN = None

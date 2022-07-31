@@ -1,5 +1,5 @@
 #Network Params
-obs_model = 'Conv' #Conv
+obs_model = 'MLP' #Conv
 if obs_model == 'MLP':
     hidden_sizes = [256,128,128,64]
 elif obs_model == 'Conv':

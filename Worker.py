@@ -80,7 +80,7 @@ class Worker:
             train_buffer['valids'].append(observation['valids'])
 
             observation = self.env.get_obs_all()
-            train_buffer['next_obs'] = observation
+            train_buffer['next_obs'].append(observation)
 
 
             episode_step+=1
@@ -131,9 +131,21 @@ class Worker:
             buffer[k] = train_buffer_adv[k][idxs]
         pass
 
+    def consolidate_buffer(self,buffer):
+        # buffer_consolidated = {}
+        # for keys in buffer.keys():
+        #     if  keys =='obs' or keys=='next_obs':
+        #         temp_dict = {}
+        #         for keys in
+        return buffer
+
     def work(self,currEpisode):
         if TRAINING_TYPE==TRAINING_OPTIONS.singleThreaded:
-            self.train_buffer,episode_reward,control_cost,episode_step = self.single_threaded_episode(currEpisode)
+            train_buffer,episode_reward,control_cost,episode_step = self.single_threaded_episode(currEpisode)
+            if self.args_dict['ALG_TYPE']=='SAC':
+                self.train_buffer = self.consolidate_buffer(train_buffer)
+            else:
+                self.train_buffer = train_buffer
         else:
             pass
 

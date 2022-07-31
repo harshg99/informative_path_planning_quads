@@ -20,5 +20,6 @@ class Vanilla(nn.Module):
     def reset(self):
         pass
 
-    def get_buffer_keys(self):
-        keysList = ['observation','next_observation','actions','rewards','dones']
+    def buffer_keys_required(self):
+        keysList = ['obs','next_obs','actions','rewards','dones']
+        return keysList
