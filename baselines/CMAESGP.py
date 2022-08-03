@@ -180,31 +180,31 @@ class CMAESGP(il_wrapper):
         bounds[:,1] = 1.0
         optimiser = CMA(mean=np.zeros(self.depth),sigma = 1.0,bounds=bounds,population_size=self.population_size)
         #partial_objective = functools.partial(self.objective,args)
-        with pool(self.threads) as p:
-            std_list = []
-            best_costs = []
-            flag = False
-            for gen in range(self.iterations):
-                vectors = []
-                costs = []
-                for _ in range(optimiser.population_size):
-                    vectors.append(deepcopy(optimiser.ask().tolist()))
-                    costs.append(self.objective(args,vectors[-1]))
-                #p.starmap(partial_objective,vectors)
+        #with pool(self.threads) as p:
+        std_list = []
+        best_costs = []
+        flag = False
+        for gen in range(self.iterations):
+            vectors = []
+            costs = []
+            for _ in range(optimiser.population_size):
+                vectors.append(deepcopy(optimiser.ask().tolist()))
+                costs.append(self.objective(args,vectors[-1]))
+            #p.starmap(partial_objective,vectors)
 
-                solutions = [(vectors[j],-costs[j]) for j in range(optimiser.population_size)]
-                optimiser.tell(solutions)
-                std_list.append(np.std(np.array(costs)))
-                best_costs.append(np.max(np.array(costs)))
-                #print(std_list[-1])
-                if gen>=self.min_iterations:
-                    if np.mean(np.array(std_list)[-self.min_iterations:])<self.thresh:
-                        flag = True
-                    if np.all(np.abs(costs-best_costs[-1])<self.thresh):
-                        flag = True
+            solutions = [(vectors[j],-costs[j]) for j in range(optimiser.population_size)]
+            optimiser.tell(solutions)
+            std_list.append(np.std(np.array(costs)))
+            best_costs.append(np.max(np.array(costs)))
+            #print(std_list[-1])
+            if gen>=self.min_iterations:
+                if np.mean(np.array(std_list)[-self.min_iterations:])<self.thresh:
+                    flag = True
+                if np.all(np.abs(costs-best_costs[-1])<self.thresh):
+                    flag = True
 
-                if flag:
-                    break
+            if flag:
+                break
 
         best_vector = optimiser.ask()
         cost = self.objective(args,best_vector)
