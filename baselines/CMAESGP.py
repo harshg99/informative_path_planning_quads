@@ -34,8 +34,8 @@ class CMAESGP(il_wrapper):
         env_params_dict['home_dir'] = os.getcwd() + home_dir
 
         import params as args
-        args_dict = set_dict(args)
-        self.env = GPEnvMP(env_params_dict, args_dict)
+        self.args_dict = set_dict(args)
+        self.env = GPEnvMP(env_params_dict, self.args_dict)
 
     def objective(self,args,vector):
         pos = np.stack(args[0])
