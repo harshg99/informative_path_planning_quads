@@ -253,12 +253,15 @@ class CMAESGP(il_wrapper):
                     break
             if done:
                 break
+
+        metrics = self.env.get_final_metrics()
         metrics['episode_reward'] = episode_rewards
+        metrics['episode_length'] = episode_step
 
         if self.gifs:
             make_gif(np.array(frames),
                      '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(self.gifs_path, ID, 0, episode_rewards))
-        return episode_rewards
+        return metrics
 
 if __name__=="__main__":
     import baseline_params.CMAESGPparams as parameters
