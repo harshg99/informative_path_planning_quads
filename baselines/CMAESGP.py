@@ -225,7 +225,7 @@ class CMAESGP(il_wrapper):
         return self.action_list[self.counter-1],self.costs[self.counter-1]
 
     def run_test(self,rewardMap,ID=0,targetMap=None):
-        episode_step = 0
+        episode_step = 0.0
         episode_rewards = 0
 
         np.random.seed(seed=ID)
