@@ -23,9 +23,10 @@ class DRLTest:
         self.gifs_path = self.args_dict['TEST_GIFS_PATH'].format(model_path)
 
         print('Loading Model')
+        model_path = 'data/models/' + model_path
         checkpoint = torch.load(model_path + "/checkpoint.pkl",map_location = self.args_dict['DEVICE'])
         self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.model.optim.load_state_dict(checkpoint['optimizer_state_dict'])
+        #self.model.optim.load_state_dict(checkpoint['optimizer_state_dict'])
         curr_episode = checkpoint['epoch']
         print('Model results at Episode: {}'.format(curr_episode))
 
@@ -37,7 +38,7 @@ class DRLTest:
         policy = policy.cpu().detach().numpy()
         action_dict = Utilities.best_actions(policy)
 
-        return action_dict
+        return action_dict,None
 
     def run_test(self,rewardmap,ID=0,targetMap=None):
         episode_step = 0.0
@@ -51,10 +52,8 @@ class DRLTest:
                or (self.args_dict['FIXED_BUDGET'])):
             if self.gifs:
                 frames.append(self.env.render(mode='rgb_array'))
-            action_dict = {}
 
-            for j,agent in enumerate(self.env.agents):
-                action_dict[j],cost = self.plan_action(observation)
+            action_dict,cost = self.plan_action(observation)
 
             rewards,done = self.env.step_all(action_dict)
             episode_rewards += np.array(rewards).sum()
@@ -75,6 +74,11 @@ class DRLTest:
 
 
 class Tests:
+    def __init__(self):
+        import params as args
+        args_dict = Utilities.set_dict(args)
+        self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path)
+
     def unit_tests(self,testID:int,model_path:str):
         import params as args
         args_dict = Utilities.set_dict(args)
@@ -83,7 +87,7 @@ class Tests:
         drl_planner = DRLTest(args_dict,model_path)
         self.model_path = model_path
         dir_name = os.getcwd() + "/" + MAP_TEST_DIR + '/' + ENV_TYPE +'/'
-        self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path)
+
 
         if ENV_TYPE=='GPPrim':
             file_name = dir_name + "tests{}env.npy".format(testID)
@@ -138,8 +142,10 @@ if __name__=="__main__":
         result_dict[j] = result
 
     #T()
-    results_path = TestObj.get_results_path(type)+"/all_results.json"
-    out_file = open(results_path, "w")
+    results_path = TestObj.get_results_path(model_path)+"/all_results.json"
+    if not os.path.exists(TestObj.get_results_path(model_path)):
+        os.makedirs(TestObj.get_results_path(model_path))
+    out_file = open(results_path , "w")
     json.dump(result_dict,out_file)
     out_file.close()
 
@@ -173,7 +179,7 @@ if __name__=="__main__":
     compiled_results['max'] = max_results
     compiled_results['min'] = min_results
     compiled_results['std'] = std_results
-    results_path = TestObj.get_results_path(type)+"/compiled_results.json"
+    results_path = TestObj.get_results_path(model_path)+"/compiled_results.json"
     out_file = open(results_path, "w")
     json.dump(compiled_results,out_file)
     out_file.close()

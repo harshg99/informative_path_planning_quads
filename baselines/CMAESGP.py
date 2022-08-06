@@ -98,8 +98,10 @@ class CMAESGP(il_wrapper):
             max_y = np.min([c + range_ + 1, self.env.worldBeliefMap.shape[1]])
             #beliefMap_ = worldMap.copy()
 
-            logodds_b_map = np.log(np.clip(worldMap[min_x:max_x,min_y:max_y]/(1- worldMap[min_x:max_x,min_y:max_y]),1e-7,1e7))
-            sensor = self.env.sensor_params['sensor_unc'][min_x-(r-range_):max_x-(r-range_),min_y-(c - range_):max_y-(c-range_)]
+            logodds_b_map = np.log(np.clip(worldMap[min_x:max_x,min_y:max_y]/
+                                           (1- worldMap[min_x:max_x,min_y:max_y]),1e-7,1e7))
+            sensor = self.env.sensor_params['sensor_unc'][min_x-(r-range_):max_x-(r-range_),
+                                                          min_y-(c - range_):max_y-(c-range_)]
             sensor_log_odds = np.log(np.clip((1 - sensor) / sensor, 1e-7,1e7))
             map_free = 1 / (np.exp(-logodds_b_map + sensor_log_odds) + 1)
             map_occ = 1 / (np.exp(-logodds_b_map - sensor_log_odds) + 1)
@@ -110,7 +112,8 @@ class CMAESGP(il_wrapper):
             entropy_redfree = (1-sensor)*entropy_free + sensor*entropy_occ - entropy
             entropy_redocc = sensor*entropy_free + (1-sensor)*entropy_occ - entropy
 
-            entropy_reduction = entropy_redfree[worldMap[min_x:max_x,min_y:max_y]<0.5].sum() + entropy_redocc[worldMap[min_x:max_x,min_y:max_y]>=0.5].sum()
+            entropy_reduction = entropy_redfree[worldMap[min_x:max_x,min_y:max_y]<0.5].sum()\
+                                + entropy_redocc[worldMap[min_x:max_x,min_y:max_y]>=0.5].sum()
             worldMap[min_x:max_x,min_y:max_y][worldMap[min_x:max_x,min_y:max_y]<0.5] = \
                 map_free[worldMap[min_x:max_x,min_y:max_y]<0.5]
             worldMap[min_x:max_x, min_y:max_y][worldMap[min_x:max_x, min_y:max_y] >= 0.5] =\

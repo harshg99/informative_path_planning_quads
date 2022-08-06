@@ -6,7 +6,7 @@ from models.Vanilla import *
 from models.subnets import *
 import torch.nn.functional as F
 from models.subnet_setter import subnet_enc_setter
-
+from copy import deepcopy
 '''
 With transformer backbone, observations are tokenised and embedded and compared with motion primitives that 
 are also encoded.
@@ -65,7 +65,7 @@ class ModelTrans1(Vanilla):
     # Defines the transformer backbone architecture
     def init_backbone(self):
         # Different conv layers for different scales
-        size = self.input_size
+        size = deepcopy(self.input_size)
         size[-1] = int(size[-1]/len(self.env.scale))
         self.conv_blocks = [subnet_enc_setter.set_model(self.config['TYPE'],self.conv_sizes,size\
                                       ,self.args_dict['DEVICE'],self.config) for _ in self.env.scale]
@@ -259,7 +259,7 @@ class ModelTrans2(ModelTrans1):
         B,N,D1,D2 = obs_tokens.shape
         attention_tokens = self.Encoder(obs_tokens.reshape((B*N,D1,D2)))
 
-        query_tokens = self.query_embed(motion_prims.reshape((B*N,motion_prims.shape[-2],motion_prims.shape[-1])))
+        #query_tokens = self.query_embed(motion_prims.reshape((B*N,motion_prims.shape[-2],motion_prims.shape[-1])))
         #decoded_values = self.Decoder(attention_tokens,query_tokens,mask = valid_motion_prims)
         attention_token = attention_tokens[:,0]
 
