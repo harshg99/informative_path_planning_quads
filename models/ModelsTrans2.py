@@ -55,8 +55,7 @@ class ModelTrans1(Vanilla):
     def subnet_config(self):
         self.config = self.params_dict
         self.config['action_size'] = self.action_size
-        self.config['patches'] = int(self.input_size[0]*self.input_size[1]\
-                                 /np.square(np.power(2,len(self.conv_sizes)))*len(self.env.scale))
+        self.config['patches'] = self.params_dict['token_length']*len(self.env.scale)
         self.config['input_size'] = self.params_dict['conv_sizes'][-1] + self.config['pos_embed_bits']
         self.config['output_tokens'] = self.action_size
         self.config['out_token_size'] = self.env.motionprim_tokensize
