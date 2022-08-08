@@ -79,14 +79,14 @@ class Tests:
         args_dict = Utilities.set_dict(args)
         self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path)
 
-    def unit_tests(self,testID:int,model_path:str):
+    def unit_tests(self,testID:int,model_path:str,map_size:int):
         import params as args
         args_dict = Utilities.set_dict(args)
         args_dict['GPU'] = False
         args_dict['DEVICE'] = 'cpu'
         drl_planner = DRLTest(args_dict,model_path)
         self.model_path = model_path
-        dir_name = os.getcwd() + "/" + MAP_TEST_DIR + '/' + ENV_TYPE +'/'
+        dir_name = os.getcwd() + "/" + MAP_TEST_DIR + '/' + TEST_TYPE.format(map_size) +'/'
 
 
         if ENV_TYPE=='GPPrim':
@@ -101,10 +101,11 @@ class Tests:
 
         return drl_planner.run_test(rewardmap,testID,targetmap)
 
-    def run_tests(self,type:str,num_tests:int,num_threads:int):
+    def run_tests(self,type:str,num_tests:int,num_threads:int,mapSize:int):
         with mp.Pool(num_threads) as pool:
             types = [type for _ in range(num_tests)]
-            results = pool.starmap(self.unit_tests,zip(range(num_tests),types))
+            mapSize = [mapSize for _ in range(num_tests)]
+            results = pool.starmap(self.unit_tests,zip(range(num_tests),types,mapSize))
             return results
 
     def get_results_path(self,type:str):
@@ -117,16 +118,17 @@ if __name__=="__main__":
     num_tests  = 2
     num_threads = 2
     model_path = 'GreedyGP'
+    map_size = 30
 
     try:
-        opts,args = getopt.getopt(sys.argv[1:],"hn:p:t:",["--num_tests","--modelpath","--num_threads"])
+        opts,args = getopt.getopt(sys.argv[1:],"hn:p:t:s:",["--num_tests","--modelpath","--num_threads","--size"])
     except getopt.GetoptError:
-        print('runtests.py -n <num_tests> -p <model_path in data/models> -t <num of threads>')
+        print('runtests.py -n <num_tests> -p <model_path in data/models> -t <num of threads> -s <size of map>')
         sys.exit(2)
 
     for opt,arg in opts:
         if opt =='h':
-            print('runtests.py -n <num_tests> -p <model_path in data/models> -t <num of threads>')
+            print('runtests.py -n <num_tests> -p <model_path in data/models> -t <num of threads> -s <size of map>')
             sys.exit()
         elif opt in ("-n","--num_tests"):
             num_tests = int(arg)
@@ -134,9 +136,11 @@ if __name__=="__main__":
             num_threads = int(arg)
         elif opt in ("-p", "--model_path"):
             model_path = str(arg)
+        elif opt in ("-s", "--size"):
+            map_size = int(arg)
 
     TestObj  = Tests()
-    results = TestObj.run_tests(model_path,num_tests,num_threads)
+    results = TestObj.run_tests(model_path,num_tests,num_threads,map_size)
     result_dict = {}
     for j,result in enumerate(results):
         result_dict[j] = result

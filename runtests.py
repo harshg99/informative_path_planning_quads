@@ -9,9 +9,9 @@ import json
 from pdb import set_trace as T
 
 class Tests:
-    def unit_tests(self,type:str,testID:int):
+    def unit_tests(self,type:str,testID:int,mapSize:int):
         baseline_planner = baseline_setter.baseline_setter.set_baseline(type)
-        dir_name = os.getcwd() + "/" + MAP_TEST_DIR + '/' + ENV_TYPE +'/'
+        dir_name = os.getcwd() + "/" + MAP_TEST_DIR + '/' + TEST_TYPE.format(mapSize) +'/'
         if ENV_TYPE=='GPPrim':
             file_name = dir_name + "tests{}env.npy".format(testID)
             rewardmap = np.load(file_name)
@@ -23,10 +23,11 @@ class Tests:
             targetmap  = None
         return baseline_planner.run_test(rewardmap,testID,targetmap)
 
-    def run_tests(self,type:str,num_tests:int,num_threads:int):
+    def run_tests(self,type:str,num_tests:int,num_threads:int,mapSize:int):
         with mp.Pool(num_threads) as pool:
             types = [type for _ in range(num_tests)]
-            results = pool.starmap(self.unit_tests,zip(types,range(num_tests)))
+            mapSize = [mapSize for _ in range(num_tests)]
+            results = pool.starmap(self.unit_tests,zip(types,range(num_tests),mapSize))
             return results
 
     def get_results_path(self,type:str):
@@ -40,16 +41,17 @@ if __name__=="__main__":
     num_tests  = 2
     num_threads = 2
     type = 'GreedyGP'
+    map_size = 30
 
     try:
-        opts,args = getopt.getopt(sys.argv[1:],"hn:t:p:",["--num_tests","--type","--num_threads"])
+        opts,args = getopt.getopt(sys.argv[1:],"hn:t:p:s:",["--num_tests","--type","--num_threads","--size"])
     except getopt.GetoptError:
-        print('runtests.py -n <num_tests> -t <type of test(Greedy,CMAES> -p <num of threads>')
+        print('runtests.py -n <num_tests> -t <type of test(Greedy,CMAES> -p <num of threads>  -s <size of map>')
         sys.exit(2)
 
     for opt,arg in opts:
         if opt =='h':
-            print('runtests.py -n <num_tests> -t <type of test(Greedy,CMAES> -p <num of threads>')
+            print('runtests.py -n <num_tests> -t <type of test(Greedy,CMAES> -p <num of threads> -s <size of map>')
             sys.exit()
         elif opt in ("-n","--num_tests"):
             num_tests = int(arg)
@@ -57,9 +59,11 @@ if __name__=="__main__":
             type = str(arg)
         elif opt in ("-p", "--num_threads"):
             num_threads = int(arg)
+        elif opt in ("-s", "--size"):
+            map_size = int(arg)
 
     TestObj  = Tests()
-    results = TestObj.run_tests(type,num_tests,num_threads)
+    results = TestObj.run_tests(type,num_tests,num_threads,map_size)
     result_dict = {}
     for j,result in enumerate(results):
         result_dict[j] = result

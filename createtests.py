@@ -11,8 +11,11 @@ import Utilities
 
 TESTS = 1000
 
-def create_test_reward_maps(env,nummaps:int,index=None):
-    dir_name = os.getcwd() + '/' + MAP_TEST_DIR + '/' + args_dict['ENV_TYPE']+'/'
+def create_test_reward_maps(env,nummaps:int,index=None,ID=None):
+    if ID is not None:
+        dir_name = os.getcwd() + '/' + MAP_TEST_DIR + '/' + args_dict['TEST_TYPE'].format(ID)+'/'
+    else:
+        dir_name = os.getcwd() + '/' + MAP_TEST_DIR + '/' + args_dict['TEST_TYPE'].format(30)+'/'
     if not os.path.isdir(dir_name):
         os.makedirs(dir_name)
     if index is None:
@@ -28,6 +31,7 @@ def create_test_reward_maps(env,nummaps:int,index=None):
 
 if __name__=="__main__":
     map_size = 0
+    ID = None
     try:
         opts,args = getopt.getopt(sys.argv[1:],"hn:",["--mapsize"])
     except getopt.GetoptError:
@@ -44,4 +48,4 @@ if __name__=="__main__":
     import params as args
     args_dict = Utilities.set_dict(parameters=args)
     environment = env_setter().set_env(args_dict)
-    create_test_reward_maps(environment,TESTS)
+    create_test_reward_maps(environment,TESTS,ID=60)
