@@ -92,7 +92,7 @@ if __name__=='__main__':
 
     if LOAD_MODEL:
         print('Loading Model')
-        checkpoint = torch.load(MODEL_PATH+"/checkpoint.pkl")
+        checkpoint = torch.load(MODEL_PATH+"/checkpoint.pkl",map_location=params['DEVICE'])
         global_model.load_state_dict(checkpoint['model_state_dict'])
         global_model.optim.load_state_dict(checkpoint['optimizer_state_dict'])
         curr_episode = checkpoint['epoch']
