@@ -170,12 +170,14 @@ class MLPEncLayer(nn.Module):
 
 
         self.layers.extend(mlp_block(hidden_size=int(self.input_size[-1]*self.patch_size[0]*self.patch_size[1]),
+                                     dropout=False,
                                      out_size=self.hidden_layers[0],
                                      activation=nn.LeakyReLU))
 
         for j in range(len(self.hidden_layers)-1):
             self.layers.extend(mlp_block(hidden_size = self.hidden_layers[j],
                                          out_size = self.hidden_layers[j+1],
+                                         dropout=False,
                                          activation=nn.LeakyReLU))
 
         self.layers = nn.Sequential(*self.layers).to(self.device)

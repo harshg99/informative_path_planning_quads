@@ -177,3 +177,104 @@ class PPO(AC):
         valid_l = valid_l1 + valid_l2
         return v_l, p_l, e_l,valid_l
 
+
+class ACLSTM(AC):
+    def init__(self, env, params_dict, args_dict):
+        super(ACLSTM, self).init__(env,params_dict,args_dict)
+
+    def forward_step(self,input,hidden_in=None):
+        return self._model.forward_step(input,hidden_in)
+
+
+    def compute_loss(self, train_buffer):
+        self._model.reset_hidden_state()
+        advantages = train_buffer['advantages']
+        target_v = train_buffer['discounted_rewards']
+        a_batch = np.array(train_buffer['actions'])
+        dones = np.array(train_buffer['dones'])
+
+        policy, value, valids, valids_net = self.compute_forward_buffer(train_buffer['obs'],\
+                                                                        train_buffer['hidden_in'])
+
+        target_v = torch.tensor(target_v, dtype=torch.float32).to(self.args_dict['DEVICE'])
+        a_batch = torch.tensor(a_batch, dtype=torch.int64).to(self.args_dict['DEVICE'])
+        advantages = torch.tensor(advantages, dtype=torch.float32).to(self.args_dict['DEVICE'])
+        dones = torch.tensor(np.array(dones), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        responsible_outputs = policy.gather(-1, a_batch)
+        if self.args_dict['QVALUE']:
+            v_l = self.params_dict['value_weight'] * torch.square((value.squeeze() * \
+                                                                   F.one_hot(a_batch,
+                                                                             self.env.action_size).squeeze()).sum(
+                dim=-1) - target_v)
+        else:
+            v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
+        e_l = -torch.sum(self.params_dict['entropy_weight'] * \
+                         (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))), dim=-1)
+        p_l = -self.params_dict['policy_weight'] * torch.log(
+            torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
+
+        valid_l1 = -self.params_dict['valids_weight1'] * torch.sum((1 - valids) * \
+                                                                   torch.log(torch.clip(1 - valids_net, 1e-7, 1)),
+                                                                   dim=-1)
+        valid_l2 = -self.params_dict['valids_weight2'] * torch.sum(valids * \
+                                                                   torch.log(torch.clip(valids_net, 1e-7, 1)), dim=-1)
+        valid_l = valid_l1 + valid_l2
+        return v_l, p_l, e_l, valid_l
+
+    def compute_forward_buffer(self,obs_buffer,hidden_in):
+        return self._model.forward_buffer(obs_buffer,hidden_in)
+
+
+class PPOLSTM(AC):
+    def __init__(self, env,params_dict, args_dict):
+        super(PPOLSTM, self).__init__(env,params_dict,args_dict)
+
+    def forward_step(self,input,hidden_in=None):
+        return self._model.forward_step(input,hidden_in)
+
+    def compute_loss(self, train_buffer):
+        advantages = train_buffer['advantages']
+        target_v = train_buffer['discounted_rewards']
+        a_batch = np.array(train_buffer['actions'])
+        old_policy = np.array(train_buffer['policy'])
+        dones = np.array(train_buffer['dones'])
+
+        policy, value, valids, valids_net = self.compute_forward_buffer(train_buffer['obs'],
+                                                                        train_buffer['hidden_in'])
+        target_v = torch.tensor(target_v, dtype=torch.float32).to(self.args_dict['DEVICE'])
+        a_batch = torch.tensor(a_batch, dtype=torch.int64).to(self.args_dict['DEVICE'])
+        advantages = torch.tensor(advantages, dtype=torch.float32).to(self.args_dict['DEVICE'])
+        # advantages = target_v - value.squeeze().detach()
+        # advantages = (advantages - advantages.mean(axis=-1)) / (advantages.std(axis=-1) + 1e-8)
+
+        old_policy = torch.tensor(old_policy.squeeze(), dtype=torch.float32).to(self.args_dict['DEVICE'])
+
+        responsible_outputs = policy.gather(-1, a_batch)
+        old_responsible_outputs = old_policy.gather(-1, a_batch)
+        ratio = (torch.log(torch.clamp(responsible_outputs, 1e-10, 1)) \
+                 - torch.log(torch.clamp(old_responsible_outputs, 1e-10, 1))).exp()
+        dones = torch.tensor(np.array(dones), dtype=torch.float32).to(self.args_dict['DEVICE'])
+
+        v_l = (1 - dones) * self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
+        e_l = -(1 - dones) * torch.sum(self.params_dict['entropy_weight'] * \
+                                       (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))), dim=-1)
+
+        p_l = -(1 - dones) * self.params_dict['policy_weight'] * torch.minimum(
+            ratio.squeeze() * advantages.squeeze(),
+            torch.clamp(ratio.squeeze(), 1 - self.params_dict['EPS'],
+                        1 + self.params_dict['EPS']) * advantages.squeeze())
+
+        # valid_l = self.params_dict['valids_weight']* (valids*torch.log(torch.clip(valids_net,1e-7,1))+ (1-valids)*torch.log(torch.clip(1 - valids_net,1e-7,1)))
+        valid_l1 = -(1 - dones) * self.params_dict['valids_weight1'] * torch.sum((1 - valids) * \
+                                                                                 torch.log(
+                                                                                     torch.clip(1 - valids_net, 1e-7,
+                                                                                                1)), dim=1)
+        valid_l2 = -(1 - dones) * self.params_dict['valids_weight2'] * torch.sum(valids * \
+                                                                                 torch.log(
+                                                                                     torch.clip(valids_net, 1e-7, 1)),
+                                                                                 dim=-1)
+        valid_l = valid_l1 + valid_l2
+        return v_l, p_l, e_l, valid_l
+
+    def compute_forward_buffer(self,obs_buffer,hidden_in=None):
+        return self._model.forward_buffer(obs_buffer,hidden_in)

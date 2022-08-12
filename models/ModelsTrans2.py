@@ -260,7 +260,7 @@ class ModelTrans2(ModelTrans1):
 
         #query_tokens = self.query_embed(motion_prims.reshape((B*N,motion_prims.shape[-2],motion_prims.shape[-1])))
         #decoded_values = self.Decoder(attention_tokens,query_tokens,mask = valid_motion_prims)
-        attention_token = attention_tokens[:,0]
+        attention_token = attention_tokens.sum(dim=-1)
 
         graph_node = graph_node.reshape((B*N,graph_node.shape[-1]))
         prev_a = prev_a.reshape((B * N, prev_a.shape[-1]))

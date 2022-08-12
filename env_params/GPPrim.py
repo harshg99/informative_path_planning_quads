@@ -8,20 +8,24 @@ min_var=2.0
 seed=45
 episode_length = 100
 pad_size = 5
+
 rewardMapSizeList = [30,45,60,90]
 randomMapSize = False
-defaultMapChoice = 0
+defaultMapChoice = 2
 scale = [1,2,4]
+
 sensor_range = 5
 sensor_unc = np.zeros([sensor_range,sensor_range])
-ceoff = 0.05
+ceoff = 0.1
+
 num_targets = [10,20]
 defaultBelief = 0.1
 targetBeliefThresh = 0.95
+
 for j in range(sensor_range):
     for k in range(sensor_range):
         dist = max(np.abs(j-int((sensor_range/2))),np.abs(k-int((sensor_range/2))))
-        sensor_unc[j][k] = 0.001 + ceoff*dist
+        sensor_unc[j][k] = 0.01 + ceoff*dist
 
 sensor_params = {}
 sensor_params['type'] = 'FieldSensor' # FieldSensor

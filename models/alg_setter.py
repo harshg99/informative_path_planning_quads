@@ -17,6 +17,19 @@ class alg_setter:
             import model_params.SAC as parameters
             model_params_dict = alg_setter.set_dict(parameters)
             return SAC(env, model_params_dict, args_dict)
+        if args_dict['ALG_TYPE'] == 'ACLSTM':
+            import model_params.AC as parameters
+            model_params_dict = alg_setter.set_dict(parameters)
+            return ACLSTM(env,model_params_dict,args_dict)
+        elif args_dict['ALG_TYPE']  == 'PPOLSTM':
+            import model_params.PPO as parameters
+            model_params_dict = alg_setter.set_dict(parameters)
+            return PPOLSTM(env,model_params_dict, args_dict)
+        elif args_dict['ALG_TYPE'] == 'SACLSTM':
+            import model_params.SAC as parameters
+            model_params_dict = alg_setter.set_dict(parameters)
+            return SACLSTM(env, model_params_dict, args_dict)
+
 
     @staticmethod
     def set_dict(parameters):

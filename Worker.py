@@ -53,6 +53,13 @@ class Worker:
         train_buffer['valids'] = []
         train_buffer['dones'] = []
         train_buffer['policy'] = []
+
+        if self.args_dict['LSTM']:
+            train_buffer['hidden_in'] = []
+            train_buffer['hidden_out'] = []
+            hidden_in = None
+            hidden_out = None
+
         train_buffer['episode_length'] = self.env.episode_length
         episode_reward = 0
         control_cost = 0
@@ -63,7 +70,13 @@ class Worker:
                or (self.args_dict['FIXED_BUDGET'])):
             train_buffer['obs'].append(observation)
             #print(observation)
-            policy,value = self.model.forward_step(observation)
+            if self.args_dict['LSTM']:
+                policy,value,hidden_out = self.model.forward_step(observation,hidden_in)
+                train_buffer['hidden_in'].append(hidden_in)
+                train_buffer['hidden_out'].append(hidden_out.cpu().detach().numpy())
+                hidden_in = hidden_out.cpu().detach().numpy()
+            else:
+                policy, value = self.model.forward_step(observation)
 
             policy = policy.cpu().detach().numpy()
             value = value.cpu().detach().numpy()
@@ -95,7 +108,10 @@ class Worker:
             make_gif(np.array(frames),
                      '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(GIFS_PATH, episodeNum, 0, episode_reward))
 
-        policy_, value_ = self.model.forward_step(observation)
+        if self.args_dict['LSTM']:
+            policy_, value_,_ = self.model.forward_step(observation,hidden_in)
+        else:
+            policy_, value_ = self.model.forward_step(observation)
         train_buffer['bootstrap_value'] = value_.cpu().detach().numpy()[0]
 
         print('MetaAgent{} Episode {} Reward {} Control cost {} Length {}'.format(self.ID,episodeNum,episode_reward,control_cost,episode_step))
@@ -142,7 +158,7 @@ class Worker:
     def work(self,currEpisode):
         if TRAINING_TYPE==TRAINING_OPTIONS.singleThreaded:
             train_buffer,episode_reward,control_cost,episode_step = self.single_threaded_episode(currEpisode)
-            if self.args_dict['ALG_TYPE']=='SAC':
+            if self.args_dict['ALG_TYPE']=='SAC' or self.args_dict['ALG_TYPE']=='SACLSTM':
                 self.train_buffer = self.consolidate_buffer(train_buffer)
             else:
                 self.train_buffer = train_buffer

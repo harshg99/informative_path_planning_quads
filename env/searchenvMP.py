@@ -123,6 +123,7 @@ class SearchEnvMP(SearchEnv):
         previous_actions = []
         agent_idx = []
         mp_embeds = []
+        agent_budgets = []
         for j in range(self.numAgents):
             if OBSERVER == 'TILED':
                 obs.append(self.get_obs_tiled(agentID=j))
@@ -137,6 +138,7 @@ class SearchEnvMP(SearchEnv):
             elif OBSERVER == 'RANGEwOBSwMULTI':
                 obs.append(self.get_obs_range_wobs_multi(agentID=j))
 
+
             coeffs,valid,mp_embed = self.get_mps(j)
             agents_actions.append(coeffs)
             mp_embeds.append(mp_embed)
@@ -145,6 +147,8 @@ class SearchEnvMP(SearchEnv):
                              self.agents[j].pos[1]/self.reward_map_size])
             previous_actions.append(self.agents[j].prev_action)
             agent_idx.append(self.agents[j].index)
+            if self.args_dict['FIXED_BUDGET']:
+                agent_budgets.append([self.agents[j].agentBudget/self.args_dict['BUDGET']/REWARD.MP.value])
 
         obs_dict = dict()
         obs_dict['obs'] = obs
@@ -154,6 +158,8 @@ class SearchEnvMP(SearchEnv):
         obs_dict['position'] = np.array(position)
         obs_dict['previous_actions'] = np.array(previous_actions)
         obs_dict['node'] = np.array(agent_idx)
+        if self.args_dict['FIXED_BUDGET']:
+            obs_dict['budget'] = np.array(agent_budgets)
         return obs_dict
 
 
