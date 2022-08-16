@@ -70,7 +70,7 @@ class CMAESGP(il_wrapper):
         visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
         final_pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
         #is_valid = is_valid and self.isValidPoses(visited_states, agentID)
-        is_valid = is_valid and self.isValidFinalPose(final_pos.T)
+        is_valid = is_valid and self.isValidFinalPose(final_pos.T,agentID)
         return is_valid, visited_states
 
     def isValidPoses(self, poses, agentID):
@@ -79,9 +79,9 @@ class CMAESGP(il_wrapper):
             is_valid = is_valid and self.isValidPos(state, agentID)
         return is_valid
 
-    def isValidFinalPose(self, final_pose):
+    def isValidFinalPose(self, final_pose,agentID):
         is_valid = True
-        is_valid = is_valid and self.isValidPos(final_pose.T)
+        is_valid = is_valid and self.isValidPos(final_pose.T,agentID)
         return is_valid
 
     def isValidPos(self, pos, agentID):
@@ -276,7 +276,7 @@ class CMAESGP(il_wrapper):
 if __name__=="__main__":
     import baseline_params.CMAESGPparams as parameters
     map_index = 20
-    dir_name = os.getcwd() + "/../" + MAP_TEST_DIR + '/' + ENV_TYPE +'/'
+    dir_name = os.getcwd() + "/../" + MAP_TEST_DIR + '/' + TEST_TYPE.format(30) +'/'
     file_name = dir_name + "tests{}env.npy".format(map_index)
     rewardmap = np.load(file_name)
     file_name = dir_name + "tests{}target.npy".format(map_index)
