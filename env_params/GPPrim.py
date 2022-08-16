@@ -11,10 +11,10 @@ pad_size = 5
 
 rewardMapSizeList = [30,45,60,90]
 randomMapSize = False
-defaultMapChoice = 2
+defaultMapChoice = 0
 scale = [1,2,4]
 
-sensor_range = 5
+sensor_range = 3
 sensor_unc = np.zeros([sensor_range,sensor_range])
 ceoff = 0.1
 

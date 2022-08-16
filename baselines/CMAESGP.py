@@ -68,13 +68,20 @@ class CMAESGP(il_wrapper):
         _, sp = mp.get_sampled_position()
         # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
         visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
-        is_valid = is_valid and self.isValidPoses(visited_states, agentID)
+        final_pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
+        #is_valid = is_valid and self.isValidPoses(visited_states, agentID)
+        is_valid = is_valid and self.isValidFinalPose(final_pos.T)
         return is_valid, visited_states
 
     def isValidPoses(self, poses, agentID):
         is_valid = True
         for state in poses.T:
             is_valid = is_valid and self.isValidPos(state, agentID)
+        return is_valid
+
+    def isValidFinalPose(self, final_pose):
+        is_valid = True
+        is_valid = is_valid and self.isValidPos(final_pose.T)
         return is_valid
 
     def isValidPos(self, pos, agentID):

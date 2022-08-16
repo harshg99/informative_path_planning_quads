@@ -23,6 +23,11 @@ class baseline_setter:
             from baselines.CMAES import CMAES
             env_params_dict = baseline_setter.set_dict(parameters)
             return CMAES(env_params_dict)
+        elif type == 'coverage':
+            import baseline_params.CoverageGPParams as parameters
+            from baselines.coverage_planner_mp import coverage_planner_mp
+            env_params_dict = baseline_setter.set_dict(parameters)
+            return coverage_planner_mp(env_params_dict)
 
     @staticmethod
     def set_dict(parameters):

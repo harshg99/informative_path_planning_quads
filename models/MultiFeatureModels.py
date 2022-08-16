@@ -83,13 +83,13 @@ class ModelMF1(Vanilla):
 
 
         self.policy_layers = mlp_block(params_dict['embed_size']+self.lstminsize, \
-                                       self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+                                       params_dict['embed_size'], dropout=False, activation=nn.LeakyReLU)
 
             # for j in range(2):
             #     self.policy_layers.extend(mlp_block(self.hidden_sizes[-1],\
             #                                              self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
 
-        self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1], self.action_size)])
+        self.policy_layers.extend([nn.Linear(params_dict['embed_size'], self.action_size)])
         self.policy_net = nn.Sequential(*self.policy_layers)
         self.policy_net.to(self.args_dict['DEVICE'])
         self.softmax = nn.Softmax(dim=-1)
@@ -97,12 +97,12 @@ class ModelMF1(Vanilla):
 
 
         self.value_layers = mlp_block(params_dict['embed_size']+self.lstminsize, \
-                                      self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+                                      params_dict['embed_size'], dropout=False, activation=nn.LeakyReLU)
 
         # for j in range(2):
         #     self.value_layers.extend(mlp_block(self.hidden_sizes[-1],\
         #                                             self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
-        self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], self.action_size)])
+        self.value_layers.extend([nn.Linear(params_dict['embed_size'], self.action_size)])
         self.value_net = nn.Sequential(*self.value_layers)
         self.value_net.to(self.args_dict['DEVICE'])
 
@@ -144,8 +144,9 @@ class ModelMF1(Vanilla):
         B,N,L,D = conv_embeddings.shape
         conv_embeddings = conv_embeddings.reshape(B*N,L,D)
         # get the first attention value
-        attention_values,attention_weights = self.attention_model(conv_embeddings,conv_embeddings,conv_embeddings)
-        attention_values = attention_values.reshape((B,N,L,D)).sum(dim=-2)
+        #attention_values,attention_weights = self.attention_model(conv_embeddings,conv_embeddings,conv_embeddings)
+        #attention_values = attention_values.reshape((B,N,L,D)).sum(dim=-2)
+        attention_values = torch.max(conv_embeddings.reshape((B,N,L,D)),dim=-2)
         pos = self.position_layer(pos)
         graph_node = self.graph_node_layer(graph_node.to(torch.float32))
         if self.args_dict['FIXED_BUDGET']:
