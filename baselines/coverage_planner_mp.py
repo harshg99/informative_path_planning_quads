@@ -10,6 +10,32 @@ from multiprocessing import Pool as pool
 import functools
 from baselines.il_wrapper import il_wrapper
 
+class Node:
+    def __init__(self,incoming,outgoing,state,map_state,current_cost,depth = None,cost_fn=None):
+        self.incoming = incoming
+        self.outgoing = outgoing
+        self.state = state
+        self.map_state = map_state
+        self.cost_fn =  cost_fn
+        self.current_cost = current_cost
+        self.depth = None
+
+    def __eq__(self, other):
+        if self.incoming == other.incoming and self.outgoing == other.outgoing\
+                and np.all(self.state==other.state) and self.depth==other.depth\
+                and np.all(self.map_state==other.map_state):
+            return True
+        return False
+
+    def __lt__(self,other):
+        if self.heuristic_cost_fn(self.map_state) + self.current_cost <= \
+                self.heuristic_cost_fn(other.map_state)+ other.current_cost:
+            return True
+        return False
+
+    def heuristic_cost_fn(self):
+        return self.cost_fn(self.map_state)
+
 
 class coverage_planner_mp(il_wrapper):
     def __init__(self,params_dict,home_dir="/"):
@@ -55,7 +81,12 @@ class coverage_planner_mp(il_wrapper):
                                  < self.env.agents[agentID].world_size).all()
         return is_valid
 
-    def getmpcost(self, pos, index, action, agentID, coverageMap):
+    def return_action(self,agentID):
+        agent = self.env.agents[agentID]
+        action, cost = self.plan_action(deepcopy(agent.pos), deepcopy(agent.index), agentID)
+        return action
+
+    def getmpcost(self,pos,index,action,agentID,coverageMap):
         mp = deepcopy(self.mp_graph[index, action])
         reward = 0
         next_pos = pos
@@ -66,15 +97,16 @@ class coverage_planner_mp(il_wrapper):
             # _, sp = mp.get_sampled_position()
             # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
             # visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
-            is_valid, visited_states = self.isValidMP(pos, mp, agentID)
-            reward = 0
+            is_valid, visited_states = self.isValidMP(pos,mp,agentID)
+            reward  = 0
             if is_valid:
                 next_index = self.lookup[index, action]
                 next_index = int(np.floor(next_index / self.num_tiles))
-                next_pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
+                next_pos =  np.round(mp.end_state[:self.spatial_dim]).astype(int)
                 # print("{:d} {:d} {:d} {:d}".format(self.pos[0], self.pos[1], visited_states[0,0], visited_states[1,0]))
-                self.visited_states = visited_states
-                for state in visited_states.T:
+                self.visited_states = visited_states.T
+                init_coverage_map = deepcopy(coverageMap)
+                for state in self.visited_states.tolist():
                     r = state[0]
                     c = state[1]
                     range_ = int(self.env.sensor_params['sensor_range'] / 2)
@@ -82,39 +114,33 @@ class coverage_planner_mp(il_wrapper):
                     min_y = np.max([c - range_, 0])
                     max_x = np.min([r + range_ + 1, self.env.worldBeliefMap.shape[0]])
                     max_y = np.min([c + range_ + 1, self.env.worldBeliefMap.shape[1]])
+                    init_coverage_map[min_x:max_x,min_y:max_y] = 0.0
 
+                reward = coverageMap.sum()-init_coverage_map.sum()
 
-                    reward += coverageMap[min_x:max_x,min_y:max_y].sum()
-                    coverageMap[min_x:max_x,min_y:max_y] = 0
-
-                reward -= mp.cost / mp.subclass_specific_data.get('rho', 1) / 10 / 10000
+            elif visited_states is not None:
+                # reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
+                reward += REWARD.COLLISION.value
             else:
-                reward += REWARD.COLLISION.value * 2
-        else:
-            reward += REWARD.COLLISION.value * 3
-        return reward, next_index, next_pos,is_valid
+                reward += REWARD.COLLISION.value * 1.5
 
-    def return_action(self,agentID):
-        agent = self.env.agents[agentID]
-        action, cost = self.plan_action(deepcopy(agent.pos), deepcopy(agent.index), agentID)
-        return action
+        return reward,next_index,next_pos,is_valid
 
-    def plan_action(self, pos, index, agentID, current_depth=0, worldMap=None):
+    def plan_action(self, pos, index, agentID, current_depth=0, coverageMap=None):
         if current_depth >= self.depth:
             return 0
         else:
             costs = []
 
             for j in range(self.env.action_size):
-                if current_depth == 0:
-                    worldMap = deepcopy(np.ones(self.env.worldMap.shape))
-                else:
-                    worldMap = deepcopy(worldMap.copy())
-                cost, next_index, next_pos,is_valid = self.getmpcost(pos, index, j, agentID, worldMap)
+                coverageMap = deepcopy(coverageMap)
+                cost, next_index, next_pos,is_valid = self.getmpcost(pos, index, j, agentID, coverageMap)
                 if is_valid:
-                    costs.append(cost + self.plan_action(next_pos,next_index,agentID,current_depth+1,worldMap))
+                    costs.append(cost + self.plan_action(next_pos,next_index,agentID,
+                                                         current_depth+1,coverageMap))
                 else:
                     costs.append(cost + -100000)
+
 
             if current_depth == 0:
                 best_action = np.argmax(np.array(costs))
@@ -129,6 +155,7 @@ class coverage_planner_mp(il_wrapper):
         self.env.reset(rewardmap, targetMap)
         frames = []
         done = False
+        coverageMap = np.ones(self.env.worldMap.shape)
 
         while ((not self.args_dict['FIXED_BUDGET'] and episode_step < self.env.episode_length) \
                or (self.args_dict['FIXED_BUDGET'])):
@@ -136,8 +163,22 @@ class coverage_planner_mp(il_wrapper):
                 frames.append(self.env.render(mode='rgb_array'))
             action_dict = {}
             for j, agent in enumerate(self.env.agents):
-                action_dict[j], cost = self.plan_action(deepcopy(agent.pos), deepcopy(agent.index), j)
+                action_dict[j], cost = self.plan_action(deepcopy(agent.pos),
+                                                        deepcopy(agent.index), j,
+                                                        coverageMap=coverageMap)
+
             rewards, done = self.env.step_all(action_dict)
+            for j, agent in enumerate(self.env.agents):
+                for state in agent.visited_states.T.tolist():
+                    r = state[0]
+                    c = state[1]
+                    range_ = int(self.env.sensor_params['sensor_range'] / 2)
+                    min_x = np.max([r - range_, 0])
+                    min_y = np.max([c - range_, 0])
+                    max_x = np.min([r + range_ + 1, self.env.worldBeliefMap.shape[0]])
+                    max_y = np.min([c + range_ + 1, self.env.worldBeliefMap.shape[1]])
+                    coverageMap[min_x:max_x, min_y:max_y] = 0.0
+
             episode_rewards += np.array(rewards).sum()
             episode_step += 1
             if done:
