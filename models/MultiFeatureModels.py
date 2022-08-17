@@ -146,7 +146,7 @@ class ModelMF1(Vanilla):
         # get the first attention value
         #attention_values,attention_weights = self.attention_model(conv_embeddings,conv_embeddings,conv_embeddings)
         #attention_values = attention_values.reshape((B,N,L,D)).sum(dim=-2)
-        attention_values = torch.max(conv_embeddings.reshape((B,N,L,D)),dim=-2)
+        _,attention_values = torch.max(conv_embeddings.reshape((B,N,L,D)),dim=-2)
         pos = self.position_layer(pos)
         graph_node = self.graph_node_layer(graph_node.to(torch.float32))
         if self.args_dict['FIXED_BUDGET']:
