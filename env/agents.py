@@ -55,6 +55,7 @@ class AgentMP():
         self.spatial_dim = spatial_dim
         self.prev_action = 0
         self.pos_actual = self.pos.copy()
+        self.trajectory = np.zeros([self.world_size,self.world_size])
         if budget is not None:
             self.agentBudget = budget
 
@@ -82,6 +83,9 @@ class AgentMP():
                 self.pos_actual = mp.end_state[:self.spatial_dim]
                 #print("{:d} {:d} {:d} {:d}".format(self.pos[0], self.pos[1], visited_states[0,0], visited_states[1,0]))
                 self.visited_states = visited_states
+                for s in visited_states.T:
+                    self.trajectory[s[0],s[1]] = 1
+
                 mpcost = mp.cost / mp.subclass_specific_data.get('rho', 1) / 10
                 if self.agentBudget is not None:
                     self.agentBudget -= mpcost

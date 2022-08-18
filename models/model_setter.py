@@ -52,9 +52,14 @@ class model_setter:
             return ModelTrans2(env, model_params_dict,args_dict)
         elif type == 'ModelMF1':
             import model_params.MFModel  as parameters
-            from models.MultiFeatureModels import ModelMF1
+            from models.MFModels import ModelMF1
             model_params_dict = model_setter.set_dict(parameters)
             return ModelMF1(env,model_params_dict,args_dict)
+        elif type == 'ModelMF2':
+            import model_params.MFModel2  as parameters
+            from models.MFModels import ModelMF2
+            model_params_dict = model_setter.set_dict(parameters)
+            return ModelMF2(env,model_params_dict,args_dict)
         elif type == 'DQN':
             import model_params.Transformer as parameters
             model_params_dict = model_setter.set_dict(parameters)

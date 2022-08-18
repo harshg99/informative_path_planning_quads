@@ -23,7 +23,7 @@ TARGET_FOUND = (0.5,1.0,1.0)
 TARGET_COLOR = (0.0,0.0,0.0)
 AGENT_MINCOL = (0.5,0.3,0.3)
 AGENT_MAXCOL = (1.,0.3,0.3)
-
+TRAJECTORY_COLOR = (0.6,0.0,0.8)
 
 
 '''
@@ -225,6 +225,9 @@ class GPEnvMP(SearchEnvMP):
                     if i == self.agents[agentID].pos[0] and j == self.agents[agentID].pos[1]:
                         self.viewer.add_onetime(circle(i * size_x, j * size_y, size_x, size_y, agentColor))
                         isAgent = True
+                    if self.agents[agentID].trajectory[i,j]==1:
+                        self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, TRAJECTORY_COLOR))
+                        isAgent =True
                 if not isAgent:
                     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, shade, False))
 

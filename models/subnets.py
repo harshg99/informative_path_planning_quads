@@ -46,7 +46,7 @@ class MLPLayer(nn.Module):
         self.layers = nn.Sequential(*self.layers).to(self.device)
 
     def forward(self, input):
-        input = input.view(input.shape[0],input.shape[1],-1)
+        input = input.reshape(input.shape[0],input.shape[1],-1)
         return self.layers(input)
 
 class ConvLayer(nn.Module):

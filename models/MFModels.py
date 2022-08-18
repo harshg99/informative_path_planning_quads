@@ -7,6 +7,7 @@ from models.subnets import *
 import torch.nn.functional as F
 from models.subnet_setter import subnet_enc_setter
 from copy import deepcopy
+from models.subnet_setter import subnet_setter
 
 class ModelMF1(Vanilla):
     def __init__(self,env,params_dict,args_dict):
@@ -30,26 +31,8 @@ class ModelMF1(Vanilla):
         #                                       self.hidden_sizes, self.input_size)
         self.init_backbone()
 
-
-
-        self.multi_head_input_size = int(params_dict['token_length']*self.conv_sizes[-1])
-        self.attention_model = nn.MultiheadAttention(embed_dim=self.multi_head_input_size,
-                                                     num_heads=params_dict['num_heads'],
-                                                     batch_first=True)
         #TODO: define GRU
-        if self.args_dict['FIXED_BUDGET']:
-            self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
-                                               self.action_size + self.graph_layer_size[-1] + \
-                                               params_dict['budget_layer_size'][-1]
 
-        else:
-            self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
-                                               self.action_size + self.graph_layer_size[-1]
-        self.LSTM = nn.GRU(input_size=self.lstminsize,
-                           hidden_size=params_dict['embed_size'],
-                           num_layers=params_dict['gru_layers'],
-                           batch_first=True
-                           )
         # Position layer
         self.position_layer = mlp_block(2, self.pos_layer_size[0], dropout=False, activation=nn.LeakyReLU)
         for j in range(len(self.position_layer) - 1):
@@ -67,6 +50,7 @@ class ModelMF1(Vanilla):
                                                    dropout=False, activation=nn.LeakyReLU))
 
 
+        self.lstm_block()
 
         self.graph_node_layer = nn.Sequential(*self.graph_node_layer)
 
@@ -106,6 +90,20 @@ class ModelMF1(Vanilla):
         self.value_net = nn.Sequential(*self.value_layers)
         self.value_net.to(self.args_dict['DEVICE'])
 
+    def lstm_block(self):
+        if self.args_dict['FIXED_BUDGET']:
+            self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
+                                               self.action_size + self.graph_layer_size[-1] + \
+                                               self.params_dict['budget_layer_size'][-1]
+
+        else:
+            self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
+                                               self.action_size + self.graph_layer_size[-1]
+        self.LSTM = nn.GRU(input_size=self.lstminsize,
+                           hidden_size=self.params_dict['embed_size'],
+                           num_layers=self.params_dict['gru_layers'],
+                           batch_first=True
+                           )
 
     def init_backbone(self):
         # Different conv layers for different scales
@@ -240,3 +238,81 @@ class ModelMF1(Vanilla):
         valids = torch.tensor(valids, dtype=torch.float32).to(self.args_dict['DEVICE'])
         return policy.squeeze(), value.squeeze(), \
                valids.squeeze(), valids_net.squeeze()
+
+
+class ModelMF2(ModelMF1):
+    def __init__(self, env, params_dict, args_dict):
+        super().__init__(env,params_dict,args_dict)
+
+    def init_backbone(self):
+        # Different conv layers for different scales
+        size = deepcopy(self.input_size)
+        size[-1] = int(size[-1]/len(self.env.scale))
+        self.conv_blocks = [subnet_setter.set_model(self.params_dict['obs_model'],
+                                    self.hidden_sizes,size,self.args_dict['DEVICE'])
+                                    for _ in self.env.scale]
+
+    def get_conv_embeddings(self,input_obs):
+        conv_embeddings = []
+        B,N,H,W,C = input_obs.shape
+        step = int(C/len(self.env.scale))
+        for j,layers in enumerate(self.conv_blocks):
+            embeddings = layers(input_obs[:,:,:,:,j*step:(j+1)*step])
+            # if self.params_dict['obs_model']=='Conv':
+            #     conv_embeddings.append(embeddings.permute([0,1,3,4,2]).reshape((B,N,-1)))
+            # else:
+            #     conv_embeddings.append(embeddings.reshape((B,N,-1)))
+            conv_embeddings.append(embeddings)
+
+        return conv_embeddings
+
+    def lstm_block(self):
+        #self.multi_head_input_size = int(len(self.env.scale) * self.conv_sizes[-1])
+        self.multi_head_input_size = int( self.conv_sizes[-1])
+        self.attention_model = nn.MultiheadAttention(embed_dim=self.multi_head_input_size,
+                                                     num_heads=self.params_dict['num_heads'],
+                                                     batch_first=True)
+
+        if self.args_dict['FIXED_BUDGET']:
+            self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
+                                               self.action_size + self.graph_layer_size[-1] + \
+                                               self.params_dict['budget_layer_size'][-1]
+
+        else:
+            self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
+                                               self.action_size + self.graph_layer_size[-1]
+        self.LSTM = nn.GRU(input_size=self.lstminsize,
+                           hidden_size=self.params_dict['embed_size'],
+                           num_layers=self.params_dict['gru_layers'],
+                           batch_first=True
+                           )
+
+    def forward(self, input, pos, previous_actions, graph_node, budget=None, hidden_in=None):
+
+        conv_embeddings = torch.stack(self.get_conv_embeddings(input), dim=-1)
+        conv_embeddings = conv_embeddings.permute([0, 1, 3, 2])
+        B, N, L, D = conv_embeddings.shape
+        conv_embeddings = conv_embeddings.reshape(B * N, L, D)
+        # get the first attention value
+        attention_values,attention_weights = self.attention_model(conv_embeddings,
+                                                                  conv_embeddings,
+                                                                  conv_embeddings)
+        attention_values = attention_values.reshape((B,N,L,D)).sum(dim=-2)
+        #_, attention_values = torch.max(conv_embeddings.reshape((B, N, L, D)), dim=-2)
+        pos = self.position_layer(pos)
+        graph_node = self.graph_node_layer(graph_node.to(torch.float32))
+        if self.args_dict['FIXED_BUDGET']:
+            budget = self.budget_layers(budget)
+
+        # For attention block
+        if self.args_dict['FIXED_BUDGET']:
+            tokens = torch.cat([pos, attention_values, graph_node, previous_actions, budget], dim=-1)
+        else:
+            tokens = torch.cat([pos, attention_values, graph_node, previous_actions], dim=-1)
+
+        encoded_gru, hidden_state = self.encoder_forward(tokens, hidden_in)
+        encoded_gru = torch.cat([encoded_gru, tokens], dim=-1)
+        values = self.value_net(encoded_gru)
+        policy = self.policy_net(encoded_gru)
+
+        return self.softmax(policy), values, self.sigmoid(policy), hidden_state
