@@ -225,9 +225,9 @@ class GPEnvMP(SearchEnvMP):
                     if i == self.agents[agentID].pos[0] and j == self.agents[agentID].pos[1]:
                         self.viewer.add_onetime(circle(i * size_x, j * size_y, size_x, size_y, agentColor))
                         isAgent = True
-                    if self.agents[agentID].trajectory[i,j]==1:
-                        self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, TRAJECTORY_COLOR))
-                        isAgent =True
+                    # if self.agents[agentID].trajectory[i,j]==1:
+                    #     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, TRAJECTORY_COLOR))
+                    #     isAgent =True
                 if not isAgent:
                     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, shade, False))
 
