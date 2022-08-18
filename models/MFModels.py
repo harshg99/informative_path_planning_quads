@@ -66,6 +66,10 @@ class ModelMF1(Vanilla):
             self.budget_layers.to(self.args_dict['DEVICE'])
 
 
+        self.policy_value_layer_init(params_dict)
+
+    def policy_value_layer_init(self,params_dict):
+
         self.policy_layers = mlp_block(params_dict['embed_size']+self.lstminsize, \
                                        params_dict['embed_size'], dropout=False, activation=nn.LeakyReLU)
 
@@ -312,6 +316,50 @@ class ModelMF2(ModelMF1):
 
         encoded_gru, hidden_state = self.encoder_forward(tokens, hidden_in)
         encoded_gru = torch.cat([encoded_gru, tokens], dim=-1)
+        values = self.value_net(encoded_gru)
+        policy = self.policy_net(encoded_gru)
+
+        return self.softmax(policy), values, self.sigmoid(policy), hidden_state
+
+class ModelMF3(ModelMF2):
+    def __init__(self, env, params_dict, args_dict):
+        super().__init__(env,params_dict,args_dict)
+
+        self.embedding_encoder = nn.Sequential(
+            nn.Linear(int(self.conv_sizes[-1])*len(self.env.scale),int(self.conv_sizes[-1])),
+            nn.LeakyReLU()
+        )
+
+    def forward(self, input, pos, previous_actions, graph_node, budget=None, hidden_in=None):
+
+        conv_embeddings = torch.stack(self.get_conv_embeddings(input), dim=-1)
+        conv_embeddings = conv_embeddings.permute([0, 1, 3, 2])
+        B, N, L, D = conv_embeddings.shape
+        conv_embeddings = conv_embeddings.reshape(B * N, L, D)
+        # get the first attention value
+        attention_values,attention_weights = self.attention_model(conv_embeddings,
+                                                                  conv_embeddings,
+                                                                  conv_embeddings)
+        attention_values = attention_values.reshape((B,N,L,D)).sum(dim=-2)
+        conv_embeddings = conv_embeddings.reshape(B, N, L*D)
+        conv_embeddings_enc = self.embedding_encoder(conv_embeddings)
+
+        #_, attention_values = torch.max(conv_embeddings.reshape((B, N, L, D)), dim=-2)
+        pos = self.position_layer(pos)
+        graph_node = self.graph_node_layer(graph_node.to(torch.float32))
+        if self.args_dict['FIXED_BUDGET']:
+            budget = self.budget_layers(budget)
+
+        # For attention block
+        if self.args_dict['FIXED_BUDGET']:
+            tokens = torch.cat([pos, attention_values, graph_node, previous_actions, budget], dim=-1)
+            tokens_emb = torch.cat([pos, conv_embeddings_enc, graph_node, previous_actions, budget], dim=-1)
+        else:
+            tokens = torch.cat([pos, attention_values, graph_node, previous_actions], dim=-1)
+            tokens_emb = torch.cat([pos, conv_embeddings_enc, graph_node, previous_actions], dim=-1)
+
+        encoded_gru, hidden_state = self.encoder_forward(tokens, hidden_in)
+        encoded_gru = torch.cat([encoded_gru, tokens_emb], dim=-1)
         values = self.value_net(encoded_gru)
         policy = self.policy_net(encoded_gru)
 

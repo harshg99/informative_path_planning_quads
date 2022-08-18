@@ -60,6 +60,11 @@ class model_setter:
             from models.MFModels import ModelMF2
             model_params_dict = model_setter.set_dict(parameters)
             return ModelMF2(env,model_params_dict,args_dict)
+        elif type == 'ModelMF3':
+            import model_params.MFModel2  as parameters
+            from models.MFModels import ModelMF3
+            model_params_dict = model_setter.set_dict(parameters)
+            return ModelMF3(env,model_params_dict,args_dict)
         elif type == 'DQN':
             import model_params.Transformer as parameters
             model_params_dict = model_setter.set_dict(parameters)
