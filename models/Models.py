@@ -334,14 +334,14 @@ class Model5(Model4):
         self.params_dict = params_dict
         self.args_dict = args_dict
 
-        if self.args_dict['FIXED_BUDGET']:
-            self.budget_layers = mlp_block(1,params_dict['budget_layer_size'][0],dropout=False, activation=nn.LeakyReLU)
-            for j in range(len(params_dict['budget_layer_size']) - 1):
-                self.budget_layers.extend(mlp_block(params_dict['budget_layer_size'][j], \
-                                                       params_dict['budget_layer_size'][j+1], \
-                                                       dropout=False, activation=nn.LeakyReLU))
-            self.budget_layers = nn.Sequential(*self.budget_layers)
-            self.budget_layers.to(self.args_dict['DEVICE'])
+        # if self.args_dict['FIXED_BUDGET']:
+        #     self.budget_layers = mlp_block(1,params_dict['budget_layer_size'][0],dropout=False, activation=nn.LeakyReLU)
+        #     for j in range(len(params_dict['budget_layer_size']) - 1):
+        #         self.budget_layers.extend(mlp_block(params_dict['budget_layer_size'][j], \
+        #                                                params_dict['budget_layer_size'][j+1], \
+        #                                                dropout=False, activation=nn.LeakyReLU))
+        #     self.budget_layers = nn.Sequential(*self.budget_layers)
+        #     self.budget_layers.to(self.args_dict['DEVICE'])
 
         self.graph_node_layer = mlp_block(self.num_graph_nodes, self.graph_layer_size[0], \
                                           dropout=False, activation=nn.LeakyReLU)
@@ -354,15 +354,18 @@ class Model5(Model4):
         self.graph_node_layer = nn.Sequential(*self.graph_node_layer)
         self.graph_node_layer.to(self.args_dict['DEVICE'])
 
-        if self.args_dict['FIXED_BUDGET']:
-            self.policy_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] +\
-                                           self.action_size + self.graph_layer_size[-1] + \
-                                           params_dict['budget_layer_size'][-1], \
-                                            self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
-        else:
-            self.policy_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
-                                           self.action_size + self.graph_layer_size[-1], \
-                                           self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        # if self.args_dict['FIXED_BUDGET']:
+        #     self.policy_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] +\
+        #                                    self.action_size + self.graph_layer_size[-1] + \
+        #                                    params_dict['budget_layer_size'][-1], \
+        #                                     self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        # else:
+        #     self.policy_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+        #                                    self.action_size + self.graph_layer_size[-1], \
+        #                                    self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        self.policy_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+                                      self.action_size + self.graph_layer_size[-1], \
+                                      self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
         # for j in range(2):
         #     self.policy_layers.extend(mlp_block(self.hidden_sizes[-1],\
         #                                              self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU))
@@ -373,15 +376,18 @@ class Model5(Model4):
         self.softmax = nn.Softmax(dim=-1)
         self.sigmoid = nn.Sigmoid()
 
-        if self.args_dict['FIXED_BUDGET']:
-            self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
-                                          self.action_size + self.graph_layer_size[-1] +\
-                                          params_dict['budget_layer_size'][-1], \
-                                            self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
-        else:
-            self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
-                                          self.action_size + self.graph_layer_size[-1], \
-                                          self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        # if self.args_dict['FIXED_BUDGET']:
+        #     self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+        #                                   self.action_size + self.graph_layer_size[-1] +\
+        #                                   params_dict['budget_layer_size'][-1], \
+        #                                     self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        # else:
+        #     self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+        #                                   self.action_size + self.graph_layer_size[-1], \
+        #                                      self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+                                      self.action_size + self.graph_layer_size[-1], \
+                                      self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
         # for j in range(2):
         #     self.value_layers.extend(mlp_block(self.hidden_sizes[-1],\
         #                                             self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))
@@ -396,8 +402,8 @@ class Model5(Model4):
         previous_actions = input['previous_actions']
         graph_node = input['node']
         budget = None
-        if self.args_dict['FIXED_BUDGET']:
-            budget = input['budget']
+        # if self.args_dict['FIXED_BUDGET']:
+        #     budget = input['budget']
 
         obs = torch.tensor([obs], dtype=torch.float32).to(self.args_dict['DEVICE'])
         pos = torch.tensor([pos],dtype=torch.float32).to(self.args_dict['DEVICE'])
@@ -405,8 +411,8 @@ class Model5(Model4):
                            num_classes = self.action_size).to(self.args_dict['DEVICE'])
         graph_node = F.one_hot(torch.tensor([graph_node]),\
             num_classes = self.num_graph_nodes).to(self.args_dict['DEVICE'])
-        if self.args_dict['FIXED_BUDGET']:
-            budget = torch.tensor(np.array([budget]), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        # if self.args_dict['FIXED_BUDGET']:
+        #     budget = torch.tensor(np.array([budget]), dtype=torch.float32).to(self.args_dict['DEVICE'])
         policy,value,_ = self.forward(obs,pos,prev_a,graph_node,budget)
         return policy,value
 
@@ -416,13 +422,14 @@ class Model5(Model4):
 
         pos = self.position_layer(pos)
         input = self.layers(input)
-        if self.args_dict['FIXED_BUDGET']:
-            budget = self.budget_layers(budget)
+        # if self.args_dict['FIXED_BUDGET']:
+        #     budget = self.budget_layers(budget)
         graph_node = self.graph_node_layer(graph_node.to(torch.float32))
-        if self.args_dict['FIXED_BUDGET']:
-            input = torch.concat([input, pos, prev_a, graph_node,budget], dim=-1)
-        else:
-            input = torch.concat([input,pos,prev_a,graph_node],dim=-1)
+        # if self.args_dict['FIXED_BUDGET']:
+        #     input = torch.concat([input, pos, prev_a, graph_node,budget], dim=-1)
+        # else:
+        #     input = torch.concat([input,pos,prev_a,graph_node],dim=-1)
+        input = torch.concat([input, pos, prev_a, graph_node], dim=-1)
         policy = self.policy_net(input)
 
         return self.softmax(policy),self.value_net(input),self.sigmoid(policy)
@@ -450,8 +457,8 @@ class Model5(Model4):
                            num_classes = self.action_size).to(self.args_dict['DEVICE'])
         graph_nodes = F.one_hot(torch.tensor(np.array(graph_nodes)),
                                 num_classes = self.num_graph_nodes).to(self.args_dict['DEVICE'])
-        if self.args_dict['FIXED_BUDGET']:
-           budget =  torch.tensor(np.array(budget), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        # if self.args_dict['FIXED_BUDGET']:
+        #    budget =  torch.tensor(np.array(budget), dtype=torch.float32).to(self.args_dict['DEVICE'])
 
         policy, value, valids_net = self.forward(obs, pos,prev_a,graph_nodes,budget)
         valids = torch.tensor(valids,dtype = torch.float32).to(self.args_dict['DEVICE'])
@@ -463,15 +470,18 @@ class Model5(Model4):
 class Model6(Model5):
     def __init__(self,env,params_dict,args_dict):
         super(Model6, self).__init__(env, params_dict, args_dict)
-        if self.args_dict['FIXED_BUDGET']:
-            self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
-                                          self.action_size + self.graph_layer_size[-1] + \
-                                          params_dict['budget_layer_size'][-1], \
-                                          self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
-        else:
-            self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
-                                          self.action_size + self.graph_layer_size[-1], \
-                                          self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        # if self.args_dict['FIXED_BUDGET']:
+        #     self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+        #                                   self.action_size + self.graph_layer_size[-1] + \
+        #                                   params_dict['budget_layer_size'][-1], \
+        #                                   self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        # else:
+        #     self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+        #                                   self.action_size + self.graph_layer_size[-1], \
+        #                                   self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        self.value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+                                    self.action_size + self.graph_layer_size[-1], \
+                                    self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
         # for j in range(2):
         #     self.value_layers.extend(mlp_block(self.hidden_sizes[-1],\
         #                                             self.hidden_sizes[-1],dropout=False,activation=nn.LeakyReLU))

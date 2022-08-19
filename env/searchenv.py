@@ -81,6 +81,7 @@ class SearchEnv(gym.Env):
         self.action_size = len(ACTIONS)
         self.episode_length = params_dict['episode_length']
         self.sensor_range = params_dict['sensor_range']
+        self.max_steps = params_dict['episode_length']
 
 
         if SET_SEED:
