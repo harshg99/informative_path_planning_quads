@@ -56,14 +56,14 @@ class ModelMF1(Vanilla):
 
         self.graph_node_layer.to(self.args_dict['DEVICE'])
 
-        if self.args_dict['FIXED_BUDGET']:
-            self.budget_layers = mlp_block(1,params_dict['budget_layer_size'][0],dropout=False, activation=nn.LeakyReLU)
-            for j in range(len(params_dict['budget_layer_size']) - 1):
-                self.budget_layers.extend(mlp_block(params_dict['budget_layer_size'][j], \
-                                                       params_dict['budget_layer_size'][j+1], \
-                                                       dropout=False, activation=nn.LeakyReLU))
-            self.budget_layers = nn.Sequential(*self.budget_layers)
-            self.budget_layers.to(self.args_dict['DEVICE'])
+        # if self.args_dict['FIXED_BUDGET']:
+        #     self.budget_layers = mlp_block(1,params_dict['budget_layer_size'][0],dropout=False, activation=nn.LeakyReLU)
+        #     for j in range(len(params_dict['budget_layer_size']) - 1):
+        #         self.budget_layers.extend(mlp_block(params_dict['budget_layer_size'][j], \
+        #                                                params_dict['budget_layer_size'][j+1], \
+        #                                                dropout=False, activation=nn.LeakyReLU))
+        #     self.budget_layers = nn.Sequential(*self.budget_layers)
+        #     self.budget_layers.to(self.args_dict['DEVICE'])
 
 
         self.policy_value_layer_init(params_dict)
@@ -95,13 +95,13 @@ class ModelMF1(Vanilla):
         self.value_net.to(self.args_dict['DEVICE'])
 
     def lstm_block(self):
-        if self.args_dict['FIXED_BUDGET']:
-            self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
-                                               self.action_size + self.graph_layer_size[-1] + \
-                                               self.params_dict['budget_layer_size'][-1]
-
-        else:
-            self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
+        # if self.args_dict['FIXED_BUDGET']:
+        #     self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
+        #                                        self.action_size + self.graph_layer_size[-1] + \
+        #                                        self.params_dict['budget_layer_size'][-1]
+        #
+        # else:
+        self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
                                                self.action_size + self.graph_layer_size[-1]
         self.LSTM = nn.GRU(input_size=self.lstminsize,
                            hidden_size=self.params_dict['embed_size'],
@@ -151,14 +151,14 @@ class ModelMF1(Vanilla):
         _,attention_values = torch.max(conv_embeddings.reshape((B,N,L,D)),dim=-2)
         pos = self.position_layer(pos)
         graph_node = self.graph_node_layer(graph_node.to(torch.float32))
-        if self.args_dict['FIXED_BUDGET']:
-            budget = self.budget_layers(budget)
+        # if self.args_dict['FIXED_BUDGET']:
+        #     budget = self.budget_layers(budget)
 
         # For attention block
-        if self.args_dict['FIXED_BUDGET']:
-            tokens = torch.cat([pos, attention_values, graph_node, previous_actions,budget], dim=-1)
-        else:
-            tokens = torch.cat([pos, attention_values, graph_node, previous_actions], dim=-1)
+        # if self.args_dict['FIXED_BUDGET']:
+        #     tokens = torch.cat([pos, attention_values, graph_node, previous_actions,budget], dim=-1)
+        # else:
+        tokens = torch.cat([pos, attention_values, graph_node, previous_actions], dim=-1)
 
         encoded_gru, hidden_state = self.encoder_forward(tokens,hidden_in)
         encoded_gru = torch.cat([encoded_gru,tokens],dim=-1)
@@ -173,9 +173,9 @@ class ModelMF1(Vanilla):
         pos = input['position']
         prev_a = input['previous_actions']
         graph_nodes = input['node']
-        budget = []
-        if self.args_dict['FIXED_BUDGET']:
-            budget = input['budget']
+        budget = None
+        # if self.args_dict['FIXED_BUDGET']:
+        #     budget = input['budget']
 
         if hidden_in is None:
             hidden_in = torch.zeros((1,len(self.env.agents),self.params_dict['embed_size']))\
@@ -188,8 +188,8 @@ class ModelMF1(Vanilla):
         graph_nodes = F.one_hot(torch.tensor(np.array([graph_nodes])),
                                 num_classes = self.num_graph_nodes).to(self.args_dict['DEVICE'])
         hidden_in = torch.tensor(hidden_in).to(torch.float32).to(self.args_dict['DEVICE'])
-        if self.args_dict['FIXED_BUDGET']:
-            budget = torch.tensor(np.array([budget]), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        # if self.args_dict['FIXED_BUDGET']:
+        #     budget = torch.tensor(np.array([budget]), dtype=torch.float32).to(self.args_dict['DEVICE'])
         policy,values,valids,hidden_state = self.forward(observation,pos,prev_a,graph_nodes,budget,hidden_in)
 
         #Update hidden state, make sure hidden state is reset after every episode
@@ -225,8 +225,8 @@ class ModelMF1(Vanilla):
                 hidden_in.append(np.zeros((len(self.env.agents),
                                                        self.params_dict['embed_size'])))
 
-            if self.args_dict['FIXED_BUDGET']:
-                budget.append(j['budget'])
+            # if self.args_dict['FIXED_BUDGET']:
+            #     budget.append(j['budget'])
         obs = torch.tensor(np.array(obs), dtype=torch.float32).to(self.args_dict['DEVICE'])
         pos = torch.tensor(np.array(pos), dtype=torch.float32).to(self.args_dict['DEVICE'])
 
@@ -235,8 +235,8 @@ class ModelMF1(Vanilla):
                            num_classes=self.action_size).to(self.args_dict['DEVICE'])
         graph_nodes = F.one_hot(torch.tensor(np.array(graph_nodes)),
                                 num_classes=self.num_graph_nodes).to(self.args_dict['DEVICE'])
-        if self.args_dict['FIXED_BUDGET']:
-            budget = torch.tensor(np.array(budget), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        # if self.args_dict['FIXED_BUDGET']:
+        #     budget = torch.tensor(np.array(budget), dtype=torch.float32).to(self.args_dict['DEVICE'])
 
         policy, value,valids_net,hout = self.forward(obs, pos, prev_a, graph_nodes,budget,hidden_in)
         valids = torch.tensor(valids, dtype=torch.float32).to(self.args_dict['DEVICE'])
@@ -277,13 +277,13 @@ class ModelMF2(ModelMF1):
                                                      num_heads=self.params_dict['num_heads'],
                                                      batch_first=True)
 
-        if self.args_dict['FIXED_BUDGET']:
-            self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
-                                               self.action_size + self.graph_layer_size[-1] + \
-                                               self.params_dict['budget_layer_size'][-1]
-
-        else:
-            self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
+        # if self.args_dict['FIXED_BUDGET']:
+        #     self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
+        #                                        self.action_size + self.graph_layer_size[-1] + \
+        #                                        self.params_dict['budget_layer_size'][-1]
+        #
+        # else:
+        self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
                                                self.action_size + self.graph_layer_size[-1]
         self.LSTM = nn.GRU(input_size=self.lstminsize,
                            hidden_size=self.params_dict['embed_size'],
@@ -309,10 +309,10 @@ class ModelMF2(ModelMF1):
             budget = self.budget_layers(budget)
 
         # For attention block
-        if self.args_dict['FIXED_BUDGET']:
-            tokens = torch.cat([pos, attention_values, graph_node, previous_actions, budget], dim=-1)
-        else:
-            tokens = torch.cat([pos, attention_values, graph_node, previous_actions], dim=-1)
+        # if self.args_dict['FIXED_BUDGET']:
+        #     tokens = torch.cat([pos, attention_values, graph_node, previous_actions, budget], dim=-1)
+        # else:
+        tokens = torch.cat([pos, attention_values, graph_node, previous_actions], dim=-1)
 
         encoded_gru, hidden_state = self.encoder_forward(tokens, hidden_in)
         encoded_gru = torch.cat([encoded_gru, tokens], dim=-1)
@@ -347,16 +347,18 @@ class ModelMF3(ModelMF2):
         #_, attention_values = torch.max(conv_embeddings.reshape((B, N, L, D)), dim=-2)
         pos = self.position_layer(pos)
         graph_node = self.graph_node_layer(graph_node.to(torch.float32))
-        if self.args_dict['FIXED_BUDGET']:
-            budget = self.budget_layers(budget)
+        # if self.args_dict['FIXED_BUDGET']:
+        #     budget = self.budget_layers(budget)
 
         # For attention block
-        if self.args_dict['FIXED_BUDGET']:
-            tokens = torch.cat([pos, attention_values, graph_node, previous_actions, budget], dim=-1)
-            tokens_emb = torch.cat([pos, conv_embeddings_enc, graph_node, previous_actions, budget], dim=-1)
-        else:
-            tokens = torch.cat([pos, attention_values, graph_node, previous_actions], dim=-1)
-            tokens_emb = torch.cat([pos, conv_embeddings_enc, graph_node, previous_actions], dim=-1)
+        # if self.args_dict['FIXED_BUDGET']:
+        #     tokens = torch.cat([pos, attention_values, graph_node, previous_actions, budget], dim=-1)
+        #     tokens_emb = torch.cat([pos, conv_embeddings_enc, graph_node, previous_actions, budget], dim=-1)
+        # else:
+        #     tokens = torch.cat([pos, attention_values, graph_node, previous_actions], dim=-1)
+        #     tokens_emb = torch.cat([pos, conv_embeddings_enc, graph_node, previous_actions], dim=-1)
+        tokens = torch.cat([pos, attention_values, graph_node, previous_actions], dim=-1)
+        tokens_emb = torch.cat([pos, conv_embeddings_enc, graph_node, previous_actions], dim=-1)
 
         encoded_gru, hidden_state = self.encoder_forward(tokens, hidden_in)
         encoded_gru = torch.cat([encoded_gru, tokens_emb], dim=-1)
