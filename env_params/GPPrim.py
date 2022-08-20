@@ -14,6 +14,9 @@ randomMapSize = False
 defaultMapChoice = 0
 scale = [1,2,4]
 
+# Sets the beloef for randomising target locations
+TARGET_RANDOM_SCALE = 0.5
+
 sensor_range = 5
 sensor_unc = np.zeros([sensor_range,sensor_range])
 ceoff = 0.1

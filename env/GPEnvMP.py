@@ -31,12 +31,14 @@ Environment for target search
 '''
 class GPEnvMP(SearchEnvMP):
     def __init__(self,params_dict,args_dict):
+        self.params_dict = params_dict
         super().__init__(params_dict,args_dict)
         self.defaultBelief = params_dict['defaultBelief']
         self.sensor_params = params_dict['sensor_params']
         self.numrand_targets = params_dict['num_targets']
         self.targetBeliefThresh = params_dict['targetBeliefThresh']
         self.metrics = Metrics()
+
 
     def reset(self,rewardMap=None,targetMap = None):
         self.createWorld(rewardMap,targetMap)
@@ -58,7 +60,10 @@ class GPEnvMP(SearchEnvMP):
         # For observations
         self.worldMap = self.worldBeliefMap
 
-        flat_reward_map = self.rewardMap.flatten()+0.001
+        # controls how randomnly placed the targets are
+        target_randomiser = np.random.random()*self.params_dict['TARGET_RANDOM_SCALE']
+
+        flat_reward_map = self.rewardMap.flatten()+target_randomiser*self.defaultBelief
         self.target_locations = np.random.choice(a=flat_reward_map.size,size = num_targets,p = flat_reward_map/flat_reward_map.sum()).tolist()
         if targetMap is None:
             self.targetMap = np.zeros(self.rewardMap.shape)
