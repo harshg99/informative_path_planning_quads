@@ -27,14 +27,14 @@ class SAC:
 
         self.target_entropy = 0.98 * -np.log(1 / self.env.action_size)
 
-        self.q1optim = torch.optim.Adam(self._qnet.parameters(),lr=params_dict['LR'],betas=(0.9,0.99))
-        self.scheduler1 = ExponentialLR(self.q1optim,gamma=params_dict['DECAY'])
-        self.q2optim = torch.optim.Adam(self._qnet2.parameters(),lr=params_dict['LR'],betas=(0.9,0.99))
-        self.scheduler2 = ExponentialLR(self.q2optim,gamma=params_dict['DECAY'])
-        self.policyoptim = torch.optim.Adam(self._policy.parameters(),lr=params_dict['LR'],betas=(0.9,0.99))
-        self.scheduler3 = ExponentialLR(self.policyoptim,gamma=params_dict['DECAY'])
-        self.alphaoptim = torch.optim.Adam([self.log_alpha], lr=params_dict['LR'], betas=(0.9, 0.99))
-        self.scheduler4 = ExponentialLR(self.alphaoptim, gamma=params_dict['DECAY'])
+        self.q1optim = torch.optim.Adam(self._qnet.parameters(),lr=args_dict['LR'],betas=(0.9,0.99))
+        self.scheduler1 = ExponentialLR(self.q1optim,gamma=args_dict['DECAY'])
+        self.q2optim = torch.optim.Adam(self._qnet2.parameters(),lr=args_dict['LR'],betas=(0.9,0.99))
+        self.scheduler2 = ExponentialLR(self.q2optim,gamma=args_dict['DECAY'])
+        self.policyoptim = torch.optim.Adam(self._policy.parameters(),lr=args_dict['LR'],betas=(0.9,0.99))
+        self.scheduler3 = ExponentialLR(self.policyoptim,gamma=args_dict['DECAY'])
+        self.alphaoptim = torch.optim.Adam([self.log_alpha], lr=args_dict['LR'], betas=(0.9, 0.99))
+        self.scheduler4 = ExponentialLR(self.alphaoptim, gamma=args_dict['DECAY'])
         self.optim = self.policyoptim
         # To indicate to global thread that there are schedulers
         self.scheduler = 1

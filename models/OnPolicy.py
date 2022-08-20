@@ -20,8 +20,8 @@ class AC:
         self._model = model_setter.set_model(self.env,args_dict)
         self._model.to(self.args_dict['DEVICE'])
 
-        self.optim = torch.optim.Adam(self._model.parameters(),lr=params_dict['LR'],betas=(0.9,0.99))
-        self.scheduler = ExponentialLR(self.optim,gamma=params_dict['DECAY'])
+        self.optim = torch.optim.Adam(self._model.parameters(),lr=args_dict['LR'],betas=(0.9,0.99))
+        self.scheduler = ExponentialLR(self.optim,gamma=args_dict['DECAY'])
 
     def forward_step(self,input):
         return self._model.forward_step(input)
