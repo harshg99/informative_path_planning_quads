@@ -148,11 +148,11 @@ class coverage_planner_mp(il_wrapper):
             else:
                 return np.max(np.array(costs))
 
-    def run_test(self, rewardmap, ID=0, targetMap=None):
+    def run_test(self, rewardmap, ID=0, targetMap=None,orig_target_map_dist=None):
         episode_step = 0.0
         episode_rewards = 0.0
         np.random.seed(seed=ID)
-        self.env.reset(rewardmap, targetMap)
+        self.env.reset(rewardmap, targetMap,orig_target_map_dist)
         frames = []
         done = False
         coverageMap = np.ones(self.env.worldMap.shape)
@@ -195,12 +195,14 @@ class coverage_planner_mp(il_wrapper):
 
 if __name__=="__main__":
     import baseline_params.CoverageGPParams as parameters
-    map_index = 20
+    map_index = 80
     dir_name = os.getcwd() + "/../" + MAP_TEST_DIR + '/' + TEST_TYPE.format(30) +'/'
     file_name = dir_name + "tests{}env.npy".format(map_index)
     rewardmap = np.load(file_name)
     file_name = dir_name + "tests{}target.npy".format(map_index)
     targetmap = np.load(file_name)
-    planner = coverage_planner_mp(set_dict(parameters),home_dir='/../')
-    print(planner.run_test(rewardmap,map_index,targetmap))
+    file_name = dir_name + "tests{}target_orig_dist.npy".format(testID)
+    orig_target_map = np.load(file_name)
+    planner = CMAESGP(set_dict(parameters),home_dir='/../')
+    print(planner.run_test(rewardmap,targetmap,orig_target_map))
 

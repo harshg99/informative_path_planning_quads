@@ -42,10 +42,10 @@ class GPEnvMP(SearchEnvMP):
         self.metrics = Metrics()
 
 
-    def reset(self,rewardMap=None,targetMap = None):
-        self.createWorld(rewardMap,targetMap)
+    def reset(self,rewardMap=None,targetMap = None,original_target_dismap =None):
+        self.createWorld(rewardMap,targetMap,original_target_dismap)
 
-    def createWorld(self, rewardMap=None,targetMap = None):
+    def createWorld(self, rewardMap=None,targetMap = None,original_target_dismap =None):
         # this is the proabbility map
         super().createWorld(rewardMap)
         num_targets = np.random.randint(self.numrand_targets[0], self.numrand_targets[1])
@@ -146,6 +146,9 @@ class GPEnvMP(SearchEnvMP):
         self.worldBeliefMap = np.clip(self.worldBeliefMap, 0.05, 0.90)
         # For observations
         self.worldMap = self.worldBeliefMap
+
+        if original_target_dismap is not None:
+            self.orig_target_distribution_map = deepcopy(original_target_dismap)
 
         if self.args_dict['FIXED_BUDGET']:
             agentBudget = self.args_dict['BUDGET'] * REWARD.MP.value

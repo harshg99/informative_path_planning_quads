@@ -233,12 +233,12 @@ class CMAESGP(il_wrapper):
         self.counter+=1
         return self.action_list[self.counter-1],self.costs[self.counter-1]
 
-    def run_test(self,rewardMap,ID=0,targetMap=None):
+    def run_test(self,rewardMap,ID=0,targetMap=None,orig_target_map_dist=None):
         episode_step = 0.0
         episode_rewards = 0
 
         np.random.seed(seed=ID)
-        self.env.reset(rewardMap,targetMap)
+        self.env.reset(rewardMap,targetMap,orig_target_map_dist)
 
         frames = []
         metrics = dict()
@@ -290,5 +290,7 @@ if __name__=="__main__":
     rewardmap = np.load(file_name)
     file_name = dir_name + "tests{}target.npy".format(map_index)
     targetmap = np.load(file_name)
+    file_name = dir_name + "tests{}target_orig_dist.npy".format(testID)
+    orig_target_map = np.load(file_name)
     planner = CMAESGP(set_dict(parameters),home_dir='/../')
-    print(planner.run_test(rewardmap))
+    print(planner.run_test(rewardmap,targetmap,orig_target_map))

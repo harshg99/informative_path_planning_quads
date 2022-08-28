@@ -61,11 +61,11 @@ class prioritised_coverage_mp(coverage_planner_mp):
         self.args_dict = set_dict(args)
         self.env = GPEnvMP(env_params_dict, self.args_dict)
 
-    def run_test(self, rewardmap, ID=0, targetMap=None):
+    def run_test(self, rewardmap, ID=0, targetMap=None,orig_target_map_dist=None):
         episode_step = 0.0
         episode_rewards = 0.0
         np.random.seed(seed=ID)
-        self.env.reset(rewardmap, targetMap)
+        self.env.reset(rewardmap, targetMap,orig_target_map_dist)
         frames = []
         done = False
         #coverageMap = np.ones(self.env.worldMap.shape)

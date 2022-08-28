@@ -17,11 +17,15 @@ class Tests:
             rewardmap = np.load(file_name)
             file_name = dir_name + "tests{}target.npy".format(testID)
             targetmap = np.load(file_name)
+            file_name = dir_name + "tests{}target_orig_dist.npy".format(testID)
+            orig_target_map = np.load(file_name)
         else:
             file_name = dir_name + "tests{}.npy".format(testID)
             rewardmap = np.load(file_name)
             targetmap  = None
-        return baseline_planner.run_test(rewardmap,testID,targetmap)
+            orig_target_map = None
+
+        return baseline_planner.run_test(rewardmap,testID,targetmap,orig_target_map)
 
     def run_tests(self,type:str,num_tests:int,num_threads:int,mapSize:int):
         with mp.Pool(num_threads) as pool:

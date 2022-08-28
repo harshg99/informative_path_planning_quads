@@ -26,6 +26,7 @@ def create_test_reward_maps(env,nummaps:int,index=None,ID=None):
         np.save(file_name+"env",env.rewardMap)
         if args_dict['ENV_TYPE']=='GPPrim':
             np.save(file_name+"target",env.targetMap)
+            np.save(file_name+"target_orig_dist",env.orig_target_distribution_map)
     pass
 
 
