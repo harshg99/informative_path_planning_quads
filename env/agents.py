@@ -58,6 +58,8 @@ class AgentMP():
         self.trajectory = np.zeros([self.world_size,self.world_size])
         if budget is not None:
             self.agentBudget = budget
+        self.current_primitive = None
+        self.coverageMap = np.zeros([self.world_size,self.world_size])
 
 
     def updateMap(self,worldMap):
@@ -75,6 +77,7 @@ class AgentMP():
             mask = [np.all(visited_states[:,j]==self.pos) for j in range(visited_states.shape[-1])]
             visited_states = np.delete(visited_states,np.where(mask),axis= -1)
             self.prev_action = action
+            self.current_primitive = deepcopy(mp)
             if is_valid:
                 next_index = self.lookup[self.index, action]
                 next_index = int(np.floor(next_index / self.tiles))
@@ -131,6 +134,7 @@ class AgentGP(AgentMP):
         self.targetMap = np.zeros([self.world_size,self.world_size])
         self.sensor = sensor_setter.set_env(sensor_params)
 
+
     def initBeliefMap(self,Map):
         self.beliefMap = Map.copy()
 
@@ -167,5 +171,7 @@ class AgentGP(AgentMP):
 
                     if self.beliefMap[j,k]>=beliefThresh:
                         self.targetMap[j,k]=2
+
+                    self.coverageMap[j,k] = 1.0
 
         return measurement_list

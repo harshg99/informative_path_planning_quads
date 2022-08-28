@@ -18,7 +18,9 @@ from env.Metrics import Metrics
 
 ACTIONS = [(-1, 0), (0, -1), (1, 0), (0, 1)]
 ZEROREWARDCOLOR = (1.0,1.0,1.0)
-MAXREWARDCOLOR = (0.0,0.0,1.0)
+MAXREWARDCOLOR = (0.0,0.0,0.8)
+ZEROENTROPYCOLOR = (1.0,1.0,1.0)
+MAXENTROPYCOLOR = (0.0,0.5,0.5)
 TARGET_FOUND = (0.5,1.0,1.0)
 TARGET_COLOR = (0.0,0.0,0.0)
 AGENT_MINCOL = (0.5,0.3,0.3)
@@ -52,19 +54,12 @@ class GPEnvMP(SearchEnvMP):
         Randomly select a few targets as per reward map  
         '''
 
-        self.worldBeliefMap = self.worldMap
 
-        # clip the belief map
-        # assigning a belief on the actual reward map to between (defaultBelief,0.67+defaultbelief)
-        self.worldBeliefMap = np.clip(np.clip(self.worldBeliefMap,0,1)/1.5+self.defaultBelief,0,1)
-        # For observations
-        self.worldMap = self.worldBeliefMap
+        # Create targets on the belief
+        flat_reward_map = self.rewardMap.flatten()
 
-        # controls how randomnly placed the targets are
-        target_randomiser = np.random.random()*self.params_dict['TARGET_RANDOM_SCALE']
-
-        flat_reward_map = self.rewardMap.flatten()+target_randomiser*self.defaultBelief
         self.target_locations = np.random.choice(a=flat_reward_map.size,size = num_targets,p = flat_reward_map/flat_reward_map.sum()).tolist()
+
         if targetMap is None:
             self.targetMap = np.zeros(self.rewardMap.shape)
             self.targetList = []
@@ -81,11 +76,76 @@ class GPEnvMP(SearchEnvMP):
                         target_index = [j,k]
                         self.targetList.append(list(target_index))
 
+
         self.worldTargetMap = np.zeros((self.world_map_size, self.world_map_size))  # for boundaries
         self.worldTargetMap[self.pad_size:self.pad_size + self.reward_map_size, \
         self.pad_size:self.pad_size + self.reward_map_size] = self.targetMap
 
         self.orig_worldTargetMap = np.copy(self.worldTargetMap)
+
+
+        # controls how randomnly placed the targets are
+        target_randomiser = np.random.random() * self.params_dict['TARGET_RANDOM_SCALE']
+
+        if rewardMap is None:
+            random_noise = np.clip(np.abs(np.random.normal(size=(self.reward_map_size,self.reward_map_size))*\
+                              self.params_dict['TARGET_RANDOM_SCALE']),1e-6,0.02)
+
+
+
+
+            #Noising the prior centres and variances
+
+            for j,_ in enumerate(self.prior_centres):
+                self.prior_centres[j] += int(np.random.randint(-self.params_dict['MAXDISP'],self.params_dict['MAXDISP']))
+                self.prior_centres[j] = np.clip(self.prior_centres[j],[0,0],self.worldMap.shape)
+                self.prior_vars[j][0][0] = (1-target_randomiser)* self.prior_vars[j][0][0] +\
+                                           (target_randomiser)*np.random.rand(1)*(self.max_var - self.min_var) + self.min_var
+                self.prior_vars[j][1][1] = (1-target_randomiser)* self.prior_vars[j][1][1] +\
+                                           target_randomiser*np.random.rand(1) * (self.max_var - self.min_var) + self.min_var
+                self.prior_vars[j][0][1] = (target_randomiser)*np.random.rand(1) * self.min_var / 2 + \
+                                           (1-target_randomiser)*self.prior_vars[j][0][1]
+                self.prior_vars[j][1][0] = self.prior_vars[j][0][1]
+
+            randX = []
+            randY = []
+            for j in range(self.params_dict['RANDOM_CENTRES']):
+                randX.append([np.random.randint(0,self.reward_map_size),np.random.randint(0,self.reward_map_size)])
+                y = np.zeros((2,2))
+                y[0][0] = np.random.rand(1)*(self.max_var - self.min_var) + self.min_var
+                y[1][1] = np.random.rand(1)*(self.max_var - self.min_var) + self.min_var
+                y[0][1] = np.random.rand(1)*self.min_var/2
+                y[1][0] = y[0][1]
+                self.prior_vars.append(y)
+
+            randX = np.array(randX)
+            # Y = np.clip(np.array(Y),self.min_var,self.max_var)
+            Xs = np.concatenate((self.prior_centres,randX),axis=0)
+
+
+            noiseMap = self.createRewardMap(Xs,self.prior_vars)
+
+            self.rewardMap = noiseMap
+
+            self.obstacle_map = np.zeros((self.world_map_size, self.world_map_size)) + 1
+            self.worldMap = np.zeros((self.world_map_size, self.world_map_size))  # for boundaries
+
+            self.worldMap[self.pad_size:self.pad_size + self.reward_map_size, \
+            self.pad_size:self.pad_size + self.reward_map_size] = \
+                self.rewardMap/(self.rewardMap.max() - self.rewardMap.min()) # capped b/w 0 and 1
+
+
+            self.obstacle_map[self.pad_size:self.pad_size + self.reward_map_size, \
+                              self.pad_size:self.pad_size + self.reward_map_size] =\
+                np.zeros((self.reward_map_size, self.reward_map_size))
+            self.orig_worldMap = deepcopy(self.worldMap)
+
+        self.worldBeliefMap = self.worldMap
+
+        # self.worldBeliefMap = np.clip(np.clip(self.worldBeliefMap, 0, 1) / 1.5 + self.defaultBelief, 0, 1
+        self.worldBeliefMap = np.clip(self.worldBeliefMap, 0.05, 0.90)
+        # For observations
+        self.worldMap = self.worldBeliefMap
 
         if self.args_dict['FIXED_BUDGET']:
             agentBudget = self.args_dict['BUDGET'] * REWARD.MP.value
@@ -196,13 +256,15 @@ class GPEnvMP(SearchEnvMP):
             for j in range(min_x,max_x):
                 for k in range(min_y,max_y):
                     logodds_b_map = np.log(self.worldBeliefMap[j,k]/(1-self.worldBeliefMap[j,k]))
+                    #log_odds_prior_map = np.log(0.5*self.orig_worldTargetMap[j,k]/(1-0.5*self.orig_worldTargetMap[j,k]))
+                    log_odds_prior_map = np.log(1),
                     sensor_log_odds = np.log((1-self.sensor_params['sensor_unc'][j-(r-range_),k-(c-range_)])/ \
                                             self.sensor_params['sensor_unc'][j-(r-range_),k-(c-range_)])
                     #print(sensor_log_odds)
                     if measurement[j-(r-range_),k-(c-range_)]==0:
-                        logodds_b_map -= sensor_log_odds
+                        logodds_b_map -= (sensor_log_odds + log_odds_prior_map)
                     else:
-                        logodds_b_map += sensor_log_odds
+                        logodds_b_map += (sensor_log_odds - log_odds_prior_map)
                     self.worldBeliefMap[j,k] = 1/(np.exp(-logodds_b_map)+1)
 
                 # Update whether target is found
@@ -210,18 +272,22 @@ class GPEnvMP(SearchEnvMP):
                     if self.worldBeliefMap[j,k]>=self.targetBeliefThresh and self.worldTargetMap[j,k]>0:
                         self.worldTargetMap[j,k]=2
 
-    def render(self, mode='visualise', W=800, H=800):
+
+    def render(self, mode='visualise', W=400, H=400):
 
         if self.viewer is None:
-            self.viewer = rendering.Viewer(W, H)
+            self.viewer = rendering.Viewer(3*W, H)
         size_x = W / self.worldMap.shape[0]
         size_y = H / self.worldMap.shape[1]
         min = self.worldMap
+
+        # which map is rendered
+        MAP = 0
         for i in range(self.worldMap.shape[0]):
             for j in range(self.worldMap.shape[1]):
                 # rending the infoMap
                 shade = np.array(ZEROREWARDCOLOR) + (np.array(MAXREWARDCOLOR) - np.array(ZEROREWARDCOLOR)) * (
-                            self.worldMap[i, j] / self.maxDensity)
+                            self.worldMap[i, j] / self.worldMap.max())
                 isAgent = False
                 for agentID in range(self.numAgents):
                     agentColor = np.array(AGENT_MINCOL) + (np.array(AGENT_MAXCOL) - np.array(AGENT_MINCOL)) * (
@@ -233,11 +299,65 @@ class GPEnvMP(SearchEnvMP):
                     # if self.agents[agentID].trajectory[i,j]==1:
                     #     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, TRAJECTORY_COLOR))
                     #     isAgent =True
-                if not isAgent:
+                # if not isAgent:
                     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, shade, False))
 
                 if self.worldTargetMap[i,j]==1:
                     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, TARGET_COLOR, False))
                 elif self.worldTargetMap[i,j]==2:
                     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, TARGET_FOUND, False))
+
+        # which map is rendered
+        MAP = 1
+        entropyMap = - self.getEntropy(self.worldBeliefMap)
+
+        for i in range(self.worldMap.shape[0]):
+            for j in range(self.worldMap.shape[1]):
+                # rending the infoMap
+                shade = np.array(ZEROENTROPYCOLOR) + (np.array(MAXENTROPYCOLOR) - np.array(ZEROENTROPYCOLOR)) * (
+                        entropyMap[i, j] / entropyMap.max())
+                isAgent = False
+                for agentID in range(self.numAgents):
+                    agentColor = np.array(AGENT_MINCOL) + (np.array(AGENT_MAXCOL) - np.array(AGENT_MINCOL)) * (
+                            float(agentID + 1) / float(self.numAgents))
+
+                    if i == self.agents[agentID].pos[0] and j == self.agents[agentID].pos[1]:
+                        self.viewer.add_onetime(circle(W + i * size_x, j * size_y, size_x, size_y, agentColor))
+                        isAgent = True
+                    # if self.agents[agentID].trajectory[i,j]==1:
+                    #     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, TRAJECTORY_COLOR))
+                    #     isAgent =True
+                    # if not isAgent:
+                    self.viewer.add_onetime(rectangle(W + i * size_x, j * size_y, size_x, size_y, shade, False))
+
+                if self.worldTargetMap[i, j] == 1:
+                    self.viewer.add_onetime(rectangle(W + i * size_x, j * size_y, size_x, size_y, TARGET_COLOR, False))
+                elif self.worldTargetMap[i, j] == 2:
+                    self.viewer.add_onetime(rectangle(W + i * size_x, j * size_y, size_x, size_y, TARGET_FOUND, False))
+
+        # original prior
+        for i in range(self.worldMap.shape[0]):
+            for j in range(self.worldMap.shape[1]):
+                # rending the infoMap
+                shade = np.array(ZEROREWARDCOLOR) + (np.array(MAXREWARDCOLOR) - np.array(ZEROREWARDCOLOR)) * (
+                        self.orig_target_distribution_map[i, j] / self.orig_target_distribution_map.max())
+                isAgent = False
+                for agentID in range(self.numAgents):
+                    agentColor = np.array(AGENT_MINCOL) + (np.array(AGENT_MAXCOL) - np.array(AGENT_MINCOL)) * (
+                            float(agentID + 1) / float(self.numAgents))
+
+                    if i == self.agents[agentID].pos[0] and j == self.agents[agentID].pos[1]:
+                        self.viewer.add_onetime(circle(2*W + i * size_x, j * size_y, size_x, size_y, agentColor))
+                        isAgent = True
+                    # if self.agents[agentID].trajectory[i,j]==1:
+                    #     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, TRAJECTORY_COLOR))
+                    #     isAgent =True
+                    # if not isAgent:
+                    self.viewer.add_onetime(rectangle(2*W + i * size_x, j * size_y, size_x, size_y, shade, False))
+
+                if self.worldTargetMap[i, j] == 1:
+                    self.viewer.add_onetime(rectangle(2*W + i * size_x, j * size_y, size_x, size_y, TARGET_COLOR, False))
+                elif self.worldTargetMap[i, j] == 2:
+                    self.viewer.add_onetime(rectangle(2*W + i * size_x, j * size_y, size_x, size_y, TARGET_FOUND, False))
+
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')

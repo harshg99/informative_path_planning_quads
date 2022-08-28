@@ -1,5 +1,6 @@
 depth = 5
 population_size = 200
+exploration = 0.1
 min_iterations = 10
 thresh = 0.1
 iterations = 100

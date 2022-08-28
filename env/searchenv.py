@@ -10,6 +10,7 @@ import GPy
 from params import *
 from skimage.measure import block_reduce
 from env.agents import Agent
+from copy import deepcopy
 '''
 Reward Class
 '''
@@ -101,7 +102,11 @@ class SearchEnv(gym.Env):
         elif OBSERVER == 'RANGEwOBSwPENC':
             self.input_size = [2*RANGE,2*RANGE,4]
         elif OBSERVER == 'RANGEwOBSwMULTI':
+            self.map_length = 2
             self.input_size = [2*RANGE, 2*RANGE, len(self.scale)*2]
+        elif OBSERVER == 'RANGEwOBSwMULTIwCOV':
+            self.map_length = 2
+            self.input_size = [2*RANGE, 2*RANGE, len(self.scale)*3]
 
     '''
     Adds a Gaussian
@@ -193,13 +198,15 @@ class SearchEnv(gym.Env):
             for j in range(num_centers):
                 X.append([np.random.randint(0,self.reward_map_size),np.random.randint(0,self.reward_map_size)])
                 y = np.zeros((2,2))
-                y[0][0] = np.random.rand(1)*self.max_var
-                y[1][1] = np.random.rand(1)*self.max_var
+                y[0][0] = np.random.rand(1)*(self.max_var - self.min_var) + self.min_var
+                y[1][1] = np.random.rand(1)*(self.max_var - self.min_var) + self.min_var
                 y[0][1] = np.random.rand(1)*self.min_var/2
                 y[1][0] = y[0][1]
                 Y.append(y)
 
             X = np.array(X)
+            self.prior_centres = X
+            self.prior_vars = Y
             # Y = np.clip(np.array(Y),self.min_var,self.max_var)
             rewardMap = self.createRewardMap(X,Y)
             #Using GPy for Maps, deosnt work
@@ -223,7 +230,9 @@ class SearchEnv(gym.Env):
         self.pad_size:self.pad_size + self.reward_map_size] = rewardMap*REWARD.MAP.value # capped b/w 0 and 1
         self.obstacle_map[self.pad_size:self.pad_size + self.reward_map_size,\
         self.pad_size:self.pad_size + self.reward_map_size]= np.zeros((self.reward_map_size,self.reward_map_size))
-        self.orig_worldMap = np.copy(self.worldMap)
+        self.orig_worldMap = deepcopy(self.worldMap)
+
+        self.orig_target_distribution_map = deepcopy(self.worldMap)
         self.rewardMap = rewardMap
 
         # Creating the agents
@@ -464,6 +473,55 @@ class SearchEnv(gym.Env):
                 features = np.concatenate((features,np.expand_dims(infomap_feature, axis=-1)), axis=-1)
                 features = np.concatenate((features,np.expand_dims(obsmap_feature, axis=-1)), axis=-1)
 
+
+
+        # print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
+        return np.array(features)
+
+    def get_obs_range_coverage_multifov(self,agentID):
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
+
+        range = RANGE
+        for s in self.scale:
+            range = s * RANGE
+            min_x = np.max([r - range, 0])
+            min_y = np.max([c - range, 0])
+            max_x = np.min([r + range, self.worldMap.shape[0]])
+            max_y = np.min([c + range, self.worldMap.shape[1]])
+
+            infomap_feature = np.zeros((2 * range, 2 * range))
+            obsmap_feature = np.zeros((2 * range, 2 * range))
+
+            coverage_feature = np.zeros((2 * range, 2 * range))
+
+            coverage_feature[min_x - (r - range):2 * range - (r + range - max_x), \
+            min_y - (c - range):2 * range - (c + range - max_y)] = self.agents[agentID].coverageMap[min_x:max_x,min_y:max_y]
+
+            infomap_feature[min_x - (r - range):2 * range - (r + range - max_x), \
+            min_y - (c - range):2 * range - (c + range - max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
+
+            obsmap_feature[min_x - (r - range):2 * range - (r + range - max_x), \
+            min_y - (c - range):2 * range - (c + range - max_y)] = self.obstacle_map[min_x:max_x, min_y:max_y]
+
+            if s == 1:
+                features = np.expand_dims(infomap_feature, axis=-1)
+                features = (features,
+                            np.expand_dims(obsmap_feature, axis=-1),
+                            np.expand_dims(coverage_feature, axis=-1))
+
+                features = np.concatenate(features, axis=-1)
+
+            else:
+                infomap_feature = block_reduce(infomap_feature, (s, s), np.max)
+                obsmap_feature = block_reduce(obsmap_feature, (s, s), np.max)
+                coverage_feature = block_reduce(coverage_feature, (s, s), np.max)
+
+                features = (features,
+                            np.expand_dims(infomap_feature, axis=-1),
+                            np.expand_dims(obsmap_feature, axis=-1),
+                            np.expand_dims(coverage_feature, axis=-1))
+                features = np.concatenate(features, axis=-1)
 
 
         # print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))

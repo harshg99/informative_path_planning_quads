@@ -9,7 +9,7 @@ from params import *
 import getopt,sys
 import Utilities
 
-TESTS = 1000
+TESTS = 200
 
 def create_test_reward_maps(env,nummaps:int,index=None,ID=None):
     if ID is not None:
@@ -48,4 +48,4 @@ if __name__=="__main__":
     import params as args
     args_dict = Utilities.set_dict(parameters=args)
     environment = env_setter().set_env(args_dict)
-    create_test_reward_maps(environment,TESTS,ID=60)
+    create_test_reward_maps(environment,TESTS,ID=30)

@@ -14,5 +14,13 @@ GPy
 tensorboardX
 cmaes==0.8.2
 scikit-image
+
+# For monte carlo tree search
+pax3
+chex
+opax
+jax[cuda11_cudnn805] # from https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+optax
+mctx
 #####Install motion primitives from https://github.com/ljarin/motion_primitives ######'
 ##

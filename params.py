@@ -32,7 +32,7 @@ TRAINING_TYPE = TRAINING_OPTIONS.singleThreaded
 
 GRADIENT_TYPE = GRADIENT_OPTIONS.batches
 
-RENDER_TRAINING = False
+RENDER_TRAINING = True
 RENDER_TRAINING_WINDOW = 300
 RAY_RESET_EPS = 1000
 
@@ -47,19 +47,22 @@ ENV_TYPE = 'GPPrim' # MotionPrim or Discrete or GPPrim
 
 #Episode Parameters
 FIXED_BUDGET = True
-BUDGET = 10
+BUDGET = 10.0
+
+# Observation Type
+RANGE = 8
 
 #MODEL TYPE
-CLASS_CONFIG = 'LSTM' #Linear OR Transformer OR RSSM
+CLASS_CONFIG = 'Linear'  #Linear OR Transformer OR RSSM
 if CLASS_CONFIG =='Linear':
     MODEL_TYPE = 'Model6'#Model1 Model2 etc
     ALG_TYPE = 'AC' #AC or PPO or SAC
     QVALUE = True
     COMPUTE_VALIDS = True # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
     # Observation Type
-    OBSERVER = 'RANGEwOBSwMULTI'  # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS,RANGEwOBSwPENC,RANGEwOBSwMULTI
-    RANGE = 16
+    OBSERVER = 'RANGEwOBSwMULTIwCOV'  # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS,RANGEwOBSwPENC,RANGEwOBSwMULTI
     LSTM = False
+    BUDGET_LAYER = False
 
 elif CLASS_CONFIG == 'Transformer':
     MODEL_TYPE = 'ModelTrans2'  # Model1 Model2 etc
@@ -68,8 +71,8 @@ elif CLASS_CONFIG == 'Transformer':
     COMPUTE_VALIDS = True  # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
     # Observation Type
     OBSERVER = 'RANGEwOBSwMULTI'
-    RANGE = 16
     LSTM = False
+    BUDGET_LAYER = False
 
 elif CLASS_CONFIG == 'RSSM':
     MODEL_TYPE = 'ModeL1'  # Model1 Model2 etc
@@ -78,18 +81,18 @@ elif CLASS_CONFIG == 'RSSM':
     COMPUTE_VALIDS = True  # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
     # Observation Type
     OBSERVER = 'RANGEwOBSwMULTI'
-    RANGE = 8
     LSTM = False
+    BUDGET_LAYER = False
 
 elif CLASS_CONFIG == 'LSTM':
-    MODEL_TYPE = 'ModelMF1'  # Model1 Model2 etc
+    MODEL_TYPE = 'ModelMF3'  # Model1 Model2 etc
     ALG_TYPE = 'ACLSTM'  # ACLSTM or PPOLSTM or SACLSTM
     QVALUE = True
     COMPUTE_VALIDS = True  # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
     # Observation Type
     OBSERVER = 'RANGEwOBSwMULTI'
-    RANGE = 8
     LSTM = True
+    BUDGET_LAYER = False
 
 if ALG_TYPE=='PPO':
     JOB_TYPE = JOB_TYPES.getExperience
@@ -123,9 +126,7 @@ NEPTUNE_RUN = None
 neptune_project        = "harshg99/SearchKR2" # USER-ID
 NEPTUNE_API_TOKEN      = "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOTI4NjE0Yi00ZjNmLTQ5NjktOTdhNy04YTk3ZGQyZTg1MDIifQ=="
 
-# Observation Type
-#OBSERVER = 'RANGEwOBSwMULTI' # TILED(Original),RANGE(portion of reward map),TILEDwOBS,RANGEwOBS,RANGEwOBSwPENC,RANGEwOBSwMULTI
-RANGE = 16
+
 
 # Test directory
 MAP_TEST_DIR = 'tests/maps/'

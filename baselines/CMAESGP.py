@@ -23,6 +23,7 @@ class CMAESGP(il_wrapper):
         self.gifs = params_dict['GIFS']
         self.gifs_path = params_dict['GIFS_PATH']
         self.results_path = params_dict['RESULTS_PATH']
+        self.exploration = params_dict['exploration']
 
         if not os.path.isdir(self.gifs_path):
             os.makedirs(self.gifs_path)
@@ -112,45 +113,27 @@ class CMAESGP(il_wrapper):
             sensor_log_odds = np.log(np.clip((1 - sensor) / sensor, 1e-7,1e7))
             map_free = 1 / (np.exp(-logodds_b_map + sensor_log_odds) + 1)
             map_occ = 1 / (np.exp(-logodds_b_map - sensor_log_odds) + 1)
-            entropy_free = self.env.getEntropy(map_free)
-            entropy_occ = self.env.getEntropy(map_occ)
-            entropy = self.env.getEntropy(worldMap[min_x:max_x, min_y:max_y])
+            # entropy_free = self.env.getEntropy(map_free)
+            # entropy_occ = self.env.getEntropy(map_occ)
+            entropy_init = self.env.getEntropy(worldMap[min_x:max_x, min_y:max_y]).sum()
 
-            entropy_redfree = (1-sensor)*entropy_free + sensor*entropy_occ - entropy
-            entropy_redocc = sensor*entropy_free + (1-sensor)*entropy_occ - entropy
+            # entropy_redfree = (1-sensor)*entropy_free + sensor*entropy_occ - entropy
+            # entropy_redocc = sensor*entropy_free + (1-sensor)*entropy_occ - entropy
 
-            entropy_reduction = entropy_redfree[worldMap[min_x:max_x,min_y:max_y]<0.5].sum()\
-                                + entropy_redocc[worldMap[min_x:max_x,min_y:max_y]>=0.5].sum()
+            # entropy_reduction = entropy_redfree[worldMap[min_x:max_x,min_y:max_y]<0.5].sum()\
+            #                     + entropy_redocc[worldMap[min_x:max_x,min_y:max_y]>=0.5].sum()
             worldMap[min_x:max_x,min_y:max_y][worldMap[min_x:max_x,min_y:max_y]<0.5] = \
                 map_free[worldMap[min_x:max_x,min_y:max_y]<0.5]
             worldMap[min_x:max_x, min_y:max_y][worldMap[min_x:max_x, min_y:max_y] >= 0.5] =\
                 map_occ[worldMap[min_x:max_x, min_y:max_y] >= 0.5]
+            entropy_final = self.env.getEntropy(worldMap[min_x:max_x, min_y:max_y]).sum()
+            entropy_reduction = entropy_final - entropy_init
 
-            # for j in range(min_x, max_x):
-            #     for k in range(min_y, max_y):
-            #         logodds_b_map = np.log(worldMap[j, k] / (1 - worldMap[j, k]))
-            #         sensor_log_odds = np.log(
-            #             (1 - self.env.sensor_params['sensor_unc'][j - (r - range_), k - (c - range_)]) / \
-            #             self.env.sensor_params['sensor_unc'][j - (r - range_), k - (c - range_)])
-            #         # print(sensor_log_odds)
-            #         map_free = 1 / (np.exp(-logodds_b_map + sensor_log_odds)+1)
-            #         map_occ = 1/(np.exp(-logodds_b_map - sensor_log_odds)+1)
-            #         entropy_free = self.env.getEntropy(map_free)
-            #         entropy_occ = self.env.getEntropy(map_occ)
-            #         entropy = self.env.getEntropy(worldMap[ j,k])
-            #
-            #         if worldMap[j,k]<0.5:
-            #             entropy_reduction += (1-self.env.sensor_params['sensor_unc'][j - (r - range_), k - (c - range_)])* entropy_free + \
-            #                                  self.env.sensor_params['sensor_unc'][j - (r - range_), k - (c - range_)] * entropy_occ - \
-            #                                  entropy
-            #             worldMap[j,k] = map_free
-            #         else:
-            #             entropy_reduction += self.env.sensor_params['sensor_unc'][j - (r - range_), k - (c - range_)] * entropy_free + \
-            #                                  (1 - self.env.sensor_params['sensor_unc'][j - (r - range_), k - (c - range_)]) * entropy_occ - \
-            #                                  entropy
-            #             worldMap[j,k] = map_occ
 
-        return entropy_reduction
+
+
+
+        return entropy_reduction/ np.square(self.env.sensor_params['sensor_range'])
 
     def getmpcost(self,pos,index,action,agentID,worldMap):
         mp = deepcopy(self.mp_graph[index, action])
@@ -169,10 +152,9 @@ class CMAESGP(il_wrapper):
                 next_index = int(np.floor(next_index / self.num_tiles))
                 next_pos =  np.round(mp.end_state[:self.spatial_dim]).astype(int)
                 # print("{:d} {:d} {:d} {:d}".format(self.pos[0], self.pos[1], visited_states[0,0], visited_states[1,0]))
-                self.visited_states = visited_states
-                for state in visited_states.T:
-                    reward += worldMap[state[0], state[1]]
-                    worldMap[state[0], state[1]] = 0
+                self.visited_states = visited_states.T
+                reward = self.getExpectedEntropy(self.visited_states, worldMap) +\
+                         self.exploration*self.getMean(self.visited_states,worldMap)
                 reward -= mp.cost/ mp.subclass_specific_data.get('rho', 1) / 10 / 10000
             else:
                 reward += REWARD.COLLISION.value * 2
@@ -182,6 +164,23 @@ class CMAESGP(il_wrapper):
             reward += REWARD.COLLISION.value * 3
         return reward,next_index,next_pos
 
+    def getMean(self, visited_states, worldMap):
+        beliefMap = worldMap.copy()
+        entropy_reduction = 0
+
+        for state in visited_states.tolist():
+            r = state[0]
+            c = state[1]
+            range_ = int(self.env.sensor_params['sensor_range'] / 2)
+            min_x = np.max([r - range_, 0])
+            min_y = np.max([c - range_, 0])
+            max_x = np.min([r + range_ + 1, self.env.worldBeliefMap.shape[0]])
+            max_y = np.min([c + range_ + 1, self.env.worldBeliefMap.shape[1]])
+            # beliefMap_ = worldMap.copy()
+
+            entropy_reduction += worldMap[min_x:max_x, min_y:max_y].sum()
+
+        return entropy_reduction / np.square(self.env.sensor_params['sensor_range'])
 
     def plan_action(self,pos,index,agentID,worldMap=None):
         args = [deepcopy(pos.tolist()),index,agentID,deepcopy(worldMap.tolist())]
@@ -248,8 +247,14 @@ class CMAESGP(il_wrapper):
                or (self.args_dict['FIXED_BUDGET'])):
             action_dicts = [{} for j in range(self.depth)]
             for j,agent in enumerate(self.env.agents):
-                action_list,costs  = self.plan_action(deepcopy(agent.pos),deepcopy(agent.index),\
-                                                      j,deepcopy(self.env.worldMap.copy()))
+                worldMap = deepcopy(self.env.worldMap)
+                worldMap[self.env.worldTargetMap==2] = 0
+                action_list,costs  = self.plan_action(
+                    deepcopy(agent.pos),
+                    deepcopy(agent.index),
+                    j,
+                    worldMap
+                )
                 for k,action in enumerate(action_list):
                     action_dicts[k][j] = action
 
@@ -270,7 +275,11 @@ class CMAESGP(il_wrapper):
 
         if self.gifs:
             make_gif(np.array(frames),
-                     '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(self.gifs_path, ID, 0, episode_rewards))
+                     '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(
+                         self.gifs_path,
+                         ID,
+                         0,
+                         episode_rewards))
         return metrics
 
 if __name__=="__main__":

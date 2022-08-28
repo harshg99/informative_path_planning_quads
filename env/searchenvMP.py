@@ -137,7 +137,8 @@ class SearchEnvMP(SearchEnv):
                 obs.append(self.get_obs_ranged_wobspenc(agentID=j))
             elif OBSERVER == 'RANGEwOBSwMULTI':
                 obs.append(self.get_obs_range_wobs_multi(agentID=j))
-
+            elif OBSERVER == 'RANGEwOBSwMULTIwCOV':
+                obs.append(self.get_obs_range_coverage_multifov(agentID=j))
 
             coeffs,valid,mp_embed = self.get_mps(j)
             agents_actions.append(coeffs)
