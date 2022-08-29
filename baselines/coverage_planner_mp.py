@@ -157,6 +157,10 @@ class coverage_planner_mp(il_wrapper):
         done = False
         coverageMap = np.ones(self.env.worldMap.shape)
 
+        kl_divergence = np.mean(self.env.worldBeliefMap*np.log(
+            np.clip(self.env.worldBeliefMap,1e-10,1)/np.clip(orig_target_map_dist,1e-10,1)
+        ))
+
         while ((not self.args_dict['FIXED_BUDGET'] and episode_step < self.env.episode_length) \
                or (self.args_dict['FIXED_BUDGET'])):
             if self.gifs:
@@ -187,6 +191,7 @@ class coverage_planner_mp(il_wrapper):
         metrics = self.env.get_final_metrics()
         metrics['episode_reward'] = episode_rewards
         metrics['episode_length'] = episode_step
+        metrics['divergence'] = kl_divergence
 
         if self.gifs:
             make_gif(np.array(frames),
@@ -201,8 +206,8 @@ if __name__=="__main__":
     rewardmap = np.load(file_name)
     file_name = dir_name + "tests{}target.npy".format(map_index)
     targetmap = np.load(file_name)
-    file_name = dir_name + "tests{}target_orig_dist.npy".format(testID)
+    file_name = dir_name + "tests{}target_orig_dist.npy".format(map_index)
     orig_target_map = np.load(file_name)
-    planner = CMAESGP(set_dict(parameters),home_dir='/../')
-    print(planner.run_test(rewardmap,targetmap,orig_target_map))
+    planner = coverage_planner_mp(set_dict(parameters),home_dir='/../')
+    print(planner.run_test(rewardmap,map_index,orig_target_map_dist=orig_target_map))
 

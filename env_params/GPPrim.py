@@ -15,7 +15,7 @@ defaultMapChoice = 0
 scale = [1,2,4]
 
 # Sets the belief for randomising target locations
-TARGET_RANDOM_SCALE = 0.5 # scale for setting random locations
+TARGET_RANDOM_SCALE = 1.0 # scale for setting random locations
 RANDOM_CENTRES = 5 # number of random centres
 MAXDISP = 5 # max displacement of prior mean
 

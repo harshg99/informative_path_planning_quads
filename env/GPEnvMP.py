@@ -85,7 +85,7 @@ class GPEnvMP(SearchEnvMP):
 
 
         # controls how randomnly placed the targets are
-        target_randomiser = np.random.random() * self.params_dict['TARGET_RANDOM_SCALE']
+        target_randomiser = np.clip(np.random.normal(0.5,0.3),0,1) * self.params_dict['TARGET_RANDOM_SCALE']
 
         if rewardMap is None:
             random_noise = np.clip(np.abs(np.random.normal(size=(self.reward_map_size,self.reward_map_size))*\
@@ -125,11 +125,12 @@ class GPEnvMP(SearchEnvMP):
 
             noiseMap = self.createRewardMap(Xs,self.prior_vars)
 
-            self.rewardMap = noiseMap
+            self.rewardMap = (1-target_randomiser)*self.rewardMap + target_randomiser*noiseMap
 
             self.obstacle_map = np.zeros((self.world_map_size, self.world_map_size)) + 1
             self.worldMap = np.zeros((self.world_map_size, self.world_map_size))  # for boundaries
 
+            # ensuring that reward map is scaled to represent an I.I.D.
             self.worldMap[self.pad_size:self.pad_size + self.reward_map_size, \
             self.pad_size:self.pad_size + self.reward_map_size] = \
                 self.rewardMap/(self.rewardMap.max() - self.rewardMap.min()) # capped b/w 0 and 1
@@ -302,7 +303,7 @@ class GPEnvMP(SearchEnvMP):
                     # if self.agents[agentID].trajectory[i,j]==1:
                     #     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, TRAJECTORY_COLOR))
                     #     isAgent =True
-                # if not isAgent:
+                if not isAgent:
                     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, shade, False))
 
                 if self.worldTargetMap[i,j]==1:
@@ -330,7 +331,7 @@ class GPEnvMP(SearchEnvMP):
                     # if self.agents[agentID].trajectory[i,j]==1:
                     #     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, TRAJECTORY_COLOR))
                     #     isAgent =True
-                    # if not isAgent:
+                if not isAgent:
                     self.viewer.add_onetime(rectangle(W + i * size_x, j * size_y, size_x, size_y, shade, False))
 
                 if self.worldTargetMap[i, j] == 1:
@@ -355,7 +356,7 @@ class GPEnvMP(SearchEnvMP):
                     # if self.agents[agentID].trajectory[i,j]==1:
                     #     self.viewer.add_onetime(rectangle(i * size_x, j * size_y, size_x, size_y, TRAJECTORY_COLOR))
                     #     isAgent =True
-                    # if not isAgent:
+                if not isAgent:
                     self.viewer.add_onetime(rectangle(2*W + i * size_x, j * size_y, size_x, size_y, shade, False))
 
                 if self.worldTargetMap[i, j] == 1:

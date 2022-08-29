@@ -109,5 +109,5 @@ if __name__=="__main__":
     file_name = dir_name + "tests{}target.npy".format(map_index)
     targetmap = np.load(file_name)
     planner = prioritised_coverage_mp(set_dict(parameters),home_dir='/../')
-    print(planner.run_test(rewardmap,map_index,targetmap))
+    print(planner.run_test(rewardmap,map_index,orig_target_map_dist=targetmap))
 

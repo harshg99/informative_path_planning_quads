@@ -7,6 +7,7 @@ import sys,getopt
 from params import *
 import json
 from pdb import set_trace as T
+import pandas as pd
 
 class Tests:
     def unit_tests(self,type:str,testID:int,mapSize:int):
@@ -112,3 +113,8 @@ if __name__=="__main__":
     out_file = open(results_path, "w")
     json.dump(compiled_results,out_file)
     out_file.close()
+
+    # outputting data to a csv file
+    data = pd.DataFrame(result_dict)
+    results_path_csv = TestObj.get_results_path(type) + "/all_results.csv"
+    data.to_csv(results_path_csv)
