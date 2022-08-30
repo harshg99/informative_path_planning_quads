@@ -85,14 +85,14 @@ class GPEnvMP(SearchEnvMP):
 
 
         # controls how randomnly placed the targets are
-        target_randomiser = np.clip(np.random.normal(0.5,0.3),0,1) * self.params_dict['TARGET_RANDOM_SCALE']
+        target_randomiser = np.clip(np.random.normal(0.5,1.0),0,1) * self.params_dict['TARGET_RANDOM_SCALE']
 
         if rewardMap is None:
             random_noise = np.clip(np.abs(np.random.normal(size=(self.reward_map_size,self.reward_map_size))*\
                               self.params_dict['TARGET_RANDOM_SCALE']),1e-6,0.02)
 
-
-
+            # Setting up the original prior
+            self.orig_target_distribution_map = np.clip(self.orig_target_distribution_map,0.10,0.90)
 
             #Noising the prior centres and variances
 
@@ -109,6 +109,7 @@ class GPEnvMP(SearchEnvMP):
 
             randX = []
             randY = []
+
             for j in range(self.params_dict['RANDOM_CENTRES']):
                 randX.append([np.random.randint(0,self.reward_map_size),np.random.randint(0,self.reward_map_size)])
                 y = np.zeros((2,2))
@@ -125,7 +126,7 @@ class GPEnvMP(SearchEnvMP):
 
             noiseMap = self.createRewardMap(Xs,self.prior_vars)
 
-            self.rewardMap = (1-target_randomiser)*self.rewardMap + target_randomiser*noiseMap
+            self.rewardMap = np.power(target_randomiser,1)*self.rewardMap + (1-np.power(target_randomiser,1))*noiseMap
 
             self.obstacle_map = np.zeros((self.world_map_size, self.world_map_size)) + 1
             self.worldMap = np.zeros((self.world_map_size, self.world_map_size))  # for boundaries
@@ -144,7 +145,7 @@ class GPEnvMP(SearchEnvMP):
         self.worldBeliefMap = self.worldMap
 
         # self.worldBeliefMap = np.clip(np.clip(self.worldBeliefMap, 0, 1) / 1.5 + self.defaultBelief, 0, 1
-        self.worldBeliefMap = np.clip(self.worldBeliefMap, 0.05, 0.90)
+        self.worldBeliefMap = np.clip(self.worldBeliefMap, 0.10, 0.90)
         # For observations
         self.worldMap = self.worldBeliefMap
 

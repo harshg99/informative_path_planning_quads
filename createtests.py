@@ -20,6 +20,9 @@ def create_test_reward_maps(env,nummaps:int,index=None,ID=None):
         os.makedirs(dir_name)
     if index is None:
         index = 0
+
+    divergences = list()
+
     for j in range(nummaps):
         env.reset()
         file_name = dir_name+ "tests{}".format(j+index*nummaps)
@@ -27,7 +30,12 @@ def create_test_reward_maps(env,nummaps:int,index=None,ID=None):
         if args_dict['ENV_TYPE']=='GPPrim':
             np.save(file_name+"target",env.targetMap)
             np.save(file_name+"target_orig_dist",env.orig_target_distribution_map)
-    pass
+            kl_divergence = np.mean(env.worldBeliefMap * np.log(
+                np.clip(env.worldBeliefMap, 1e-10, 1) / np.clip(env.orig_target_distribution_map, 1e-10, 1)
+            ))
+            divergences.append(kl_divergence)
+
+    return divergences
 
 
 if __name__=="__main__":
@@ -49,4 +57,10 @@ if __name__=="__main__":
     import params as args
     args_dict = Utilities.set_dict(parameters=args)
     environment = env_setter().set_env(args_dict)
-    create_test_reward_maps(environment,TESTS,ID=30)
+    divergences = np.array(create_test_reward_maps(environment,TESTS,ID=60))
+    divergences_mean = divergences.mean()
+    divergences_std = divergences.std()
+    print('Divergences Mean{} Std{} Max{} Min {}'.format(divergences_mean,
+                                                         divergences_std,
+                                                         divergences.max(),
+                                                         divergences.min()))

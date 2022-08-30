@@ -170,10 +170,7 @@ class GreedyGP(il_wrapper):
             costs = []
 
             for j in range(self.env.action_size):
-                if current_depth == 0:
-                    worldMap = deepcopy(self.env.worldMap.copy())
-                else:
-                    worldMap = deepcopy(worldMap.copy())
+                worldMap = deepcopy(worldMap)
                 cost,next_index,next_pos,is_valid = self.getmpcost(pos,index,j,agentID,worldMap)
                 if is_valid:
                     costs.append(cost + self.plan_action(next_pos,next_index,agentID,current_depth+1,worldMap))
@@ -201,15 +198,18 @@ class GreedyGP(il_wrapper):
         frames = []
         done = False
 
-        kl_divergence = np.mean(self.env.worldBeliefMap*np.log(
-            np.clip(self.env.worldBeliefMap,1e-10,1)/np.clip(orig_target_map_dist,1e-10,1)
-        ))
+        # kl_divergence = np.mean(self.env.worldBeliefMap*np.log(
+        #     np.clip(self.env.worldBeliefMap,1e-10,1)/np.clip(orig_target_map_dist,1e-10,1)
+        # ))
+        kl_divergence = np.mean(np.square(self.env.worldBeliefMap - orig_target_map_dist))
 
         while ((not self.args_dict['FIXED_BUDGET'] and episode_step < self.env.episode_length) \
                or (self.args_dict['FIXED_BUDGET'])):
             if self.gifs:
                 frames.append(self.env.render(mode='rgb_array'))
             action_dict = {}
+            worldMap = deepcopy(self.env.worldMap)
+            worldMap[self.env.worldTargetMap == 2] = 0
             for j,agent in enumerate(self.env.agents):
                 action_dict[j],cost = self.plan_action(deepcopy(agent.pos),deepcopy(agent.index),j)
             rewards,done = self.env.step_all(action_dict)

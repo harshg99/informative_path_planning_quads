@@ -40,14 +40,19 @@ class DRLTest:
 
         return action_dict,None
 
-    def run_test(self,rewardmap,ID=0,targetMap=None):
+    def run_test(self,rewardmap,ID=0,targetMap=None,orig_target_map_dist=None):
         episode_step = 0.0
         episode_rewards = 0.0
         np.random.seed(seed=ID)
-        self.env.reset(rewardmap,targetMap)
+        self.env.reset(rewardmap,targetMap,orig_target_map_dist)
         frames = []
         done = False
         observation = self.env.get_obs_all()
+        # kl_divergence = np.mean(self.env.worldBeliefMap*np.log(
+        #     np.clip(self.env.worldBeliefMap,1e-10,1)/np.clip(orig_target_map_dist,1e-10,1)
+        # ))
+        kl_divergence = np.mean(np.square(self.env.worldBeliefMap - orig_target_map_dist))
+
         while ((not self.args_dict['FIXED_BUDGET'] and episode_step < self.env.episode_length) \
                or (self.args_dict['FIXED_BUDGET'])):
             if self.gifs:
@@ -66,7 +71,7 @@ class DRLTest:
         metrics = self.env.get_final_metrics()
         metrics['episode_reward'] = episode_rewards
         metrics['episode_length'] = episode_step
-
+        metrics['divergence'] = kl_divergence
         if self.gifs:
             make_gif(np.array(frames),
                  '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(self.gifs_path,ID , 0, episode_rewards))

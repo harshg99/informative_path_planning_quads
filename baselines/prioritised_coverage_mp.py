@@ -71,6 +71,10 @@ class prioritised_coverage_mp(coverage_planner_mp):
         #coverageMap = np.ones(self.env.worldMap.shape)
         coverageMap = deepcopy(self.env.worldMap)
         coverageMap[self.env.worldTargetMap==2] = 0
+        # kl_divergence = np.mean(self.env.worldBeliefMap*np.log(
+        #     np.clip(self.env.worldBeliefMap,1e-10,1)/np.clip(orig_target_map_dist,1e-10,1)
+        # ))
+        kl_divergence = np.mean(np.square(self.env.worldBeliefMap - orig_target_map_dist))
 
         while ((not self.args_dict['FIXED_BUDGET'] and episode_step < self.env.episode_length) \
                or (self.args_dict['FIXED_BUDGET'])):
@@ -94,6 +98,7 @@ class prioritised_coverage_mp(coverage_planner_mp):
         metrics = self.env.get_final_metrics()
         metrics['episode_reward'] = episode_rewards
         metrics['episode_length'] = episode_step
+        metrics['divergence'] = kl_divergence
 
         if self.gifs:
             make_gif(np.array(frames),
