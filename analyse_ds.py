@@ -42,7 +42,12 @@ def test_maps (env,nummaps:int,index=None,ID=None):
             env.reset(rewardmap,targetmap,orig_distmap)
             kl_divergence = np.mean(np.square(env.worldBeliefMap-env.orig_target_distribution_map))
             divergences.append(kl_divergence)
-
+            # from matplotlib import pyplot as plt
+            # plt.imshow(env.worldBeliefMap)
+            # plt.figure()
+            # plt.imshow(env.orig_target_distribution_map)
+            # plt.figure()
+            # plt.imshow(env.orig_worldTargetMap)
 
     return divergences
 

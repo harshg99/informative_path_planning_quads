@@ -132,21 +132,22 @@ class GPEnvMP(SearchEnvMP):
 
             noiseMap = self.createRewardMap(Xs,self.prior_vars)
 
-            self.rewardMap = np.power(target_randomiser,1)*self.rewardMap + (1-np.power(target_randomiser,1))*noiseMap
+            self.rewardMap = np.power(target_randomiser,1)*self.rewardMap/(self.rewardMap.max()-self.rewardMap.min()) + \
+                             (1-np.power(target_randomiser,1))*noiseMap/(noiseMap.max()- noiseMap.min())
 
             self.obstacle_map = np.zeros((self.world_map_size, self.world_map_size)) + 1
             self.worldMap = np.zeros((self.world_map_size, self.world_map_size))  # for boundaries
 
             # ensuring that reward map is scaled to represent an I.I.D.
-            self.worldMap[self.pad_size:self.pad_size + self.reward_map_size, \
-            self.pad_size:self.pad_size + self.reward_map_size] = \
-                self.rewardMap/(self.rewardMap.max() - self.rewardMap.min()) # capped b/w 0 and 1
+        self.worldMap[self.pad_size:self.pad_size + self.reward_map_size, \
+        self.pad_size:self.pad_size + self.reward_map_size] = \
+            self.rewardMap/(self.rewardMap.max() - self.rewardMap.min()) # capped b/w 0 and 1
 
 
-            self.obstacle_map[self.pad_size:self.pad_size + self.reward_map_size, \
-                              self.pad_size:self.pad_size + self.reward_map_size] =\
-                np.zeros((self.reward_map_size, self.reward_map_size))
-            self.orig_worldMap = deepcopy(self.worldMap)
+        self.obstacle_map[self.pad_size:self.pad_size + self.reward_map_size, \
+                          self.pad_size:self.pad_size + self.reward_map_size] =\
+            np.zeros((self.reward_map_size, self.reward_map_size))
+        self.orig_worldMap = deepcopy(self.worldMap)
 
         self.worldBeliefMap = self.worldMap
 
@@ -157,6 +158,7 @@ class GPEnvMP(SearchEnvMP):
 
         if original_target_dismap is not None:
             self.orig_target_distribution_map = deepcopy(original_target_dismap)
+            self.orig_target_distribution_map = np.clip(self.orig_target_distribution_map, 0.10, 0.90)
 
         if self.args_dict['FIXED_BUDGET']:
             agentBudget = self.args_dict['BUDGET'] * REWARD.MP.value
