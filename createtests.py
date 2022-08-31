@@ -3,12 +3,15 @@
 # Metrrics to compare against
 # Rewards, coverage
 import os
+
+import numpy as np
+
 from env.searchenv import *
 from env.env_setter import *
 from params import *
 import getopt,sys
 import Utilities
-
+from pdb import set_trace as T
 TESTS = 200
 
 def create_test_reward_maps(env,nummaps:int,index=None,ID=None):
@@ -23,6 +26,7 @@ def create_test_reward_maps(env,nummaps:int,index=None,ID=None):
 
     divergences = list()
 
+
     for j in range(nummaps):
         env.reset()
         file_name = dir_name+ "tests{}".format(j+index*nummaps)
@@ -30,9 +34,11 @@ def create_test_reward_maps(env,nummaps:int,index=None,ID=None):
         if args_dict['ENV_TYPE']=='GPPrim':
             np.save(file_name+"target",env.targetMap)
             np.save(file_name+"target_orig_dist",env.orig_target_distribution_map)
-            kl_divergence = np.mean(env.worldBeliefMap * np.log(
-                np.clip(env.worldBeliefMap, 1e-10, 1) / np.clip(env.orig_target_distribution_map, 1e-10, 1)
-            ))
+            #T()
+            # kl_divergence = np.mean(env.worldBeliefMap * np.log(
+            #     np.clip(env.worldBeliefMap, 1e-10, 1) / np.clip(env.orig_target_distribution_map, 1e-10, 1)
+            # ))
+            kl_divergence = np.mean(np.square(env.worldBeliefMap-env.orig_target_distribution_map))
             divergences.append(kl_divergence)
 
     return divergences

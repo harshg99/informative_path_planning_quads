@@ -105,6 +105,7 @@ class GreedyGP(il_wrapper):
 
 
         return entropy_reduction/np.square(self.env.sensor_params['sensor_range'])
+        #return entropy_reduction
 
     def getMean(self,visited_states,worldMap):
         beliefMap = worldMap.copy()
@@ -125,6 +126,7 @@ class GreedyGP(il_wrapper):
 
 
         return entropy_reduction / np.square(self.env.sensor_params['sensor_range'])
+        #return entropy_reduction
 
     def getmpcost(self,pos,index,action,agentID,worldMap):
         mp = deepcopy(self.mp_graph[index, action])
@@ -145,8 +147,9 @@ class GreedyGP(il_wrapper):
                 next_pos =  np.round(mp.end_state[:self.spatial_dim]).astype(int)
                 # print("{:d} {:d} {:d} {:d}".format(self.pos[0], self.pos[1], visited_states[0,0], visited_states[1,0]))
                 self.visited_states = visited_states.T
-                reward = self.getExpectedEntropy(self.visited_states,worldMap) + \
-                         self.exploration * self.getMean(self.visited_states,worldMap)
+                reward = self.exploration * self.getMean(self.visited_states,worldMap)+\
+                self.getExpectedEntropy(self.visited_states,worldMap)
+
                 reward -= mp.cost/ mp.subclass_specific_data.get('rho', 1) / 10 / REWARD.MP.value
             elif visited_states is not None:
                 # reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
@@ -168,12 +171,11 @@ class GreedyGP(il_wrapper):
             return self.env.getEntropy(worldMap.copy()).mean()
         else:
             costs = []
-
             for j in range(self.env.action_size):
-                worldMap = deepcopy(worldMap)
-                cost,next_index,next_pos,is_valid = self.getmpcost(pos,index,j,agentID,worldMap)
+                worldMap_ = deepcopy(worldMap)
+                cost,next_index,next_pos,is_valid = self.getmpcost(pos,index,j,agentID,worldMap_)
                 if is_valid:
-                    costs.append(cost + self.plan_action(next_pos,next_index,agentID,current_depth+1,worldMap))
+                    costs.append(cost + self.plan_action(next_pos,next_index,agentID,current_depth+1,worldMap_))
                 else:
                     costs.append(cost + -100000)
             if current_depth==0:
@@ -194,7 +196,7 @@ class GreedyGP(il_wrapper):
         episode_step = 0.0
         episode_rewards = 0.0
         np.random.seed(seed=ID)
-        self.env.reset(rewardmap,targetMap)
+        self.env.reset(rewardmap,targetMap,orig_target_map_dist)
         frames = []
         done = False
 
@@ -211,7 +213,7 @@ class GreedyGP(il_wrapper):
             worldMap = deepcopy(self.env.worldMap)
             worldMap[self.env.worldTargetMap == 2] = 0
             for j,agent in enumerate(self.env.agents):
-                action_dict[j],cost = self.plan_action(deepcopy(agent.pos),deepcopy(agent.index),j,worldMap)
+                action_dict[j],cost = self.plan_action(deepcopy(agent.pos_actual),deepcopy(agent.index),j,worldMap=worldMap)
             rewards,done = self.env.step_all(action_dict)
             episode_rewards += np.array(rewards).sum()
             episode_step+=1
@@ -239,4 +241,4 @@ if __name__=="__main__":
     file_name = dir_name + "tests{}target_orig_dist.npy".format(map_index)
     orig_target_map = np.load(file_name)
     planner = GreedyGP(set_dict(parameters),home_dir='/../')
-    print(planner.run_test(rewardmap,map_index,orig_target_map_dist=targetmap))
+    print(planner.run_test(rewardmap,map_index,targetMap=targetmap,orig_target_map_dist=orig_target_map))

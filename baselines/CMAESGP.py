@@ -133,7 +133,8 @@ class CMAESGP(il_wrapper):
 
 
 
-        return entropy_reduction/ np.square(self.env.sensor_params['sensor_range'])
+        #return entropy_reduction/ np.square(self.env.sensor_params['sensor_range'])
+        return entropy_reduction
 
     def getmpcost(self,pos,index,action,agentID,worldMap):
         mp = deepcopy(self.mp_graph[index, action])
@@ -180,7 +181,8 @@ class CMAESGP(il_wrapper):
 
             entropy_reduction += worldMap[min_x:max_x, min_y:max_y].sum()
 
-        return entropy_reduction / np.square(self.env.sensor_params['sensor_range'])
+        #return entropy_reduction / np.square(self.env.sensor_params['sensor_range'])
+        return entropy_reduction
 
     def plan_action(self,pos,index,agentID,worldMap=None):
         args = [deepcopy(pos.tolist()),index,agentID,deepcopy(worldMap.tolist())]
