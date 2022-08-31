@@ -39,6 +39,8 @@ class GPEnvMP(SearchEnvMP):
         self.sensor_params = params_dict['sensor_params']
         self.numrand_targets = params_dict['num_targets']
         self.targetBeliefThresh = params_dict['targetBeliefThresh']
+        self.noise_max_var = params_dict['noise_max_var']
+        self.noise_min_var = params_dict['noise_min_var']
         self.metrics = Metrics()
 
 
@@ -85,7 +87,7 @@ class GPEnvMP(SearchEnvMP):
 
 
         # controls how randomnly placed the targets are
-        target_randomiser = np.clip(np.random.normal(0.5,1.0),0,1) * self.params_dict['TARGET_RANDOM_SCALE']
+        target_randomiser = np.clip(np.random.normal(0.15,0.5),0,1) * self.params_dict['TARGET_RANDOM_SCALE']
 
         if rewardMap is None:
             random_noise = np.clip(np.abs(np.random.normal(size=(self.reward_map_size,self.reward_map_size))*\
@@ -109,13 +111,17 @@ class GPEnvMP(SearchEnvMP):
 
             randX = []
             randY = []
-
+            prob = 1 - flat_reward_map/flat_reward_map.max()
+            random_locations = np.random.choice(a=flat_reward_map.size, size=self.params_dict['RANDOM_CENTRES'],
+                                                     p=prob/prob.sum()).tolist()
             for j in range(self.params_dict['RANDOM_CENTRES']):
-                randX.append([np.random.randint(0,self.reward_map_size),np.random.randint(0,self.reward_map_size)])
+                random_loc = np.unravel_index(random_locations[j], self.rewardMap.shape)
+                #randX.append([random_loc,random_locations])
+                randX.append(random_loc)
                 y = np.zeros((2,2))
-                y[0][0] = np.random.rand(1)*(self.max_var - self.min_var) + self.min_var
-                y[1][1] = np.random.rand(1)*(self.max_var - self.min_var) + self.min_var
-                y[0][1] = np.random.rand(1)*self.min_var/2
+                y[0][0] = np.random.rand(1)*(self.noise_max_var - self.noise_min_var) + self.noise_min_var
+                y[1][1] = np.random.rand(1)*(self.noise_max_var - self.noise_min_var) + self.noise_min_var
+                y[0][1] = np.random.rand(1)*self.noise_min_var/2
                 y[1][0] = y[0][1]
                 self.prior_vars.append(y)
 

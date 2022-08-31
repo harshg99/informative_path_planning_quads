@@ -2,9 +2,9 @@ import numpy as np
 
 graph_file_name = 'latticeData/faster20.json'
 numAgents=1
-num_centers=[5,10]
-max_var = 30.0
-min_var = 15.0
+num_centers=[3,5]
+max_var = 40.0
+min_var = 30.0
 seed=45
 episode_length = 100
 pad_size = 5
@@ -18,12 +18,14 @@ scale = [1,2,4]
 TARGET_RANDOM_SCALE = 1.0 # scale for setting random locations
 RANDOM_CENTRES = 5 # number of random centres
 MAXDISP = 10 # max displacement of prior mean
+noise_max_var = 40.0
+noise_min_var = 30.0
 
 sensor_range = 5
 sensor_unc = np.zeros([sensor_range,sensor_range])
 ceoff = 0.1
 
-num_targets = [10,20]
+num_targets = [10,30]
 defaultBelief = 0.05
 targetBeliefThresh = 0.95
 

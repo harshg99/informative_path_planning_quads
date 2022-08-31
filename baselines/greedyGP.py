@@ -213,7 +213,7 @@ class GreedyGP(il_wrapper):
             worldMap = deepcopy(self.env.worldMap)
             worldMap[self.env.worldTargetMap == 2] = 0
             for j,agent in enumerate(self.env.agents):
-                action_dict[j],cost = self.plan_action(deepcopy(agent.pos_actual),deepcopy(agent.index),j,worldMap=worldMap)
+                action_dict[j],cost = self.plan_action(deepcopy(agent.pos),deepcopy(agent.index),j,worldMap=worldMap)
             rewards,done = self.env.step_all(action_dict)
             episode_rewards += np.array(rewards).sum()
             episode_step+=1

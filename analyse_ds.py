@@ -14,7 +14,7 @@ import Utilities
 from pdb import set_trace as T
 TESTS = 200
 
-def create_test_reward_maps(env,nummaps:int,index=None,ID=None):
+def test_maps (env,nummaps:int,index=None,ID=None):
     if ID is not None:
         dir_name = os.getcwd() + '/' + MAP_TEST_DIR + '/' + args_dict['TEST_TYPE'].format(ID)+'/'
     else:
@@ -28,18 +28,21 @@ def create_test_reward_maps(env,nummaps:int,index=None,ID=None):
 
 
     for j in range(nummaps):
-        env.reset()
+
         file_name = dir_name+ "tests{}".format(j+index*nummaps)
-        np.save(file_name+"env",env.rewardMap)
+        rewardmap = np.load(file_name+"env.npy")
         if args_dict['ENV_TYPE']=='GPPrim':
-            np.save(file_name+"target",env.targetMap)
-            np.save(file_name+"target_orig_dist",env.orig_target_distribution_map)
+            targetmap = np.load(file_name+"target.npy")
+            orig_distmap = np.load(file_name+"target_orig_dist.npy")
             #T()
             # kl_divergence = np.mean(env.worldBeliefMap * np.log(
             #     np.clip(env.worldBeliefMap, 1e-10, 1) / np.clip(env.orig_target_distribution_map, 1e-10, 1)
             # ))
+
+            env.reset(rewardmap,targetmap,orig_distmap)
             kl_divergence = np.mean(np.square(env.worldBeliefMap-env.orig_target_distribution_map))
             divergences.append(kl_divergence)
+
 
     return divergences
 
@@ -63,7 +66,7 @@ if __name__=="__main__":
     import params as args
     args_dict = Utilities.set_dict(parameters=args)
     environment = env_setter().set_env(args_dict)
-    divergences = np.array(create_test_reward_maps(environment,TESTS,ID=30))
+    divergences = np.array(test_maps(environment,TESTS,ID=30))
     divergences_mean = divergences.mean()
     divergences_std = divergences.std()
     print('Divergences Mean{} Std{} Max{} Min {}'.format(divergences_mean,
