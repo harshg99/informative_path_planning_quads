@@ -420,6 +420,12 @@ class ModelMF4(Model6):
                            batch_first=True
                            )
 
+    def reset_hidden_state(self):
+        self.hidden_state = None
+
+    def set_hidden_state(self,hidden_in):
+        self.hidden_state = hidden_in
+
     def forward_step(self, input,hidden_in=None):
         observation = input['obs']
         pos = input['position']
