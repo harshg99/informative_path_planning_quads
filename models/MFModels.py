@@ -471,3 +471,42 @@ class ModelMF4(Model6):
         values = self.value_net(input)
 
         return self.softmax(policy), values, self.sigmoid(policy), hidden_state
+
+    def forward_buffer(self, obs_buffer,hidden_in_buffer):
+        obs = []
+        valids = []
+        pos = []
+        prev_a = []
+        graph_nodes = []
+        budget = []
+        hidden_in = []
+
+        for j,hidden in zip(obs_buffer,hidden_in_buffer):
+            obs.append(j['obs'])
+            valids.append(j['valids'])
+            pos.append(j['position'])
+            prev_a.append(j['previous_actions'])
+            graph_nodes.append(j['node'])
+            if hidden is not None:
+                hidden_in.append(hidden[0])
+            else:
+                hidden_in.append(np.zeros((len(self.env.agents),
+                                                       self.params_dict['embed_size'])))
+
+            # if self.args_dict['FIXED_BUDGET']:
+            #     budget.append(j['budget'])
+        obs = torch.tensor(np.array(obs), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        pos = torch.tensor(np.array(pos), dtype=torch.float32).to(self.args_dict['DEVICE'])
+
+        hidden_in = torch.tensor(np.array(hidden_in),dtype=torch.float32).to(self.args_dict['DEVICE'])
+        prev_a = F.one_hot(torch.tensor(prev_a), \
+                           num_classes=self.action_size).to(self.args_dict['DEVICE'])
+        graph_nodes = F.one_hot(torch.tensor(np.array(graph_nodes)),
+                                num_classes=self.num_graph_nodes).to(self.args_dict['DEVICE'])
+        # if self.args_dict['FIXED_BUDGET']:
+        #     budget = torch.tensor(np.array(budget), dtype=torch.float32).to(self.args_dict['DEVICE'])
+
+        policy, value,valids_net,hout = self.forward(obs, pos, prev_a, graph_nodes,budget,hidden_in)
+        valids = torch.tensor(valids, dtype=torch.float32).to(self.args_dict['DEVICE'])
+        return policy.squeeze(), value.squeeze(), \
+               valids.squeeze(), valids_net.squeeze()
