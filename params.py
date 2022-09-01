@@ -53,7 +53,7 @@ BUDGET = 10.0
 RANGE = 8
 
 #MODEL TYPE
-CLASS_CONFIG = 'Linear'  #Linear OR Transformer OR RSSM
+CLASS_CONFIG = 'LSTM'  #Linear OR Transformer OR RSSM
 if CLASS_CONFIG =='Linear':
     MODEL_TYPE = 'Model6'#Model1 Model2 etc
     ALG_TYPE = 'AC' #AC or PPO or SAC
@@ -85,12 +85,12 @@ elif CLASS_CONFIG == 'RSSM':
     BUDGET_LAYER = False
 
 elif CLASS_CONFIG == 'LSTM':
-    MODEL_TYPE = 'ModelMF3'  # Model1 Model2 etc
+    MODEL_TYPE = 'ModelMF4'  # Model1 Model2 etc
     ALG_TYPE = 'ACLSTM'  # ACLSTM or PPOLSTM or SACLSTM
     QVALUE = True
     COMPUTE_VALIDS = True  # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
     # Observation Type
-    OBSERVER = 'RANGEwOBSwMULTI'
+    OBSERVER = 'RANGEwOBSwMULTIwCOV'
     LSTM = True
     BUDGET_LAYER = False
 
