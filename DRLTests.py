@@ -31,14 +31,19 @@ class DRLTest:
         print('Model results at Episode: {}'.format(curr_episode))
 
 
-    def plan_action(self, observation):
+    def plan_action(self, observation,hidden_in=None):
 
         # print(observation)
-        policy, value = self.model.forward_step(observation)
+        hidden_in = hidden_in
+        if self.args_dict['LSTM']:
+            policy, value,hidden_out = self.model.forward_step(observation)
+            hidden_in = hidden_out.cpu().detach().numpy()
+        else:
+            policy, value = self.model.forward_step(observation)
         policy = policy.cpu().detach().numpy()
         action_dict = Utilities.best_actions(policy)
 
-        return action_dict,None
+        return action_dict,hidden_in
 
     def run_test(self,rewardmap,ID=0,targetMap=None,orig_target_map_dist=None):
         episode_step = 0.0
@@ -52,13 +57,18 @@ class DRLTest:
         #     np.clip(self.env.worldBeliefMap,1e-10,1)/np.clip(orig_target_map_dist,1e-10,1)
         # ))
         kl_divergence = np.mean(np.square(self.env.worldBeliefMap - orig_target_map_dist))
+        if self.args_dict['LSTM']:
+            hidden_in = None
 
         while ((not self.args_dict['FIXED_BUDGET'] and episode_step < self.env.episode_length) \
                or (self.args_dict['FIXED_BUDGET'])):
             if self.gifs:
                 frames.append(self.env.render(mode='rgb_array'))
 
-            action_dict,cost = self.plan_action(observation)
+            if self.args_dict['LSTM']:
+                action_dict,hidden_in = self.plan_action(observation,hidden_in)
+            else:
+                action_dict,_ = self.plan_action(observation,hidden_in)
 
             rewards,done = self.env.step_all(action_dict)
             episode_rewards += np.array(rewards).sum()
