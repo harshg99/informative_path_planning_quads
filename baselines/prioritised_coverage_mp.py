@@ -69,7 +69,7 @@ class prioritised_coverage_mp(coverage_planner_mp):
         frames = []
         done = False
         #coverageMap = np.ones(self.env.worldMap.shape)
-
+        coverageMap = deepcopy(self.env.worldMap)
         # kl_divergence = np.mean(self.env.worldBeliefMap*np.log(
         #     np.clip(self.env.worldBeliefMap,1e-10,1)/np.clip(orig_target_map_dist,1e-10,1)
         # ))
@@ -86,6 +86,7 @@ class prioritised_coverage_mp(coverage_planner_mp):
                                                         coverageMap=coverageMap)
 
             rewards, done = self.env.step_all(action_dict)
+            coverageMap = deepcopy(self.env.worldMap)
 
             episode_rewards += np.array(rewards).sum()
             episode_step += 1
