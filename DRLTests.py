@@ -101,7 +101,7 @@ class Tests:
         drl_planner = DRLTest(args_dict,model_path)
         self.model_path = model_path
         dir_name = os.getcwd() + "/" + MAP_TEST_DIR + '/' + TEST_TYPE.format(map_size) +'/'
-
+        self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path,map_size,args_dict['BUDGET'])
 
         if ENV_TYPE=='GPPrim':
             file_name = dir_name + "tests{}env.npy".format(testID)
