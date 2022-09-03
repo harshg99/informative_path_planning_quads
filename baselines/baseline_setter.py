@@ -29,7 +29,7 @@ class baseline_setter:
             env_params_dict = baseline_setter.set_dict(parameters)
             return coverage_planner_mp(env_params_dict)
         elif type == 'prior_coverage':
-            import baseline_params.CoverageGPParams as parameters
+            import baseline_params. PriorCoverageGPParams as parameters
             from baselines.prioritised_coverage_mp import prioritised_coverage_mp
             env_params_dict = baseline_setter.set_dict(parameters)
             return prioritised_coverage_mp(env_params_dict)
