@@ -91,7 +91,7 @@ class Tests:
     def __init__(self):
         import params as args
         args_dict = Utilities.set_dict(args)
-        self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path)
+        #self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path)
 
     def unit_tests(self,testID:int,model_path:str,map_size:int):
         import params as args
