@@ -95,6 +95,7 @@ class Tests:
         import params as args
         args_dict = Utilities.set_dict(args)
         #self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path)
+        self.results_path = None
 
     def unit_tests(self,testID:int,model_path:str,map_size:int):
         import params as args
@@ -104,7 +105,7 @@ class Tests:
         drl_planner = DRLTest(args_dict,model_path,map_size)
         self.model_path = model_path
         dir_name = os.getcwd() + "/" + MAP_TEST_DIR + '/' + TEST_TYPE.format(map_size) +'/'
-        self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path,map_size,args_dict['BUDGET'])
+
 
         if ENV_TYPE=='GPPrim':
             file_name = dir_name + "tests{}env.npy".format(testID)
@@ -121,6 +122,9 @@ class Tests:
         return drl_planner.run_test(rewardmap,testID,targetmap,orig_target_map_dist=origtargetmap)
 
     def run_tests(self,type:str,num_tests:int,num_threads:int,mapSize:int):
+        import params as args
+        args_dict = Utilities.set_dict(args)
+        self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path, map_size, args_dict['BUDGET'])
         with mp.Pool(num_threads) as pool:
             types = [type for _ in range(num_tests)]
             mapSize = [mapSize for _ in range(num_tests)]
