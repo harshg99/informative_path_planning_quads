@@ -13,14 +13,17 @@ from env.env_setter import env_setter
 from copy import  deepcopy
 
 class DRLTest:
-    def __init__(self,args_dict,model_path):
+    def __init__(self,args_dict: dict,model_path: str,map_size: int):
 
         self.args_dict = args_dict
         self.args_dict['GPU'] = False # CPU testing
         self.gifs = args_dict['TEST_GIFS']
         self.env = env_setter.set_env(args_dict)
         self.model = alg_setter.set_model(self.env, args_dict)
-        self.gifs_path = self.args_dict['TEST_GIFS_PATH'].format(model_path)
+        self.gifs_path = self.args_dict['TEST_GIFS_PATH'].format(model_path,
+                                                                 map_size,
+                                                                 args_dict['BUDGET']
+                                                                 )
 
         print('Loading Model')
         model_path = 'data/models/' + model_path
@@ -98,7 +101,7 @@ class Tests:
         args_dict = Utilities.set_dict(args)
         args_dict['GPU'] = False
         args_dict['DEVICE'] = 'cpu'
-        drl_planner = DRLTest(args_dict,model_path)
+        drl_planner = DRLTest(args_dict,model_path,map_size)
         self.model_path = model_path
         dir_name = os.getcwd() + "/" + MAP_TEST_DIR + '/' + TEST_TYPE.format(map_size) +'/'
         self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path,map_size,args_dict['BUDGET'])
