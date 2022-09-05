@@ -57,12 +57,14 @@ class GPEnvMP(SearchEnvMP):
         '''
 
 
-        # Create targets on the belief
-        flat_reward_map = self.rewardMap.flatten()
-
-        self.target_locations = np.random.choice(a=flat_reward_map.size,size = num_targets,p = flat_reward_map/flat_reward_map.sum()).tolist()
 
         if targetMap is None:
+            # Create targets on the belief
+            flat_reward_map = self.rewardMap.flatten()
+
+            self.target_locations = np.random.choice(a=flat_reward_map.size, size=num_targets,
+                                                     p=flat_reward_map / flat_reward_map.sum()).tolist()
+
             self.targetMap = np.zeros(self.rewardMap.shape)
             self.targetList = []
             for j,target in enumerate(self.target_locations):
@@ -87,26 +89,31 @@ class GPEnvMP(SearchEnvMP):
 
 
         # controls how randomnly placed the targets are
-        target_randomiser = np.clip(np.random.normal(0.15,0.5),0,1) * self.params_dict['TARGET_RANDOM_SCALE']
+        target_randomiser = np.clip(np.random.normal(0.15,0.25),0,1) * self.params_dict['TARGET_RANDOM_SCALE']
 
         if rewardMap is None:
-            random_noise = np.clip(np.abs(np.random.normal(size=(self.reward_map_size,self.reward_map_size))*\
-                              self.params_dict['TARGET_RANDOM_SCALE']),1e-6,0.02)
+            random_noise = np.clip(np.abs(np.random.normal(size=(self.reward_map_size,self.reward_map_size),loc=0.5)*\
+                              self.params_dict['TARGET_RANDOM_SCALE']),1e-6,0.3)
 
             # Setting up the original prior
-            self.orig_target_distribution_map = np.clip(self.orig_target_distribution_map,0.10,0.90)
+            #self.orig_target_distribution_map = np.clip(self.orig_target_distribution_map,0.10,0.90)
 
             #Noising the prior centres and variances
 
             for j,_ in enumerate(self.prior_centres):
-                self.prior_centres[j] += int(np.random.randint(-self.params_dict['MAXDISP'],self.params_dict['MAXDISP']))
+                choice = np.random.choice([0,1,2,3])
+                disp = [2*int(choice/2)-1,2*int(choice%2)-1]
+
+                self.prior_centres[j] += ((1-np.power(target_randomiser,2)) *\
+                                         np.array(disp)*\
+                                         self.params_dict['MAXDISP']).astype(np.int)#int(np.random.randint(-self.params_dict['MAXDISP'],self.params_dict['MAXDISP']))
                 self.prior_centres[j] = np.clip(self.prior_centres[j],[0,0],self.worldMap.shape)
-                self.prior_vars[j][0][0] = (1-target_randomiser)* self.prior_vars[j][0][0] +\
-                                           (target_randomiser)*np.random.rand(1)*(self.max_var - self.min_var) + self.min_var
-                self.prior_vars[j][1][1] = (1-target_randomiser)* self.prior_vars[j][1][1] +\
-                                           target_randomiser*np.random.rand(1) * (self.max_var - self.min_var) + self.min_var
-                self.prior_vars[j][0][1] = (target_randomiser)*np.random.rand(1) * self.min_var / 2 + \
-                                           (1-target_randomiser)*self.prior_vars[j][0][1]
+                self.prior_vars[j][0][0] = (target_randomiser)* self.prior_vars[j][0][0] +\
+                                           (1-target_randomiser)*(self.max_var - self.min_var) + self.min_var
+                self.prior_vars[j][1][1] = (target_randomiser)* self.prior_vars[j][1][1] +\
+                                           1-target_randomiser * (self.max_var - self.min_var) + self.min_var
+                self.prior_vars[j][0][1] = (1-target_randomiser)* self.min_var / 2 + \
+                                           (target_randomiser)*self.prior_vars[j][0][1]
                 self.prior_vars[j][1][0] = self.prior_vars[j][0][1]
 
             randX = []
@@ -133,10 +140,16 @@ class GPEnvMP(SearchEnvMP):
             noiseMap = self.createRewardMap(Xs,self.prior_vars)
 
             self.rewardMap = np.power(target_randomiser,1)*self.rewardMap/(self.rewardMap.max()-self.rewardMap.min()) + \
-                             (1-np.power(target_randomiser,1))*noiseMap/(noiseMap.max()- noiseMap.min())
+                             (1-np.power(target_randomiser,1))*noiseMap/(noiseMap.max()- noiseMap.min()) + 0.2*random_noise
 
             self.obstacle_map = np.zeros((self.world_map_size, self.world_map_size)) + 1
             self.worldMap = np.zeros((self.world_map_size, self.world_map_size))  # for boundaries
+            self.orig_target_distribution_map = deepcopy(self.orig_target_distribution_map)
+            self.orig_target_distribution_map = np.clip(
+                self.orig_target_distribution_map / self.orig_target_distribution_map.max(),
+                0.10,
+                0.90
+            )
 
             # ensuring that reward map is scaled to represent an I.I.D.
         self.worldMap[self.pad_size:self.pad_size + self.reward_map_size, \
@@ -158,7 +171,11 @@ class GPEnvMP(SearchEnvMP):
 
         if original_target_dismap is not None:
             self.orig_target_distribution_map = deepcopy(original_target_dismap)
-            self.orig_target_distribution_map = np.clip(self.orig_target_distribution_map, 0.10, 0.90)
+            self.orig_target_distribution_map = np.clip(
+                self.orig_target_distribution_map/self.orig_target_distribution_map.max(),
+                0.10,
+                0.90
+            )
 
         if self.args_dict['FIXED_BUDGET']:
             agentBudget = self.args_dict['BUDGET'] * REWARD.MP.value

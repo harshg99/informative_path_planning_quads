@@ -201,7 +201,7 @@ class coverage_planner_mp(il_wrapper):
 
 if __name__=="__main__":
     import baseline_params.CoverageGPParams as parameters
-    map_index = 80
+    map_index = 50
     dir_name = os.getcwd() + "/../" + MAP_TEST_DIR + '/' + TEST_TYPE.format(30) +'/'
     file_name = dir_name + "tests{}env.npy".format(map_index)
     rewardmap = np.load(file_name)

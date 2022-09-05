@@ -19,7 +19,7 @@ class REWARD(Enum):
     STEPDIAGONAL= -0.1*np.sqrt(2)
     STAY      = -0.5
     MAP  = +100
-    TARGET  = +100.0
+    TARGET  = +200.0
     COLLISION = -1.0
     MP = 10000
 
@@ -127,7 +127,7 @@ class SearchEnv(gym.Env):
         if np.linalg.det(cov)<0:
             cov[0][0] = np.clip(cov1[0][1], self.min_var, self.max_var)
             cov[1][1] = np.clip(cov1[1][0], self.min_var, self.max_var)
-            cov[0][1] = np.clip(cov1[1][1], self.min_var / 2, self.max_var / 2)
+            cov[0][1] = np.clip(cov1[1][1], self.min_var / 1.5, self.max_var / 1.5)
             cov[1][0] = cov[0][1]
         elif np.linalg.det(cov)==0:
             cov[0][0] = np.clip(cov1[0][1]+np.random.rand(1), self.min_var, self.max_var)
