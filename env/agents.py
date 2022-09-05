@@ -34,6 +34,8 @@ class Agent():
         self.prev_action =  action
         return is_action_valid
 
+
+
     def isValidPos(self, pos):
         is_valid = (np.array(pos - self.pad) > -1).all()
         is_valid = is_valid and (np.array(pos + self.pad) < self.world_size).all()
@@ -64,6 +66,10 @@ class AgentMP():
 
     def updateMap(self,worldMap):
         self.worldMap= worldMap
+
+    def get_mp(self,action):
+        mp = deepcopy(self.mp_graph[self.index, action])
+        return mp
 
     def updatePos(self,action):
         mp = deepcopy(self.mp_graph[self.index, action])
@@ -99,6 +105,10 @@ class AgentMP():
         if self.agentBudget is not None:
             self.agentBudget -= mpcost
         return False,None, None
+
+    def updatePosOdom(self,pos):
+        self.pos_actual = np.array(pos)
+        self.pos = np.round(self.pos).astype(int)
 
     def isValidMP(self,mp):
         is_valid = mp.is_valid

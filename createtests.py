@@ -63,7 +63,7 @@ if __name__=="__main__":
     import params as args
     args_dict = Utilities.set_dict(parameters=args)
     environment = env_setter().set_env(args_dict)
-    divergences = np.array(create_test_reward_maps(environment,TESTS,ID=60))
+    divergences = np.array(create_test_reward_maps(environment,TESTS,ID=45))
     divergences_mean = divergences.mean()
     divergences_std = divergences.std()
     print('Divergences Mean{} Std{} Max{} Min {}'.format(divergences_mean,

@@ -39,7 +39,7 @@ class DRLTest:
         # print(observation)
         hidden_in = hidden_in
         if self.args_dict['LSTM']:
-            policy, value,hidden_out = self.model.forward_step(observation)
+            policy, value,hidden_out = self.model.forward_step(observation,hidden_in)
             hidden_in = hidden_out.cpu().detach().numpy()
         else:
             policy, value = self.model.forward_step(observation)
