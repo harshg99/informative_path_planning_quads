@@ -61,11 +61,11 @@ class DRLROS:
         self.agent_poses = []
 
         # Set the map
-        file_name = map_path + "env.npy"
+        file_name = map_path + "tests39env.npy"
         rewardmap = np.load(file_name)
-        file_name = map_path + "target.npy"
+        file_name = map_path + "tests39target.npy"
         targetmap = np.load(file_name)
-        file_name = map_path + "target_orig_dist.npy"
+        file_name = map_path + "tests39target_orig_dist.npy"
         orig_target_map = np.load(file_name)
         self.env.reset(rewardmap, targetmap, orig_target_map)
 
@@ -230,9 +230,9 @@ class DRLROS:
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument("--map_path", type=int, default=1,
+    parser.add_argument("--map_path", type=str, default="tests/GPPrim30/",
                         help="seed of the experiment")
-    parser.add_argument('--model_path',type=str,default="GPAC_Model6",
+    parser.add_argument('--model_path',type=str,default="GPAC_Model6_RANGE8_SENS5_ENV2_FINAL",
                         help="path to the model")
     parser.add_argument('--gifs', type=bool, default=True,
                         help="outputting gifs")
