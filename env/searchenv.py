@@ -18,9 +18,9 @@ class REWARD(Enum):
     STEP        = -0.1
     STEPDIAGONAL= -0.1*np.sqrt(2)
     STAY      = -0.5
-    PMAP = 50
-    MAP  = 50
-    TARGET  = +100.0
+    PMAP = 15.0
+    MAP  = 15.0
+    TARGET  = +35.0
     COLLISION = -1.0
     MP = 10000
 
