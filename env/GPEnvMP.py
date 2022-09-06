@@ -200,6 +200,8 @@ class GPEnvMP(SearchEnvMP):
         for agent in self.agents:
             agent.initBeliefMap(self.worldBeliefMap)
 
+        self.original_worldBeliefMap_sum = deepcopy(self.worldBeliefMap.sum())
+
         self.metrics.update(self.worldBeliefMap,self.worldTargetMap)
 
     def step_all(self, action_dict):
@@ -242,8 +244,9 @@ class GPEnvMP(SearchEnvMP):
 
         if valid:
             measurements = self.agents[agentID].updateInfoTarget(visited_states.T,self.worldTargetMap,self.targetBeliefThresh)
-            self.updateRewardTarget(visited_states.T,measurements,agentID)
+            reward_coverage = self.updateRewardTarget(visited_states.T,measurements,agentID)
             reward += self.getReward(initialBeliefMap,self.worldBeliefMap)
+            reward += reward_coverage
             reward -= cost / REWARD.MP.value
             targets_found = (self.worldTargetMap==2).sum() - (initialTargetMap==2).sum()
             reward += targets_found*REWARD.TARGET.value/len(self.targetList)
@@ -270,11 +273,16 @@ class GPEnvMP(SearchEnvMP):
         newEntropy = self.getEntropy(newBelief).mean()
         # Normalising total entropy reward to between 0 and 100
         return (newEntropy-oldentropy)/(np.log(2))*REWARD.MAP.value
+    
+        
 
     '''
     Returns the total entropy at the desired locations
     '''
     def updateRewardTarget(self,visited_states,measurement_list,agentID):
+        #reward_coverage = 0
+        coverage  = deepcopy(self.worldBeliefMap)
+        initial_belief = deepcopy(self.worldBeliefMap)
         for state,measurement in zip(visited_states.tolist(),measurement_list):
             r = state[0]
             c = state[1]
@@ -285,6 +293,7 @@ class GPEnvMP(SearchEnvMP):
             max_y = np.min([c + range_+1, self.worldBeliefMap.shape[1]])
             for j in range(min_x,max_x):
                 for k in range(min_y,max_y):
+                    coverage[j,k] = 0
                     logodds_b_map = np.log(self.worldBeliefMap[j,k]/(1-self.worldBeliefMap[j,k]))
                     #log_odds_prior_map = np.log(0.5*self.orig_worldTargetMap[j,k]/(1-0.5*self.orig_worldTargetMap[j,k]))
                     log_odds_prior_map = np.log(1),
@@ -302,6 +311,8 @@ class GPEnvMP(SearchEnvMP):
                     if self.worldBeliefMap[j,k]>=self.targetBeliefThresh and self.worldTargetMap[j,k]>0:
                         self.worldTargetMap[j,k]=2
 
+        reward_coverage = -(coverage-initial_belief).sum()/self.original_worldBeliefMap_sum*REWARD.PMAP.value
+        return reward_coverage
 
     def render(self, mode='visualise', W=400, H=400):
 
