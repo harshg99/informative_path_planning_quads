@@ -11,7 +11,7 @@ import Utilities
 from models.alg_setter import alg_setter
 from env.env_setter import env_setter
 from copy import  deepcopy
-
+import pandas as pd
 class DRLTest:
     def __init__(self,args_dict: dict,model_path: str,map_size: int):
 
@@ -210,3 +210,7 @@ if __name__=="__main__":
     out_file = open(results_path, "w")
     json.dump(compiled_results,out_file)
     out_file.close()
+
+    data = pd.DataFrame(result_dict)
+    results_path_csv = TestObj.get_results_path(model_path) + "/all_results.csv"
+    data.to_csv(results_path_csv)
