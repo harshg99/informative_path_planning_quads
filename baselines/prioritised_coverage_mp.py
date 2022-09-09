@@ -105,8 +105,8 @@ class prioritised_coverage_mp(coverage_planner_mp):
 
 if __name__=="__main__":
     import baseline_params.CoverageGPParams as parameters
-    map_index = 48
-    dir_name = os.getcwd() + "/../" + MAP_TEST_DIR + '/' + TEST_TYPE.format(30) +'/'
+    map_index = 60
+    dir_name = os.getcwd() + "/../" + MAP_TEST_DIR + '/' + TEST_TYPE.format(45) +'/'
     file_name = dir_name + "tests{}env.npy".format(map_index)
     rewardmap = np.load(file_name)
     file_name = dir_name + "tests{}target.npy".format(map_index)

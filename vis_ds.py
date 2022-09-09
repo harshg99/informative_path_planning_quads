@@ -46,21 +46,24 @@ def test_maps (env,nummaps:int,index=None,ID=None):
             fig = plt.figure(constrained_layout=True)
             subplot = fig.subplots(1, 3)
 
-            subplot[0].imshow(np.transpose(env.worldBeliefMap))
+
+            # plt.figure()
+            subplot[0].imshow(np.transpose(env.orig_target_distribution_map)/env.orig_target_distribution_map.max())
             subplot[0].set_xlabel('m')
             subplot[0].set_ylabel('m')
-            subplot[0].set_title('Agent Prior')
+            subplot[0].set_title('Ground Truth Distribution')
             # plt.figure()
-            subplot[1].imshow(np.transpose(env.orig_target_distribution_map)/env.orig_target_distribution_map.max())
+            subplot[1].imshow(np.transpose(env.orig_worldTargetMap))
             subplot[1].set_xlabel('m')
             subplot[1].set_ylabel('m')
-            subplot[1].set_title('Ground Truth Distribution')
-            # plt.figure()
-            subplot[2].imshow(np.transpose(env.orig_worldTargetMap))
+            subplot[1].set_title('World Target Map')
+
+
+            subplot[2].imshow(np.transpose(env.worldBeliefMap))
             subplot[2].set_xlabel('m')
             subplot[2].set_ylabel('m')
-            subplot[2].set_title('World Target Map')
-            plt.savefig(dir_name+ "plots/plot{}.jpg".format(j+index*nummaps))
+            subplot[2].set_title('Agent Prior')
+            plt.savefig(dir_name + "plots/plot{}.jpg".format(j + index * nummaps))
 
     return divergences
 

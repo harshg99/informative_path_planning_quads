@@ -56,10 +56,10 @@ class DRLTest:
         frames = []
         done = False
         observation = self.env.get_obs_all()
-        # kl_divergence = np.mean(self.env.worldBeliefMap*np.log(
-        #     np.clip(self.env.worldBeliefMap,1e-10,1)/np.clip(orig_target_map_dist,1e-10,1)
-        # ))
-        kl_divergence = np.mean(np.square(self.env.worldBeliefMap - orig_target_map_dist))
+        kl_divergence = np.mean(self.env.worldBeliefMap*np.log(
+            np.clip(self.env.worldBeliefMap,1e-10,1)/np.clip(orig_target_map_dist,1e-10,1)
+        ))
+        #kl_divergence = np.mean(np.square(self.env.worldBeliefMap - orig_target_map_dist))
         hidden_in = None
 
         while ((not self.args_dict['FIXED_BUDGET'] and episode_step < self.env.episode_length) \

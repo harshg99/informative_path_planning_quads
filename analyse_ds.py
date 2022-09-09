@@ -13,7 +13,7 @@ import getopt,sys
 import Utilities
 from pdb import set_trace as T
 TESTS = 200
-
+import pandas as pd
 def test_maps (env,nummaps:int,index=None,ID=None):
     if ID is not None:
         dir_name = os.getcwd() + '/' + MAP_TEST_DIR + '/' + args_dict['TEST_TYPE'].format(ID)+'/'
@@ -35,12 +35,15 @@ def test_maps (env,nummaps:int,index=None,ID=None):
             targetmap = np.load(file_name+"target.npy")
             orig_distmap = np.load(file_name+"target_orig_dist.npy")
             #T()
-            # kl_divergence = np.mean(env.worldBeliefMap * np.log(
-            #     np.clip(env.worldBeliefMap, 1e-10, 1) / np.clip(env.orig_target_distribution_map, 1e-10, 1)
-            # ))
+
 
             env.reset(rewardmap,targetmap,orig_distmap)
-            kl_divergence = np.mean(np.square(env.worldBeliefMap-env.orig_target_distribution_map))
+            beleif1 = env.worldBeliefMap/env.worldBeliefMap.sum()
+            belief2 = env.orig_target_distribution_map/env.orig_target_distribution_map.sum()
+            kl_divergence = np.mean(beleif1 * np.log(
+                np.clip(beleif1, 1e-10, 1) / np.clip(belief2, 1e-10, 1)
+            ))
+            #kl_divergence = np.mean(np.square(env.worldBeliefMap-env.orig_target_distribution_map))
             divergences.append(kl_divergence)
             # from matplotlib import pyplot as plt
             # plt.imshow(env.worldBeliefMap)
@@ -69,11 +72,26 @@ if __name__=="__main__":
             map_size = arg
 
     import params as args
+    ID = 30
     args_dict = Utilities.set_dict(parameters=args)
     environment = env_setter().set_env(args_dict)
-    divergences = np.array(test_maps(environment,TESTS,ID=30))
+    divergences = np.array(test_maps(environment,TESTS,ID=ID))
+
+    if ID is not None:
+        dir_name = os.getcwd() + '/tests/divergences/{}/'.format(ID)
+    else:
+        dir_name = os.getcwd() + '/tests/divergences/{}/'.format(30)
+
+    if not os.path.isdir(dir_name):
+        os.makedirs(dir_name)
+
     divergences_mean = divergences.mean()
     divergences_std = divergences.std()
+
+    data = pd.DataFrame(divergences)
+    results_path_csv = dir_name + "/divergence.csv"
+
+    data.to_csv(results_path_csv)
     print('Divergences Mean{} Std{} Max{} Min {}'.format(divergences_mean,
                                                          divergences_std,
                                                          divergences.max(),
