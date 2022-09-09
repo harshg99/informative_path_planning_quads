@@ -88,7 +88,7 @@ if __name__=="__main__":
     divergences_mean = divergences.mean()
     divergences_std = divergences.std()
 
-    data = pd.DataFrame(divergences)
+    data = pd.DataFrame({'divergence2':divergences})
     results_path_csv = dir_name + "/divergence.csv"
 
     data.to_csv(results_path_csv)
