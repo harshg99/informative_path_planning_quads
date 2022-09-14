@@ -40,10 +40,16 @@ def test_maps (env,nummaps:int,index=None,ID=None):
             env.reset(rewardmap,targetmap,orig_distmap)
             beleif1 = env.worldBeliefMap/env.worldBeliefMap.sum()
             belief2 = env.orig_target_distribution_map/env.orig_target_distribution_map.sum()
-            kl_divergence = np.mean(beleif1 * np.log(
-                np.clip(beleif1, 1e-10, 1) / np.clip(belief2, 1e-10, 1)
-            ))
+
+            div = beleif1 * np.log(
+                np.clip(beleif1, 1e-10, 1) / np.clip(belief2, 1e-10, 1)) + belief2 * np.log(
+                np.clip(belief2, 1e-10, 1) / np.clip(beleif1, 1e-10, 1))
+
+            kl_divergence = div.sum()
             #kl_divergence = np.mean(np.square(env.worldBeliefMap-env.orig_target_distribution_map))
+            # kl_divergence = np.sum(beleif1 * np.log(
+            #     np.clip(beleif1, 1e-10, 1) / np.clip(belief2, 1e-10, 1)
+            # ))
             divergences.append(kl_divergence)
             # from matplotlib import pyplot as plt
             # plt.imshow(env.worldBeliefMap)

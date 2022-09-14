@@ -70,10 +70,17 @@ class prioritised_coverage_mp(coverage_planner_mp):
         done = False
         #coverageMap = np.ones(self.env.worldMap.shape)
         coverageMap = deepcopy(self.env.worldMap)
+        beleif1 = self.env.worldBeliefMap / self.env.worldBeliefMap.sum()
+        belief2 = self.env.orig_target_distribution_map / self.env.orig_target_distribution_map.sum()
+        div = beleif1 * np.log(
+            np.clip(beleif1, 1e-10, 1) / np.clip(belief2, 1e-10, 1)) + belief2 * np.log(
+            np.clip(belief2, 1e-10, 1) / np.clip(beleif1, 1e-10, 1))
+
+        kl_divergence = div.sum()
         # kl_divergence = np.mean(self.env.worldBeliefMap*np.log(
         #     np.clip(self.env.worldBeliefMap,1e-10,1)/np.clip(orig_target_map_dist,1e-10,1)
         # ))
-        kl_divergence = np.mean(np.square(self.env.worldBeliefMap - orig_target_map_dist))
+        #kl_divergence = np.mean(np.square(self.env.worldBeliefMap - orig_target_map_dist))
 
         while ((not self.args_dict['FIXED_BUDGET'] and episode_step < self.env.episode_length) \
                or (self.args_dict['FIXED_BUDGET'])):

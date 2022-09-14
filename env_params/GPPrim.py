@@ -8,7 +8,7 @@ pad_size = 5
 
 rewardMapSizeList = [30,45,60,90]
 randomMapSize = False
-defaultMapChoice = 1
+defaultMapChoice = 0
 scale = [1,2,4]
 
 # Sets the belief for randomising target locations
@@ -17,11 +17,11 @@ RANDOM_CENTRES = 5 # number of random centres
 MAXDISP = 10*(defaultMapChoice+1) # max displacement of prior mean
 
 num_centers=[3*(defaultMapChoice+1),5*(defaultMapChoice+1)]
-max_var = 40.0*(defaultMapChoice/2+1)
-min_var = 30.0*(defaultMapChoice/2+1)
+max_var = 40.0
+min_var = 30.0
 
-noise_max_var = 50.0*(defaultMapChoice/2+1)
-noise_min_var = 40.0*(defaultMapChoice/2+1)
+noise_max_var = 50.0*(float(defaultMapChoice)/2.0+1)
+noise_min_var = 40.0*(float(defaultMapChoice)/2.0+1)
 
 sensor_range = 5
 sensor_unc = np.zeros([sensor_range,sensor_range])

@@ -21,11 +21,11 @@ data_correct = 0.99 - coeff*range
 data_correct[range>2.5] = 0.5
 data_incorrect = 1 - data_correct
 
-figure(figsize=(4, 5), dpi=80)
-plt.plot(range,data_correct,label='Correct Classification(object or free space)')
-plt.plot(range,data_incorrect,label='Incorrect Classification(object or free space)')
-plt.xlabel('Distance(m)')
-plt.ylabel('Likelihood of prediction')
+figure(figsize=(4, 3), dpi=80)
+plt.plot(range,data_correct,label='Correct Classification')
+plt.plot(range,data_incorrect,label='Incorrect Classification')
+plt.xlabel('Distance (m)',fontsize=12)
+plt.ylabel('Likelihood of prediction',fontsize=12)
 plt.title('Sensor Model')
 plt.legend()
 plt.show()

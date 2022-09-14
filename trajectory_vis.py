@@ -16,6 +16,7 @@ from models.alg_setter import alg_setter
 from env.env_setter import env_setter
 from copy import  deepcopy
 import argparse
+from env.searchenv import REWARD
 
 class TrajectoryVisualisation:
     def __init__(self,args_dict:dict,map_index,map_size,model_path: str,gifs: bool):
@@ -39,19 +40,63 @@ class TrajectoryVisualisation:
         self.rewardmap = np.load(file_name)
         file_name = dir_name + "tests{}target.npy".format(map_index)
         self.targetmap = np.load(file_name)
+        file_name = dir_name + "tests{}target_orig_dist.npy".format(map_index)
+        orig_target_map = np.load(file_name)
         self.args_dict = args_dict
         self.gifs = gifs
-        self.env.reset(deepcopy(self.rewardmap), deepcopy(self.targetmap))
+        self.env.reset(deepcopy(self.rewardmap), deepcopy(self.targetmap),deepcopy(orig_target_map))
 
+        plt.imshow(np.transpose(self.env.orig_worldMap), cmap='viridis',
+                   interpolation=None,
+                   extent=[0, self.env.orig_worldMap.shape[0],
+                           0, self.env.orig_worldMap.shape[1]],
+                   origin="lower")
+        plt.colorbar(label='Probability of Target Occupancy')
+        plt.title('Agent Prior')
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
 
-    def plan_action(self, observation):
+        plt.figure()
+        plt.imshow(np.transpose(
+            self.env.orig_target_distribution_map/self.env.orig_target_distribution_map.max()),
+            cmap='viridis',
+            interpolation='spline36',
+            extent=[0, self.env.orig_worldMap.shape[0],
+                    0, self.env.orig_worldMap.shape[1]],
+            origin="lower"
+        )
+
+        plt.colorbar(label='Probability of Target Occupancy')
+        plt.title('Ground Truth Distribution')
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
+
+        plt.figure()
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
+        plt.imshow(np.transpose(self.env.orig_worldTargetMap), cmap='viridis',
+                   interpolation=None,
+                   extent=[0, self.env.orig_worldMap.shape[0],
+                           0, self.env.orig_worldMap.shape[1]],
+                   origin="lower")
+        plt.colorbar(label='Probability of Target Occupancy')
+        plt.title('Target Map')
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
+
+    def plan_action(self, observation,hidden_in=None):
 
         # print(observation)
-        policy, value = self.model.forward_step(observation)
+        hidden_in = hidden_in
+        if self.args_dict['LSTM']:
+            policy, value,hidden_out = self.model.forward_step(observation,hidden_in)
+            hidden_in = hidden_out.cpu().detach().numpy()
+        else:
+            policy, value = self.model.forward_step(observation)
         policy = policy.cpu().detach().numpy()
         action_dict = Utilities.best_actions(policy)
 
-        return action_dict,None
+        return action_dict,hidden_in
 
     # Choosing which test to run
     def trajectory(self):
@@ -61,6 +106,9 @@ class TrajectoryVisualisation:
         agent_poses = [self.env.agents[0].pos_actual]
         primitives = []
         frames = []
+        hidden_in = None
+        plt.figure(figsize=(7, 6))
+
 
         while ((not self.args_dict['FIXED_BUDGET'] and
                 episode_step < self.env.episode_length) \
@@ -68,7 +116,10 @@ class TrajectoryVisualisation:
             if self.gifs:
                 frames.append(self.env.render(mode='rgb_array'))
 
-            action_dict, cost = self.plan_action(observation)
+            if self.args_dict['LSTM']:
+                action_dict, hidden_in = self.plan_action(observation, hidden_in)
+            else:
+                action_dict, _ = self.plan_action(observation, hidden_in)
             rewards, done = self.env.step_all(action_dict)
 
             if self.env.agents[0].current_primitive is not None:
@@ -82,46 +133,54 @@ class TrajectoryVisualisation:
             if done:
                 break
 
-        plt.figure(figsize=(7, 6))
-        plt.imshow(np.transpose(self.env.orig_worldMap), cmap='viridis',
-                   interpolation='spline36',
-                   extent=[0, self.env.orig_worldMap.shape[0],
-                           0, self.env.orig_worldMap.shape[1]],
-                   origin="lower")
-        plt.colorbar()
+            frac =  self.env.agents[0].agentBudget/(REWARD.MP.value*self.args_dict['BUDGET'])
+            if (frac<=0.5 and frac>=0.48) or \
+                    (frac<= 0.25 and frac>=0.23) or \
+                    (frac<= 0.01 and frac>=-0.01) or\
+                    (frac<=0.75 and frac>=0.73):
+                plt.figure(figsize=(7, 6))
+                plt.imshow(np.transpose(self.env.orig_worldMap), cmap='viridis',
+                           interpolation=None,
+                           extent=[0, self.env.orig_worldMap.shape[0],
+                                   0, self.env.orig_worldMap.shape[1]],
+                           origin="lower")
+                plt.colorbar(label='Probability of Target Occupancy')
+                plt.xlabel('x (m)')
+                plt.ylabel('y (m)')
+
+                plt.plot(agent_poses[0][0], agent_poses[0][1], 'go', markersize=12)
+                plt.plot(agent_poses[-1][0], agent_poses[-1][1], 'ro', markersize=12)
+
+                for pose,mp in zip(agent_poses,primitives):
+                    if mp is not None:
+                        mp.translate_start_position(pose)
+                        mp.plot(position_only=True, step_size=.01)
+                        plt.plot(pose[0], pose[1], 'y.')
 
 
-        plt.plot(agent_poses[0][0], agent_poses[0][1], 'go', markersize=12)
-        plt.plot(agent_poses[-1][0], agent_poses[-1][1], 'ro', markersize=12)
 
-        for pose,mp in zip(agent_poses,primitives):
-            if mp is not None:
-                mp.translate_start_position(pose)
-                mp.plot(position_only=True, step_size=.01)
-                plt.plot(pose[0], pose[1], 'y.')
+                plt.figure(figsize=(7, 6))
+                plt.imshow(np.transpose(self.env.worldMap), cmap='viridis',
+                           interpolation=None,
+                           extent=[0, self.env.worldMap.shape[0],
+                                   0, self.env.worldMap.shape[1]],
+                           origin="lower")
+                plt.colorbar(label='Probability of Target Occupancy')
+                plt.xlabel('x (m)')
+                plt.ylabel('y (m)')
+
+                plt.plot(agent_poses[0][0], agent_poses[0][1], 'go', markersize=12)
+                plt.plot(agent_poses[-1][0], agent_poses[-1][1], 'ro', markersize=12)
+
+                for pose, mp in zip(agent_poses, primitives):
+                    if mp is not None:
+                        mp.translate_start_position(pose)
+                        mp.plot(position_only=True, step_size=.01)
+                        plt.plot(pose[0], pose[1], 'y.')
 
 
-
-        plt.figure(figsize=(7, 6))
-        plt.imshow(np.transpose(self.env.worldMap), cmap='viridis',
-                   interpolation='spline36',
-                   extent=[0, self.env.worldMap.shape[0],
-                           0, self.env.worldMap.shape[1]],
-                   origin="lower")
-        plt.colorbar()
-
-        plt.plot(agent_poses[0][0], agent_poses[0][1], 'go', markersize=12)
-        plt.plot(agent_poses[-1][0], agent_poses[-1][1], 'ro', markersize=12)
-
-        for pose, mp in zip(agent_poses, primitives):
-            if mp is not None:
-                mp.translate_start_position(pose)
-                mp.plot(position_only=True, step_size=.01)
-                plt.plot(pose[0], pose[1], 'y.')
-
-        plt.show()
         #pass
-
+        plt.show()
 
 class MapVisualisation:
     def __init__(self,args_dict,map_index,map_size):
@@ -164,7 +223,6 @@ def parse_args():
 if __name__=="__main__":
     import params as args
     from Utilities import set_dict
-
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     args = Utilities.set_dict(args)

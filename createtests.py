@@ -38,7 +38,14 @@ def create_test_reward_maps(env,nummaps:int,index=None,ID=None):
             # kl_divergence = np.mean(env.worldBeliefMap * np.log(
             #     np.clip(env.worldBeliefMap, 1e-10, 1) / np.clip(env.orig_target_distribution_map, 1e-10, 1)
             # ))
-            kl_divergence = np.mean(np.square(env.worldBeliefMap-env.orig_target_distribution_map))
+            #kl_divergence = np.mean(np.square(env.worldBeliefMap-env.orig_target_distribution_map))
+            beleif1 = env.worldBeliefMap / env.worldBeliefMap.sum()
+            belief2 = env.orig_target_distribution_map / env.orig_target_distribution_map.sum()
+            div = beleif1 * np.log(
+                np.clip(beleif1, 1e-10, 1) / np.clip(belief2, 1e-10, 1)) + belief2 * np.log(
+                np.clip(belief2, 1e-10, 1) / np.clip(beleif1, 1e-10, 1))
+
+            kl_divergence = div.sum()
             divergences.append(kl_divergence)
 
     return divergences
@@ -63,7 +70,7 @@ if __name__=="__main__":
     import params as args
     args_dict = Utilities.set_dict(parameters=args)
     environment = env_setter().set_env(args_dict)
-    divergences = np.array(create_test_reward_maps(environment,TESTS,ID=45))
+    divergences = np.array(create_test_reward_maps(environment,TESTS,ID=30))
     divergences_mean = divergences.mean()
     divergences_std = divergences.std()
     print('Divergences Mean{} Std{} Max{} Min {}'.format(divergences_mean,

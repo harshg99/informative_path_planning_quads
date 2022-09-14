@@ -89,7 +89,7 @@ class GPEnvMP(SearchEnvMP):
 
 
         # controls how randomnly placed the targets are
-        target_randomiser = np.clip(np.random.normal(0.15,0.25),0,1) * self.params_dict['TARGET_RANDOM_SCALE']
+        target_randomiser = np.clip(np.random.normal(0.0,0.25),0,1) * self.params_dict['TARGET_RANDOM_SCALE']
 
         if rewardMap is None:
             random_noise = np.clip(np.abs(np.random.normal(size=(self.reward_map_size,self.reward_map_size),loc=0.5)*\
@@ -100,28 +100,29 @@ class GPEnvMP(SearchEnvMP):
 
             #Noising the prior centres and variances
 
-            for j,_ in enumerate(self.prior_centres):
-                choice = np.random.choice([0,1,2,3])
-                disp = [2*int(choice/2)-1,2*int(choice%2)-1]
-
-                self.prior_centres[j] += ((1-np.power(target_randomiser,2)) *\
-                                         np.array(disp)*\
-                                         self.params_dict['MAXDISP']).astype(np.int)#int(np.random.randint(-self.params_dict['MAXDISP'],self.params_dict['MAXDISP']))
-                self.prior_centres[j] = np.clip(self.prior_centres[j],[0,0],self.worldMap.shape)
-                self.prior_vars[j][0][0] = (target_randomiser)* self.prior_vars[j][0][0] +\
-                                           (1-target_randomiser)*(self.max_var - self.min_var) + self.min_var
-                self.prior_vars[j][1][1] = (target_randomiser)* self.prior_vars[j][1][1] +\
-                                           1-target_randomiser * (self.max_var - self.min_var) + self.min_var
-                self.prior_vars[j][0][1] = (1-target_randomiser)* self.min_var / 2 + \
-                                           (target_randomiser)*self.prior_vars[j][0][1]
-                self.prior_vars[j][1][0] = self.prior_vars[j][0][1]
+            # for j,_ in enumerate(self.prior_centres):
+            #     choice = np.random.choice([0,1,2,3])
+            #     disp = [2*int(choice/2)-1,2*int(choice%2)-1]
+            #
+            #     self.prior_centres[j] += ((1-np.power(target_randomiser,2)) *\
+            #                              np.array(disp)*\
+            #                              self.params_dict['MAXDISP']).astype(np.int)#int(np.random.randint(-self.params_dict['MAXDISP'],self.params_dict['MAXDISP']))
+            #     self.prior_centres[j] = np.clip(self.prior_centres[j],[0,0],self.worldMap.shape)
+            #     self.prior_vars[j][0][0] = (target_randomiser)* self.prior_vars[j][0][0] +\
+            #                                (1-target_randomiser)*(self.max_var - self.min_var) + self.min_var
+            #     self.prior_vars[j][1][1] = (target_randomiser)* self.prior_vars[j][1][1] +\
+            #                                1-target_randomiser * (self.max_var - self.min_var) + self.min_var
+            #     self.prior_vars[j][0][1] = (1-target_randomiser)* self.min_var / 2 + \
+            #                                (target_randomiser)*self.prior_vars[j][0][1]
+            #     self.prior_vars[j][1][0] = self.prior_vars[j][0][1]
 
             randX = []
             randY = []
-            prob = 1 - flat_reward_map/flat_reward_map.max()
-            random_locations = np.random.choice(a=flat_reward_map.size, size=self.params_dict['RANDOM_CENTRES'],
+            prob_ = flat_reward_map*flat_reward_map
+            prob = 1 - prob_/prob_.max()
+            random_locations = np.random.choice(a=flat_reward_map.size, size=self.params_dict['RANDOM_CENTRES']+len(self.prior_centres),
                                                      p=prob/prob.sum()).tolist()
-            for j in range(self.params_dict['RANDOM_CENTRES']):
+            for j in range(self.params_dict['RANDOM_CENTRES']+len(self.prior_centres)):
                 random_loc = np.unravel_index(random_locations[j], self.rewardMap.shape)
                 #randX.append([random_loc,random_locations])
                 randX.append(random_loc)
@@ -134,13 +135,13 @@ class GPEnvMP(SearchEnvMP):
 
             randX = np.array(randX)
             # Y = np.clip(np.array(Y),self.min_var,self.max_var)
-            Xs = np.concatenate((self.prior_centres,randX),axis=0)
-
+            #Xs = np.concatenate((self.prior_centres,randX),axis=0)
+            Xs = np.array(randX)
 
             noiseMap = self.createRewardMap(Xs,self.prior_vars)
 
-            self.rewardMap = np.power(target_randomiser,1)*self.rewardMap/(self.rewardMap.max()-self.rewardMap.min()) + \
-                             (1-np.power(target_randomiser,1))*noiseMap/(noiseMap.max()- noiseMap.min()) + 0.2*random_noise
+            self.rewardMap = np.power(target_randomiser,1)*self.rewardMap/(self.rewardMap.max()) + \
+                             (1-np.power(target_randomiser,1))*noiseMap/(noiseMap.max()) + 0.2*random_noise
 
             self.obstacle_map = np.zeros((self.world_map_size, self.world_map_size)) + 1
             self.worldMap = np.zeros((self.world_map_size, self.world_map_size))  # for boundaries
