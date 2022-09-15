@@ -114,6 +114,10 @@ TRAIN_PATH = 'data/train/'+MODEL_NAME+'_'+DESCRIPTION
 MODEL_PATH = 'data/models/'+MODEL_NAME+'_'+DESCRIPTION
 GIFS_PATH = 'data/gifs/'+MODEL_NAME+'_'+DESCRIPTION
 LOAD_MODEL = True
+LOAD_BEST_MODEL = 0 # None for older versions, if LOAD Model gives an error
+# integer between 0 to 5 to load particular models
+NUM_SAVE_MODEL = 5
+
 SUMMARY_WINDOW = 10
 
 TEST_GIFS = False

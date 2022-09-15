@@ -91,8 +91,12 @@ if __name__=='__main__':
         os.makedirs(GIFS_PATH)
 
     if LOAD_MODEL:
+        if params['LOAD_BEST_MODEL'] is None:
+            load_path = MODEL_PATH+"/checkpoint.pkl"
+        else:
+            load_path = MODEL_PATH+"/checkpoint{}.pkl".format(params['LOAD_BEST_MODEL'])
         print('Loading Model')
-        checkpoint = torch.load(MODEL_PATH+"/checkpoint.pkl",map_location=params['DEVICE'])
+        checkpoint = torch.load(load_path,map_location=params['DEVICE'])
         global_model.load_state_dict(checkpoint['model_state_dict'])
         global_model.optim.load_state_dict(checkpoint['optimizer_state_dict'])
         curr_episode = checkpoint['epoch']
@@ -106,6 +110,7 @@ if __name__=='__main__':
 
     reinit_count = 0
     returns, best_return = [], -9999
+    save_number = 0
 
     if params['ALG_TYPE'] == 'SAC':
         replay_buffer = ReplayBuffer(global_model.buffer_keys_required(), params['CAPACITY'])
@@ -170,13 +175,16 @@ if __name__=='__main__':
                     reinit_count += 1
                     curr_episode += 1
 
-            if curr_episode % 100 == 0:
+
+            if curr_episode % 5000 == 0:
+
+                save_number = (save_number+1)% params['NUM_SAVE_MODEL']
                 print('Saving Model', end='\n')
                 checkpoint = {"model_state_dict": global_model.state_dict(),
                               "optimizer_state_dict": global_model.optim.state_dict(),
                               "epoch": curr_episode}
                 # path_checkpoint = "./" + model_path + "/checkpoint_{}_episode.pkl".format(curr_episode)
-                path_checkpoint =  MODEL_PATH + "/checkpoint.pkl"
+                path_checkpoint =  MODEL_PATH + "/checkpoint{}.pkl".format(save_number)
                 torch.save(checkpoint, path_checkpoint)
                 print('Saved Model', end='\n')
 
