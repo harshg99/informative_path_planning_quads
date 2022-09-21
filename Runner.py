@@ -46,4 +46,4 @@ if __name__ == '__main__':
     #neptune_run = Utilities.setup_neptune(params)
 
     rs = Runner(0,params)
-    rs.singleThreadedJob(500)
+    rs.singleThreadedJob(900)
