@@ -17,6 +17,7 @@ from env.env_setter import env_setter
 from copy import  deepcopy
 import argparse
 from env.searchenv import REWARD
+import seaborn
 
 class TrajectoryVisualisation:
     def __init__(self,args_dict:dict,map_index,map_size,model_path: str,gifs: bool):
@@ -46,43 +47,44 @@ class TrajectoryVisualisation:
         self.gifs = gifs
         self.env.reset(deepcopy(self.rewardmap), deepcopy(self.targetmap),deepcopy(orig_target_map))
 
-        plt.imshow(np.transpose(self.env.orig_worldMap), cmap='viridis',
+        plt.imshow(np.transpose(self.env.orig_worldMap), cmap='YlGn',
                    interpolation=None,
                    extent=[0, self.env.orig_worldMap.shape[0],
                            0, self.env.orig_worldMap.shape[1]],
                    origin="lower")
-        plt.colorbar(label='Probability of Target Occupancy')
-        plt.title('Agent Prior')
+        #plt.colorbar(label='Probability of Target Occupancy')
+        #plt.title('Agent Prior')
         plt.xlabel('x (m)')
         plt.ylabel('y (m)')
 
         plt.figure()
         plt.imshow(np.transpose(
             self.env.orig_target_distribution_map/self.env.orig_target_distribution_map.max()),
-            cmap='viridis',
+            cmap='YlGn',
             interpolation='spline36',
             extent=[0, self.env.orig_worldMap.shape[0],
                     0, self.env.orig_worldMap.shape[1]],
             origin="lower"
         )
 
-        plt.colorbar(label='Probability of Target Occupancy')
-        plt.title('Ground Truth Distribution')
+        #plt.colorbar(label='Probability of Target Occupancy')
+        #plt.title('Ground Truth Distribution')
         plt.xlabel('x (m)')
         plt.ylabel('y (m)')
 
-        plt.figure()
-        plt.xlabel('x (m)')
-        plt.ylabel('y (m)')
-        plt.imshow(np.transpose(self.env.orig_worldTargetMap), cmap='viridis',
+        #plt.figure()
+        # plt.xlabel('x (m)')
+        # plt.ylabel('y (m)')
+        plt.imshow(np.transpose(self.env.orig_worldTargetMap), cmap='OrRd',
                    interpolation=None,
                    extent=[0, self.env.orig_worldMap.shape[0],
                            0, self.env.orig_worldMap.shape[1]],
-                   origin="lower")
-        plt.colorbar(label='Probability of Target Occupancy')
-        plt.title('Target Map')
-        plt.xlabel('x (m)')
-        plt.ylabel('y (m)')
+                   origin="lower",alpha=0.4)
+        #plt.colorbar(label='Probability of Target Occupancy')
+        #plt.title('Target Map')
+        # plt.xlabel('x (m)')
+        # plt.ylabel('y (m)')
+        #plt.show()
 
     def plan_action(self, observation,hidden_in=None):
 
@@ -99,6 +101,23 @@ class TrajectoryVisualisation:
         return action_dict,hidden_in
 
     # Choosing which test to run
+
+    def agent_obs_visualisation(self,frac):
+
+        if (frac <= 0.72 and frac >= 0.70):
+            observation = self.env.get_obs_all()
+            observation_agent = observation['obs'][0]
+            fig, axs = plt.subplots(observation_agent.shape[-1], 1)
+
+            for j in range(observation_agent.shape[-1]):
+                img = np.transpose(observation_agent[:,:,j])
+                cax_00 = axs[j].imshow(img,cmap='YlGn',origin='lower')
+                axs[j].xaxis.set_major_formatter(plt.NullFormatter())  # kill xlabels
+                axs[j].yaxis.set_major_formatter(plt.NullFormatter())  # kill ylabels
+
+        plt.show()
+        return
+
     def trajectory(self):
         observation = self.env.get_obs_all()
         episode_step = 0
@@ -108,6 +127,7 @@ class TrajectoryVisualisation:
         frames = []
         hidden_in = None
         plt.figure(figsize=(7, 6))
+
 
 
         while ((not self.args_dict['FIXED_BUDGET'] and
@@ -129,38 +149,19 @@ class TrajectoryVisualisation:
             #episode_rewards += np.array(rewards).sum()
             observation = self.env.get_obs_all()
 
+
+
             episode_step += 1
             if done:
                 break
 
             frac =  self.env.agents[0].agentBudget/(REWARD.MP.value*self.args_dict['BUDGET'])
-            if (frac<=0.5 and frac>=0.48) or \
-                    (frac<= 0.25 and frac>=0.23) or \
-                    (frac<= 0.01 and frac>=-0.01) or\
-                    (frac<=0.75 and frac>=0.73):
+            # agent channel visualisations
+            self.agent_obs_visualisation(frac)
+
+            if (frac<= 0.32 and frac>=0.30) or (frac<=0.72 and frac>=0.70):
                 plt.figure(figsize=(7, 6))
-                plt.imshow(np.transpose(self.env.orig_worldMap), cmap='viridis',
-                           interpolation=None,
-                           extent=[0, self.env.orig_worldMap.shape[0],
-                                   0, self.env.orig_worldMap.shape[1]],
-                           origin="lower")
-                plt.colorbar(label='Probability of Target Occupancy')
-                plt.xlabel('x (m)')
-                plt.ylabel('y (m)')
-
-                plt.plot(agent_poses[0][0], agent_poses[0][1], 'go', markersize=12)
-                plt.plot(agent_poses[-1][0], agent_poses[-1][1], 'ro', markersize=12)
-
-                for pose,mp in zip(agent_poses,primitives):
-                    if mp is not None:
-                        mp.translate_start_position(pose)
-                        mp.plot(position_only=True, step_size=.01)
-                        plt.plot(pose[0], pose[1], 'y.')
-
-
-
-                plt.figure(figsize=(7, 6))
-                plt.imshow(np.transpose(self.env.worldMap), cmap='viridis',
+                plt.imshow(np.transpose(self.env.worldMap), cmap='YlGn',
                            interpolation=None,
                            extent=[0, self.env.worldMap.shape[0],
                                    0, self.env.worldMap.shape[1]],
@@ -169,15 +170,67 @@ class TrajectoryVisualisation:
                 plt.xlabel('x (m)')
                 plt.ylabel('y (m)')
 
-                plt.plot(agent_poses[0][0], agent_poses[0][1], 'go', markersize=12)
+                # plt.plot(agent_poses[0][0], agent_poses[0][1], 'bo', markersize=12)
+                plt.plot(agent_poses[-1][0], agent_poses[-1][1], 'ro', markersize=12)
+
+                # for pose,mp in zip(agent_poses,primitives):
+                #     if mp is not None:
+                #         mp.translate_start_position(pose)
+                #         mp.plot(position_only=True, step_size=.01,color='black')
+                #         plt.plot(pose[0], pose[1], 'y.')
+
+
+
+                plt.figure(figsize=(7, 6))
+                plt.imshow(np.transpose(self.env.worldMap), cmap='YlGn',
+                           interpolation=None,
+                           extent=[0, self.env.worldMap.shape[0],
+                                   0, self.env.worldMap.shape[1]],
+                           origin="lower")
+                #plt.colorbar(label='Probability of Target Occupancy')
+                plt.xlabel('x (m)')
+                plt.ylabel('y (m)')
+                # plt.imshow(np.transpose(self.env.worldTargetMap), cmap='OrRd',
+                #            interpolation=None,
+                #            extent=[0, self.env.worldMap.shape[0],
+                #                    0, self.env.worldMap.shape[1]],
+                #            origin="lower",
+                #            alpha=0.4)
+
+                plt.plot(agent_poses[0][0], agent_poses[0][1], 'bo', markersize=12)
                 plt.plot(agent_poses[-1][0], agent_poses[-1][1], 'ro', markersize=12)
 
                 for pose, mp in zip(agent_poses, primitives):
                     if mp is not None:
                         mp.translate_start_position(pose)
-                        mp.plot(position_only=True, step_size=.01)
+                        mp.plot(position_only=True, step_size=.01,color='grey')
                         plt.plot(pose[0], pose[1], 'y.')
 
+        # resulting plots
+        plt.figure(figsize=(7, 6))
+        plt.imshow(np.transpose(self.env.worldMap), cmap='YlGn',
+                   interpolation=None,
+                   extent=[0, self.env.worldMap.shape[0],
+                           0, self.env.worldMap.shape[1]],
+                   origin="lower")
+        plt.colorbar(label='Probability of Target Occupancy')
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
+        # plt.imshow(np.transpose(self.env.worldTargetMap), cmap='OrRd',
+        #            interpolation=None,
+        #            extent=[0, self.env.worldMap.shape[0],
+        #                    0, self.env.worldMap.shape[1]],
+        #            origin="lower",
+        #            alpha=0.4)
+
+        plt.plot(agent_poses[0][0], agent_poses[0][1], 'bo', markersize=12)
+        plt.plot(agent_poses[-1][0], agent_poses[-1][1], 'ro', markersize=12)
+
+        for pose, mp in zip(agent_poses, primitives):
+            if mp is not None:
+                mp.translate_start_position(pose)
+                mp.plot(position_only=True, step_size=.01, color='grey')
+                plt.plot(pose[0], pose[1], 'y.')
 
         #pass
         plt.show()
