@@ -1,0 +1,87 @@
+name: randy
+assets:
+  sun:
+  - sun
+  ground_plane:
+  - ground_plane
+  assets:
+  - tag: big_box
+    description:
+      type: mesh
+      args:
+        visual_mesh: !file /home/legionnaire/.gazebo/models/big_box/meshes/big_box.dae
+        visual_mesh_scale: [1, 1, 1]
+        use_approximated_collision: True
+        approximated_collision_model: box
+        name: big_box
+        mass: 10
+        color: xkcd
+        use_approximated_inertia: True
+        approximated_inertia_model: box
+  # add assets tag before subsequent objects to be imported
+  # remove assets tag to create the interst map using python
+  assets:
+  - tag: rescue_randy
+    description:
+      type: mesh
+      args:
+        visual_mesh: !file /home/legionnaire/.gazebo/models/rescue_randy/meshes/rescue_randy.dae
+        visual_mesh_scale: [1, 1, 1]
+        use_approximated_collision: False
+        name: rescue_randy
+        mass: 5
+        color: xkcd
+
+
+engines:
+- engine_name: fixed_pose
+  models:
+  - ground_plane
+  poses:
+  - [0, 0, 0, 0, 0, 0]
+- engine_name: fixed_pose
+  models:
+  - sun
+  poses:
+  - [0, 0, 20, 0, 0, 0]
+- engine_name: fixed_pose
+  models:
+  - big_box
+  poses:
+  - [0, 4.5, 0, 0, 0, 0]
+  - [0, 1.5, 0, 0, 0, 0]
+  - [3, 4.5, 0, 0, 0, 0]
+  - [3, 1.5, 0, 0, 0, 0]
+  - [-3, 4.5, 0, 0, 0, 0]
+  - [-3, 1.5, 0, 0, 0, 0]
+  - [3.5, 9, 0, 0, 0, 0]
+  - [6.5, 9, 0, 0, 0, 0]
+  - [3.5, 6, 0, 0, 0, 0]
+  - [6.5, 6, 0, 0, 0, 0]
+  - [3.5, 12, 0, 0, 0, 0]
+  - [6.5, 12, 0, 0, 0, 0]
+  - [-3.5, 9, 0, 0, 0, 0]
+  - [-6.5, 9, 0, 0, 0, 0]
+  - [-3.5, 6, 0, 0, 0, 0]
+  - [-6.5, 6, 0, 0, 0, 0]
+  - [-3.5, 12, 0, 0, 0, 0]
+  - [-6.5, 12, 0, 0, 0, 0]
+  constraints:
+  - model: big_box
+    constraint: tangent_to_ground_plane
+- engine_name: fixed_pose
+  models:
+  - rescue_randy
+  poses:
+  - [5, 9, 0.75, 0, 0, 0]
+
+constraints:
+- name: tangent_to_ground_plane
+  type: tangent
+  frame: world
+  reference:
+    type: plane
+    args:
+        origin: [0, 0, 0]
+        normal: [0, 0, 1]
+physics: ./default_ode.yml

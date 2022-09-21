@@ -1,0 +1,12 @@
+numAgents = 1
+num_centers = [5,10]
+max_var = 25.
+min_var = 2.0
+seed = 45
+episode_length = 400
+pad_size = 5
+rewardMapSizeList = [30,45,60,90]
+randomMapSize = False
+defaultMapChoice = 0
+scale = [1,2,4]
+sensor_range = 5

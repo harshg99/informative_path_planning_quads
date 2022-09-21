@@ -25,6 +25,7 @@ m.rbf.lengthscale = 3
 print(m.rbf)
 # m.optimize()
 
+
 x = np.array([np.linspace(0, 29, 30), np.linspace(0, 29, 30)]).T  # np.random.uniform(-3.,3.,(200,2))
 
 x1Mesh, x2Mesh = np.meshgrid(x[:, 0:1], x[:, 1:2])
@@ -45,4 +46,4 @@ plt.colorbar()
 plt.show()
 
 script_dir = os.path.dirname(__file__)
-pickle.dump(yMesh, open(f'{script_dir}/trainingData/gaussian_mixture_training_data.pkl', "wb"))
+#pickle.dump(yMesh, open(f'{script_dir}/trainingData/gaussian_mixture_training_data.pkl', "wb"))

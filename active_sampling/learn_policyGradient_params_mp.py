@@ -17,10 +17,11 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
         self.mp_graph_file_name = mp_graph_file_name
         self.load_graph()
         self.spatial_dim = self.mp_graph.num_dims
-        self.Tau_horizon = 200
-        self.num_iterations = 500
+
+        self.Tau_horizon = 100
+        self.num_iterations = 1000
         self.num_trajectories = 10
-        self.Eta = .009
+        self.Eta = 0.015
 
     def load_graph(self):
         self.mp_graph = MotionPrimitiveLattice.load(self.mp_graph_file_name)
@@ -40,24 +41,22 @@ class LearnPolicyGradientParamsMP(LearnPolicyGradientParams):
         self.num_other_states = self.minimum_action_mp_graph.shape[0]
         self.num_actions_per_state = [len([j for j in i if j != None]) for i in self.minimum_action_mp_graph]
 
-    def get_next_state(self, pos, action, index):
-        # reset_map_index = int(np.floor(self.curr_state_index / self.mp_graph.num_tiles))
-        mp = deepcopy(self.minimum_action_mp_graph[index, action])
+    def get_next_state(self, absolute_pos, map_indices, action, action_index):
+        mp = deepcopy(self.minimum_action_mp_graph[action_index, action])
         if mp is not None:
-            mp.translate_start_position(pos)
+
+            mp.translate_start_position(absolute_pos)
+            worldmap_pos = self.absolutePosToIndexPos(mp.end_state[:self.spatial_dim])
+            is_valid = mp.is_valid and self.isValidPos(worldmap_pos)
             _, sp = mp.get_sampled_position()
-            # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
-            visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
-            is_valid = mp.is_valid
-            for state in visited_states.T:
-                is_valid = is_valid and self.isValidPos(state)
             if is_valid:
-                next_index = self.lookup_dictionary[index, action]
-                next_index = int(np.floor(next_index/self.mp_graph.num_tiles))
-                return mp.end_state[:self.spatial_dim], next_index, is_valid, visited_states, mp.cost/mp.subclass_specific_data.get('rho', 1)/10
+                visited_map_indices = np.unique(self.absolutePosToIndexPos(sp.T),axis=0)
+                next_action_index = int(np.floor(self.lookup_dictionary[action_index, action]/self.mp_graph.num_tiles))
+                return mp.end_state[:self.spatial_dim], next_action_index, is_valid, visited_map_indices, mp.cost/mp.subclass_specific_data.get('rho', 1000)
+
         # else:
         #     print('Warning: invalid MP is being selected')
-        return pos, index, False, None, None
+        return absolute_pos, action_index, False, map_indices.reshape(2, 1), None
 
     def set_up_training(self):
         self.theta = np.random.rand(self.num_features, self.num_other_states, self.num_actions)*0.1
@@ -71,13 +70,16 @@ if __name__ == '__main__':
     # pkg_path = rospack.get_path('motion_primitives')
     # pkg_path = f'{pkg_path}/motion_primitives_py/'
     # mpl_file = f"{pkg_path}data/lattices/lattice_test.json"
-    script_dir = os.path.dirname(active_sampling.__file__)
-    mpl_file = f'{script_dir}/latticeData/20.json'
 
-    import os
-    # lpgp = LearnPolicyGradientParamsMP(mpl_file)
-    lpgp = pickle.load(open(f'{script_dir}/testingData/lpgp.pkl', "rb"), encoding='latin1')
+    mpl_file = f'{os.path.dirname(active_sampling.__file__)}/latticeData/10.json'
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    lpgp = LearnPolicyGradientParamsMP(mpl_file)
+    lpgp.fileNm = "lpgp10"
+    # lpgp = pickle.load(open(f'{script_dir}/testingData/{lpgp.fileNm}.pkl', "rb"), encoding='latin1')
     lpgp.load_graph()
 
     rewardmap = pickle.load(open(f'{script_dir}/trainingData/gaussian_mixture_training_data.pkl', "rb"), encoding='latin1')
+    rewardmap = np.load('airport.npy')
+    lpgp.xy_resolution = .1
     lpgp.run_training(rewardmap)
