@@ -185,3 +185,54 @@ class AgentGP(AgentMP):
                     self.coverageMap[j,k] = 1.0
 
         return measurement_list
+
+
+
+class AgentSemantic(AgentMP):
+    def __init__(self,ID,row,col,map_size,pad,world_size,mp_graph,lookup,spatial_dim,tiles,sensor_params,budget=None):
+        super(AgentGP, self).__init__(ID,row,col,map_size,pad,world_size,mp_graph,lookup,spatial_dim,tiles,budget)
+        self.beliefMap = np.zeros([self.world_size,self.world_size])
+        self.targetMap = np.zeros([self.world_size,self.world_size])
+        self.sensor = sensor_setter.set_env(sensor_params)
+
+
+    def initBeliefMap(self,Map):
+        self.beliefMap = Map.copy()
+
+
+    def updatePos(self,action,beliefThresh = 0.99):
+        valid,states,cost = super(AgentGP, self).updatePos(action)
+        return valid,states,cost
+
+    def updateInfoTarget(self,visited_states,worldTargetMap,beliefThresh):
+        measurement_list = []
+        for state in visited_states:
+            r = state[0]
+            c = state[1]
+            range_ = int(self.sensor.sensor_range/2)
+            min_x = np.max([r - range_, 0])
+            min_y = np.max([c - range_, 0])
+            max_x = np.min([r + range_+1, self.beliefMap.shape[0]])
+            max_y = np.min([c + range_+1, self.beliefMap.shape[1]])
+            measurement = self.sensor.getMeasurement(state,worldTargetMap)
+            measurement_list.append(measurement)
+            for j in range(min_x,max_x):
+                for k in range(min_y,max_y):
+                    logodds_b_map = np.log(self.beliefMap[j,k]/(1-self.beliefMap[j,k]))
+                    sensor_log_odds = np.log((1-self.sensor.sensor_unc[j-(r-range_),k-(c-range_)])/ \
+                                            self.sensor.sensor_unc[j-(r-range_),k-(c-range_)])
+                    #print(sensor_log_odds)
+                    if measurement[j-(r-range_),k-(c-range_)]==0:
+                        logodds_b_map -= sensor_log_odds
+                    else:
+                        logodds_b_map += sensor_log_odds
+                    self.beliefMap[j,k] = 1/(np.exp(-logodds_b_map)+1)
+
+                # Update whether target is found
+
+                    if self.beliefMap[j,k]>=beliefThresh:
+                        self.targetMap[j,k]=2
+
+                    self.coverageMap[j,k] = 1.0
+
+        return measurement_list
