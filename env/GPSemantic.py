@@ -81,9 +81,12 @@ class GPSemanticMap:
         self.map_size = (self.config.world_map_size[0]*self.resolution[0],
                          self.config.world_map_size[1]*self.resolution[1],
                          self.config.num_semantics)
+
+
         self.semantic_map = None
         self.coverage_map = None
         self.obstacle_map = None
+        self.detected_semantic_map = None # current semantic category
 
         self.padding = self.config.padding
 
@@ -134,6 +137,9 @@ class GPSemanticMap:
 
         range = list(self.get_row_col(fov))
 
+        range[0] = scale*range[0]
+        range[1] = scale*range[1]
+
         min_x = np.max([r - range[0], 0])
         min_y = np.max([c - range[1], 0])
         max_x = np.min([r + range[0], self.map_size[0]])
@@ -145,6 +151,13 @@ class GPSemanticMap:
 
         feature = block_reduce(feature, (scale, scale), np.max)
 
+        distances = self.distances(range,scale)
+
+            # print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
+        return np.array(feature),distances
+
+    def distances(self,range,scale):
+
         distances_x = np.repeat(np.expand_dims(
             np.arange(2*range[1])/self.resolution[1],axis=0),
                 repeats=2*range[0],axis=0)
@@ -155,26 +168,28 @@ class GPSemanticMap:
         distances_y = np.square(distances_y-range[0])
 
         distances = distances_x + distances_y
-
-            # print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
-        return np.array(feature),distances
-
+        distances = block_reduce(distances, (scale, scale), np.max)
+        return distances
 
     def init_map(self, load_dict = None):
 
         '''
         @ params: Initializes the semantic, coverage and obstacle maps
         '''
+        # TODO detected semantic map to change accordingly,stores only the semantic label
         if load_dict is None:
             self.semantic_map = cupy.array(np.zeros(shape=self.map_size))
             self.coverage_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
             self.obstacle_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
+            self.detected_semantic_map =  cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1]))) -1
         else:
-            # TODO: Load the semantic map from the file path
-
+            # Load the semantic map from the file path
+            self.semantic_map = cupy.array(np.load(load_dict['semantic_file_path']))
             self.coverage_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
             self.obstacle_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
-            raise NotImplementedError
+            self.detected_semantic_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1]))) -1
+
+
 
     def init_prior_semantics(self, similarity_index = None):
         '''
@@ -193,45 +208,52 @@ class GPSemanticMap:
     Returns the total entropy at the desired locations
     '''
 
-    def updateSemantics(self, visited_states, measurement_list):
+    def updateSemantics(self, visited_states, measurement_list,sensor_params):
         '''
             Measurement sites
         '''
         # reward_coverage = 0
-        coverage = deepcopy(self.worldBeliefMap)
-        initial_belief = deepcopy(self.worldBeliefMap)
+        coverage = deepcopy(self.coverage_map)
+        initial_belief = deepcopy(self.semantic_map)
+
+        sensor_max_unc = sensor_params['sensor_max_acc']
+        sensor_range = sensor_params['sensor_range']
+        coeff = sensor_params['sensor_decay_coeff']
+        sensor_range_map = self.get_row_col(sensor_range)
+
+        distances = self.distances(sensor_range,scale = 1)
+
+        # asseeting if the measurement shape is equivalent to the sensor shape
+        assert 2*sensor_range_map[0] == measurement_list[0].shape[0]
+
         for state, measurement in zip(visited_states.tolist(), measurement_list):
-            r = state[0]
-            c = state[1]
-            range_ = int(self.sensor_params['sensor_range'] / 2)
-            min_x = np.max([r - range_, 0])
-            min_y = np.max([c - range_, 0])
-            max_x = np.min([r + range_ + 1, self.worldBeliefMap.shape[0]])
-            max_y = np.min([c + range_ + 1, self.worldBeliefMap.shape[1]])
-            for j in range(min_x, max_x):
-                for k in range(min_y, max_y):
-                    coverage[j, k] = 0
-                    logodds_b_map = np.log(self.worldBeliefMap[j, k] / (1 - self.worldBeliefMap[j, k]))
-                    # log_odds_prior_map = np.log(0.5*self.orig_worldTargetMap[j,k]/(1-0.5*self.orig_worldTargetMap[j,k]))
-                    log_odds_prior_map = np.log(1),
-                    sensor_log_odds = np.log(
-                        (1 - self.sensor_params['sensor_unc'][j - (r - range_), k - (c - range_)]) / \
-                        self.sensor_params['sensor_unc'][j - (r - range_), k - (c - range_)])
-                    # print(sensor_log_odds)
-                    if measurement[j - (r - range_), k - (c - range_)] == 0:
-                        logodds_b_map -= (sensor_log_odds + log_odds_prior_map)
-                    else:
-                        logodds_b_map += (sensor_log_odds - log_odds_prior_map)
-                    self.worldBeliefMap[j, k] = 1 / (np.exp(-logodds_b_map) + 1)
+            r,c = self.get_row_col(state)
+            min_x = np.max([r - sensor_range_map[0], 0])
+            min_y = np.max([c - sensor_range_map[1], 0])
+            max_x = np.min([r + sensor_range_map[0] + 1, self.semantic_map.shape[0]])
+            max_y = np.min([c + sensor_range_map[1] + 1, self.semantic_map.shape[1]])
 
-                    # Update whether target is found
+            self.coverage_map[min_x:max_x,min_y:max_y] = 1.
 
-                    if self.worldBeliefMap[j, k] >= self.targetBeliefThresh and self.worldTargetMap[j, k] > 0:
-                        self.worldTargetMap[j, k] = 2
+            sensor_odds =  np.log(sensor_max_unc *(1-coeff*distances)/(1-sensor_max_unc *(1-coeff*distances)))
+            semantic_map_log_odds = np.log(self.semantic_map[min_x:max_x, min_y:max_y,:]\
+                                           / (1 - self.semantic_map[min_x:max_x,min_y:max_y,:]))
+            semantic_map_log_odds -= sensor_odds[min_x- (r - sensor_range_map[0]) : max_x - (r-sensor_range_map[0])]\
+                                                [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]
+            semantic_map_log_odds[min_x:max_x,min_y:max_y,measurement] += 2*sensor_odds[min_x- (r - sensor_range_map[0]) : max_x - (r-sensor_range_map[0])]\
+                                                [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]
+            self.semantic_map[min_x:max_x,min_y:max_y] =  1 / (np.exp(-semantic_map_log_odds) + 1)
 
-        reward_coverage = -(coverage - initial_belief).sum() / self.original_worldBeliefMap_sum * REWARD.PMAP.value
-        return reward_coverage
+            self.detected_semantic_map[min_x:max_x,min_y:max_y,np.max(self.semantic_map
+                                    [min_x:max_x,min_y:max_y,:],axis=-1)>self.targetBeliefThresh] = \
+                np.argmax(self.semantic_map[min_x:max_x,min_y:max_y,np,max(
+                          self.semantic_map[min_x:max_x,min_y:max_y,:],axis=-1)>self.targetBeliefThresh],axis=-1)
 
+    def compute_entropy(self):
+        '''
+        returns the entropy in the semantic map classification results
+        '''
+        return np.sum(np.log(np.clip(self.semantic_map,1e-6,1.0))*self.semantic_map)
 
 # TODO: New gym environment with observation structure
 
@@ -253,7 +275,62 @@ class GPSemanticGym(gym.Env):
     Handles the motion primitive search
     '''
     def __init__(self, params_dict,args_dict):
-        super().__init__(params_dict,args_dict)
+        super(GPSemanticGym, self).__init__()
+
+        # Necessary parameters for semantic environments
+        self.numAgents = params_dict['numAgents']
+        self.worldMap = None
+        self.rewardMap = None
+        self.trajMap = None
+        self.agentMap = None
+        self.obstacle_map = None
+        self.args_dict = args_dict
+
+        # Multiple Reward Map Size choices
+        self.reward_map_size_list = params_dict['rewardMapSizeList']
+        self.random_map_size = params_dict['randomMapSize']
+
+        if self.random_map_size:
+            self.reward_map_size = np.random.choice(self.reward_map_size_list)
+        else:
+            self.reward_map_size = self.reward_map_size_list[params_dict['defaultMapChoice']]
+
+        # Parameters to create training maps
+        self.centers = params_dict['num_centers']
+        self.max_var = params_dict['max_var']
+        self.min_var = params_dict['min_var']
+        self.pad_size = params_dict['pad_size']
+        self.scale = params_dict['scale']
+        self.world_map_size = self.reward_map_size + 2 * self.pad_size
+
+        self.action_size = len(ACTIONS)
+        self.episode_length = params_dict['episode_length']
+        self.sensor_range = params_dict['sensor_range']
+        self.max_steps = params_dict['episode_length']
+
+        if SET_SEED:
+            self.seed = params_dict['seed']
+        self.viewer = None
+
+        if OBSERVER == 'RANGE':
+            self.input_size = [2 * RANGE, 2 * RANGE, 1]
+        elif OBSERVER == 'TILED':
+            self.input_size = [24, 1, 1]
+        elif OBSERVER == 'TILEDwOBS':
+            self.input_size = [48, 1, 1]
+        elif OBSERVER == 'RANGEwOBS':
+            self.input_size = [2 * RANGE, 2 * RANGE, 2]
+        elif OBSERVER == 'RANGEwOBSwNEIGH':
+            self.input_size = [2 * (RANGE + 1), 2 * (RANGE + 1), 2]
+        elif OBSERVER == 'RANGEwOBSwPENC':
+            self.input_size = [2 * RANGE, 2 * RANGE, 4]
+        elif OBSERVER == 'RANGEwOBSwMULTI':
+            self.map_length = 2
+            self.input_size = [2 * RANGE, 2 * RANGE, len(self.scale) * 2]
+        elif OBSERVER == 'RANGEwOBSwMULTIwCOV':
+            self.map_length = 2
+            self.input_size = [2 * RANGE, 2 * RANGE, len(self.scale) * 3]
+
         if 'home_dir' not in params_dict.keys():
             self.mp_graph_file_name = os.getcwd()+ '/env/'+params_dict['graph_file_name']
         else:
@@ -261,6 +338,14 @@ class GPSemanticGym(gym.Env):
         self.load_graph()
         self.create_mp_graph_encodings()
         self.spatial_dim = self.mp_graph.num_dims
+
+        self.defaultBelief = params_dict['defaultBelief']
+        self.sensor_params = params_dict['sensor_params']
+        self.numrand_targets = params_dict['num_targets']
+        self.targetBeliefThresh = params_dict['targetBeliefThresh']
+        self.noise_max_var = params_dict['noise_max_var']
+        self.noise_min_var = params_dict['noise_min_var']
+        self.metrics = SemanticMetrics()
 
     def load_graph(self):
         self.mp_graph = MotionPrimitiveLattice.load(self.mp_graph_file_name)
@@ -347,6 +432,7 @@ class GPSemanticGym(gym.Env):
                 valids.append(0)
         return np.array(action_coeffs),valids,np.array(mp_embeds)
 
+    # TODO
     def get_obs_all(self):
         obs = []
         agents_actions = []
@@ -395,6 +481,220 @@ class GPSemanticGym(gym.Env):
             obs_dict['budget'] = np.array(agent_budgets)
         return obs_dict
 
+    def get_obs_tiled_wobs(self,agentID):
+
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
+        phi_prime = []
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if not (i == 0 and j == 0):
+                    phi_prime.append(self.worldMap[r + i, c + j])
+                    phi_prime.append(self.obstacle_map[r+i,c+j])
+                    phi_prime.append(self.phi_from_map_coords((r - 1 + 3 * i, r - 1 + 3 * (i + 1)),
+                                                         (c - 1 + 3 * j, c - 1 + 3 * (j + 1))))
+                    phi_prime.append(self.phi_from_map_coords((r - 1 + 3 * i, r - 1 + 3 * (i + 1)),
+                                                              (c - 1 + 3 * j, c - 1 + 3 * (j + 1)),map=self.obstacle_map))
+
+        for i in ((0, r - 4), (r - 4, r + 5), (r + 5, self.world_map_size)):
+            for j in ((0, c - 4), (c - 4, c + 5), (c + 5, self.world_map_size)):
+                if not (i == (r - 4, r + 5) and j == (c - 4, c + 5)):
+                    phi_prime.append(self.phi_from_map_coords(i, j))
+                    phi_prime.append(self.phi_from_map_coords(i, j,map=self.obstacle_map))
+
+        phi_prime = np.squeeze(np.array([phi_prime]))
+        phi_prime = np.expand_dims(np.expand_dims(phi_prime, axis=-1), axis=-1)
+        return phi_prime
+
+    def get_obs_tiled(self, agentID):
+
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
+        phi_prime = []
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if not (i == 0 and j == 0):
+                    phi_prime.append(self.worldMap[r + i, c + j])
+                    phi_prime.append(self.phi_from_map_coords_max((r - 1 + 3 * i, r - 1 + 3 * (i + 1)),
+                                                                  (c - 1 + 3 * j, c - 1 + 3 * (j + 1))))
+
+        for i in ((0, r - 4), (r - 4, r + 5), (r + 5, self.world_map_size)):
+            for j in ((0, c - 4), (c - 4, c + 5), (c + 5, self.world_map_size)):
+                if not (i == (r - 4, r + 5) and j == (c - 4, c + 5)):
+                    phi_prime.append(self.phi_from_map_coords_max(i, j))
+
+        phi_prime = np.squeeze(np.array([phi_prime]))
+        phi_prime = np.expand_dims(np.expand_dims(phi_prime,axis=-1),axis=-1)
+        return phi_prime
+
+    def get_obs_all(self):
+        obs = []
+        for j in range(self.numAgents):
+            if OBSERVER == 'TILED':
+                obs.append(self.get_obs_tiled(agentID=j))
+            elif OBSERVER == 'RANGE':
+                obs.append(self.get_obs_ranged(agentID=j))
+            elif OBSERVER == 'TILEDwOBS':
+                obs.append(self.get_obs_tiled_wobs(agentID=j))
+            elif OBSERVER == 'RANGEwOBS':
+                obs.append(self.get_obs_ranged_wobs(agentID=j))
+            elif OBSERVER == 'RANGEwOBSwPENC':
+                obs.append(self.get_obs_ranged_wobspenc(agentID=j))
+        obs_dict = dict()
+        obs_dict['obs'] = obs
+        obs_dict['valids'] = None
+        return obs_dict
+
+    def get_obs_ranged(self,agentID):
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
+        min_x = np.max(r - RANGE,0)
+        min_y = np.max(c - RANGE,0)
+        max_x = np.min(r + RANGE,self.worldMap.shape[0])
+        max_y = np.min(c + RANGE,self.worldMap.shape[1])
+
+        infomap_feature = np.zeros((2*RANGE,2*RANGE))
+        infomap_feature[min_x-(r-RANGE):2*RANGE - (r+RANGE-max_x),\
+                        min_y-(c-RANGE):2*RANGE - (c+RANGE-max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
+        #print("%d %d %d %d".format(min_x,min_y,max_x,max_y))
+
+        infomap_feature = np.expand_dims(infomap_feature,axis=-1)
+
+        return infomap_feature
+
+
+    def get_obs_ranged_wobs(self,agentID):
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
+        min_x = np.max([r - RANGE,0])
+        min_y = np.max([c - RANGE,0])
+        max_x = np.min([r + RANGE,self.worldMap.shape[0]])
+        max_y = np.min([c + RANGE,self.worldMap.shape[1]])
+
+        infomap_feature = np.zeros((2 * RANGE, 2 * RANGE))
+        obsmap_feature = np.ones((2 * RANGE, 2 * RANGE))
+        infomap_feature[min_x - (r - RANGE):2 * RANGE - (r + RANGE - max_x), \
+        min_y - (c - RANGE):2 * RANGE - (c + RANGE - max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
+
+        obsmap_feature[min_x - (r - RANGE):2 * RANGE - (r + RANGE - max_x), \
+        min_y - (c - RANGE):2 * RANGE - (c + RANGE - max_y)] = self.obstacle_map[min_x:max_x, min_y:max_y]
+
+        features = np.expand_dims(infomap_feature, axis=-1)
+        features = np.concatenate((features, np.expand_dims(obsmap_feature, axis=-1)), axis=-1)
+
+        return np.array(features)
+
+    def get_obs_ranged_wobspenc(self,agentID):
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
+        min_x = np.max([r - RANGE,0])
+        min_y = np.max([c - RANGE,0])
+        max_x = np.min([r + RANGE,self.worldMap.shape[0]])
+        max_y = np.min([c + RANGE,self.worldMap.shape[1]])
+
+        infomap_feature = np.zeros((2*RANGE,2*RANGE))
+        obsmap_feature = np.ones((2 * RANGE, 2 * RANGE))
+        infomap_feature[min_x-(r-RANGE):2*RANGE - (r+RANGE-max_x),\
+                        min_y-(c-RANGE):2*RANGE - (c+RANGE-max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
+
+        obsmap_feature[min_x-(r-RANGE):2*RANGE - (r+RANGE-max_x),\
+                        min_y-(c-RANGE):2*RANGE - (c+RANGE-max_y)] = self.obstacle_map[min_x:max_x,min_y:max_y]
+
+        penc_x = np.expand_dims(np.arange(start=0,stop=1,step=1/(2*RANGE))-0.5,axis=1)\
+            .repeat(repeats=2*RANGE,axis=1)
+        penc_y = np.expand_dims(np.arange(start=0, stop=1, step=1 / (2 * RANGE))-0.5, axis=0)\
+            .repeat(repeats=2 * RANGE,axis=0)
+
+        features = np.expand_dims(infomap_feature,axis=-1)
+        features = np.concatenate((features,np.expand_dims(obsmap_feature,axis=-1),\
+                         np.expand_dims(penc_x,axis=-1),np.expand_dims(penc_y,axis=-1)),axis=-1)
+        #print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
+        return np.array(features)
+
+
+    def get_obs_range_wobs_multi(self,agentID):
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
+
+        range = RANGE
+        for s in self.scale:
+            range = s*RANGE
+            min_x = np.max([r - range, 0])
+            min_y = np.max([c - range, 0])
+            max_x = np.min([r + range, self.worldMap.shape[0]])
+            max_y = np.min([c + range, self.worldMap.shape[1]])
+
+            infomap_feature = np.zeros((2 * range, 2 * range))
+            obsmap_feature = np.zeros((2 * range, 2 * range))
+            infomap_feature[min_x - (r - range):2 * range - (r + range - max_x), \
+            min_y - (c - range):2 * range - (c + range - max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
+
+            obsmap_feature[min_x - (r - range):2 * range - (r + range - max_x), \
+            min_y - (c - range):2 * range - (c + range - max_y)] = self.obstacle_map[min_x:max_x, min_y:max_y]
+
+            if s==1:
+                features = np.expand_dims(infomap_feature, axis=-1)
+                features = np.concatenate((features, np.expand_dims(obsmap_feature, axis=-1)), axis=-1)
+            else:
+                infomap_feature = block_reduce(infomap_feature,(s,s),np.max)
+                obsmap_feature = block_reduce(obsmap_feature,(s,s),np.max)
+                features = np.concatenate((features,np.expand_dims(infomap_feature, axis=-1)), axis=-1)
+                features = np.concatenate((features,np.expand_dims(obsmap_feature, axis=-1)), axis=-1)
+
+
+
+        # print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
+        return np.array(features)
+
+    def get_obs_range_coverage_multifov(self,agentID):
+        r = self.agents[agentID].pos[0]
+        c = self.agents[agentID].pos[1]
+
+        range = RANGE
+        for s in self.scale:
+            range = s * RANGE
+            min_x = np.max([r - range, 0])
+            min_y = np.max([c - range, 0])
+            max_x = np.min([r + range, self.worldMap.shape[0]])
+            max_y = np.min([c + range, self.worldMap.shape[1]])
+
+            infomap_feature = np.zeros((2 * range, 2 * range))
+            obsmap_feature = np.zeros((2 * range, 2 * range))
+
+            coverage_feature = np.zeros((2 * range, 2 * range))
+
+            coverage_feature[min_x - (r - range):2 * range - (r + range - max_x), \
+            min_y - (c - range):2 * range - (c + range - max_y)] = self.agents[agentID].coverageMap[min_x:max_x,min_y:max_y]
+
+            infomap_feature[min_x - (r - range):2 * range - (r + range - max_x), \
+            min_y - (c - range):2 * range - (c + range - max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
+
+            obsmap_feature[min_x - (r - range):2 * range - (r + range - max_x), \
+            min_y - (c - range):2 * range - (c + range - max_y)] = self.obstacle_map[min_x:max_x, min_y:max_y]
+
+            if s == 1:
+                features = np.expand_dims(infomap_feature, axis=-1)
+                features = (features,
+                            np.expand_dims(obsmap_feature, axis=-1),
+                            np.expand_dims(coverage_feature, axis=-1))
+
+                features = np.concatenate(features, axis=-1)
+
+            else:
+                infomap_feature = block_reduce(infomap_feature, (s, s), np.max)
+                obsmap_feature = block_reduce(obsmap_feature, (s, s), np.max)
+                coverage_feature = block_reduce(coverage_feature, (s, s), np.max)
+
+                features = (features,
+                            np.expand_dims(infomap_feature, axis=-1),
+                            np.expand_dims(obsmap_feature, axis=-1),
+                            np.expand_dims(coverage_feature, axis=-1))
+                features = np.concatenate(features, axis=-1)
+
+
+        # print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
+        return np.array(features)
+
 
     def get_next_state(self, pos, action, index):
         # reset_map_index = int(np.floor(self.curr_state_index / self.mp_graph.num_tiles))
@@ -418,9 +718,8 @@ class GPSemanticGym(gym.Env):
         return pos, index, False, None, None
 
     '''
-        Creates the world with reward map and agents
-        '''
-
+         Creates and loads the ground turth semantics world and intializes a prior        '''
+    #TODO
     def createWorld(self, rewardMap=None):
         super().createWorld(rewardMap)
         # Creating the agents
@@ -429,27 +728,28 @@ class GPSemanticGym(gym.Env):
         else:
             agentBudget = None
 
-        MPObj = MPObject(minimum_action_mp_grpah=self.minimum_action_mp_graph,
+        self.mp_object = MPObject(minimum_action_mp_grpah=self.minimum_action_mp_graph,
                          lookup_dict=self.lookup_dictionary,
                          spatial_dim=self.spatial_dim,
                          num_tiles=self.mp_graph.num_tiles)
 
-        if SPAWN_RANDOM_AGENTS
+        if SPAWN_RANDOM_AGENTS:
             row = np.random.randint(self.pad_size, self.reward_map_size + self.pad_size, (self.numAgents,))
             col = np.random.randint(self.pad_size, self.reward_map_size + self.pad_size, (self.numAgents,))
             # TODO:  mODIFY ONCE AGENT BASE CLASS IS MODIFIED
             self.agents = [
                 AgentSemantic(ID = j, pos = [row[j], col[j]],
-                        self.reward_map_size, self.pad_size, self.world_map_size, \
-                        self.minimum_action_mp_graph, self.lookup_dictionary, \
-                        self.spatial_dim, self.mp_graph.num_tiles, self.sensor_params, agentBudget) for j in
-                range(self.numAgents)]
+                        groundTruth= self.groundTruthMap,
+                        mp_object = self.mp_object, \
+                        sensor_params = self.sensor_params,
+                        budget = agentBudget) for j in range(self.numAgents)]
         else:
             self.agents = [
-                AgentGP(j, self.reward_map_size + int(j / (int(j / 2))), self.reward_map_size + (j % (int(j / 2))), \
-                        self.reward_map_size, self.pad_size, self.world_map_size, \
-                        self.minimum_action_mp_graph, self.lookup_dictionary, self.spatial_dim, \
-                        self.mp_graph.num_tiles, self.sensor_params, agentBudget) for j in range(self.numAgents)]
+                AgentSemantic(ID = j, pos = [10,10],
+                        groundTruth= self.groundTruthMap,
+                        mp_object = self.mp_object, \
+                        sensor_params = self.sensor_params,
+                        budget = agentBudget) for j in range(self.numAgents)]
 
     def step_all(self,action_dict):
         rewards = []
@@ -477,6 +777,7 @@ class GPSemanticGym(gym.Env):
 
         return rewards, done
 
+    #TODO
     def step(self,agentID,action):
         """
         Given the current state and action, return the next state
@@ -502,6 +803,7 @@ class GPSemanticGym(gym.Env):
             return reward
         return 0
 
+    #todo
     def render(self, mode='visualise', W=800, H=800):
         # TODO: Get rid of this crap, need to renbder via the GPU
         if self.viewer is None:
