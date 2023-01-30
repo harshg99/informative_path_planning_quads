@@ -724,8 +724,8 @@ class GPSemanticGym(gym.Env):
         return rewards, done
 
     def _coverage(self, InitialBelief,FinalBelief):
-        return (FinalBelief.coverageMap.sum() - InitialBelief.coverageMap.sum())\
-               /(np.prod(FinalBelief.coverageMap.shape))
+        return (FinalBelief.coverageMap.sum() - InitialBelief.coverage_map.sum())\
+               /(np.prod(FinalBelief.coverage_map.shape))
 
 
     def _getReward(self,InitialBelief,FinalBelief):
