@@ -279,11 +279,6 @@ class GPSemanticGym(gym.Env):
 
         # Necessary parameters for semantic environments
         self.numAgents = params_dict['numAgents']
-        self.worldMap = None
-        self.rewardMap = None
-        self.trajMap = None
-        self.agentMap = None
-        self.obstacle_map = None
         self.args_dict = args_dict
 
         # Multiple Reward Map Size choices
@@ -308,31 +303,36 @@ class GPSemanticGym(gym.Env):
         self.sensor_range = params_dict['sensor_range']
         self.max_steps = params_dict['episode_length']
 
-        if SET_SEED:
+        #Observation space setting
+        if self.args_dict['SET_SEED']:
             self.seed = params_dict['seed']
         self.viewer = None
 
-        RANGE = RANGE * RESOLUTION
+        RANGE = self.args_dict['RANGE'] * self.args_dict['RESOLUTION']
 
-        if OBSERVER == 'RANGE':
+        if self.args_dict['OBSERVER'] == 'RANGE':
             self.input_size = [2 * RANGE, 2 * RANGE, 1]
-        elif OBSERVER == 'TILED':
+        elif self.args_dict['OBSERVER'] == 'TILED':
             self.input_size = [24, 1, 1]
-        elif OBSERVER == 'TILEDwOBS':
+        elif self.args_dict['OBSERVER'] == 'TILEDwOBS':
             self.input_size = [48, 1, 1]
-        elif OBSERVER == 'RANGEwOBS':
+        elif self.args_dict['OBSERVER'] == 'RANGEwOBS':
             self.input_size = [2 * RANGE, 2 * RANGE, 2]
-        elif OBSERVER == 'RANGEwOBSwNEIGH':
+        elif self.args_dict['OBSERVER'] == 'RANGEwOBSwNEIGH':
             self.input_size = [2 * (RANGE + 1), 2 * (RANGE + 1), 2]
-        elif OBSERVER == 'RANGEwOBSwPENC':
+        elif self.args_dict['OBSERVER'] == 'RANGEwOBSwPENC':
             self.input_size = [2 * RANGE, 2 * RANGE, 4]
-        elif OBSERVER == 'RANGEwOBSwMULTI':
+        elif self.args_dict['OBSERVER'] == 'RANGEwOBSwMULTI':
             self.map_length = 2
             self.input_size = [2 * RANGE, 2 * RANGE, len(self.scale) * 2]
-        elif OBSERVER == 'RANGEwOBSwMULTIwCOV':
+        elif self.args_dict['OBSERVER'] == 'RANGEwOBSwMULTIwCOV':
             self.map_length = 2
             self.input_size = [2 * RANGE, 2 * RANGE, len(self.scale) * 3]
 
+        self.observation_space = gym.spaces.Box(
+            low=0, high=1, shape=self.input_size, dtype=np.float)
+
+        # Motion primitve library parameters
         if 'home_dir' not in params_dict.keys():
             self.mp_graph_file_name = os.getcwd()+ '/env/'+params_dict['graph_file_name']
         else:
@@ -345,6 +345,18 @@ class GPSemanticGym(gym.Env):
         self.target_noise_scale = params_dict['TARGET_NOISE_SCALE']  # scale for setting random locations
         self.random_centres = params_dict['RANDOM_CENTRES']
         self.centre_size = params_dict['CENTRE_SIZE']
+
+
+        # Initialize the maps
+        map_config_dict = {
+            'resolution':self.env_params['resolution'],
+            'world_map_size':self.world_map_size,
+            'padding':self.pad_size
+        }
+        self.groundTruthSemanticMap = GPSemanticMap(map_config_dict,isGroundTruth=True)
+        self.beliefSemanticMap = GPSemanticMap(map_config_dict)
+
+        # Initlize the metrics
         self.metrics = SemanticMetrics()
 
     def load_graph(self):
@@ -443,19 +455,19 @@ class GPSemanticGym(gym.Env):
         mp_embeds = []
         agent_budgets = []
         for j in range(self.numAgents):
-            if OBSERVER == 'TILED':
+            if self.args_dict['OBSERVER'] == 'TILED':
                 obs.append(self.get_obs_tiled(agentID=j))
-            elif OBSERVER == 'RANGE':
+            elif self.args_dict['OBSERVER'] == 'RANGE':
                 obs.append(self.get_obs_ranged(agentID=j))
-            elif OBSERVER == 'TILEDwOBS':
+            elif self.args_dict['OBSERVER'] == 'TILEDwOBS':
                 obs.append(self.get_obs_tiled_wobs(agentID=j))
-            elif OBSERVER == 'RANGEwOBS':
+            elif self.args_dict['OBSERVER'] == 'RANGEwOBS':
                 obs.append(self.get_obs_ranged_wobs(agentID=j))
-            elif OBSERVER == 'RANGEwOBSwPENC':
+            elif self.args_dict['OBSERVER'] == 'RANGEwOBSwPENC':
                 obs.append(self.get_obs_ranged_wobspenc(agentID=j))
-            elif OBSERVER == 'RANGEwOBSwMULTI':
+            elif self.args_dict['OBSERVER'] == 'RANGEwOBSwMULTI':
                 obs.append(self.get_obs_range_wobs_multi(agentID=j))
-            elif OBSERVER == 'RANGEwOBSwMULTIwCOV':
+            elif self.args_dict['OBSERVER'] == 'RANGEwOBSwMULTIwCOV':
                 obs.append(self.get_obs_range_coverage_multifov(agentID=j))
 
             coeffs,valid,mp_embed = self.get_mps(j)
@@ -530,15 +542,15 @@ class GPSemanticGym(gym.Env):
     def get_obs_all(self):
         obs = []
         for j in range(self.numAgents):
-            if OBSERVER == 'TILED':
+            if self.args_dict['OBSERVER'] == 'TILED':
                 obs.append(self.get_obs_tiled(agentID=j))
-            elif OBSERVER == 'RANGE':
+            elif self.args_dict['OBSERVER'] == 'RANGE':
                 obs.append(self.get_obs_ranged(agentID=j))
-            elif OBSERVER == 'TILEDwOBS':
+            elif self.args_dict['OBSERVER'] == 'TILEDwOBS':
                 obs.append(self.get_obs_tiled_wobs(agentID=j))
-            elif OBSERVER == 'RANGEwOBS':
+            elif self.args_dict['OBSERVER'] == 'RANGEwOBS':
                 obs.append(self.get_obs_ranged_wobs(agentID=j))
-            elif OBSERVER == 'RANGEwOBSwPENC':
+            elif self.args_dict['OBSERVER'] == 'RANGEwOBSwPENC':
                 obs.append(self.get_obs_ranged_wobspenc(agentID=j))
         obs_dict = dict()
         obs_dict['obs'] = obs
