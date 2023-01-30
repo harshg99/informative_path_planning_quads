@@ -214,8 +214,11 @@ class AgentSemantic :
         self.prev_action = 0
         self.pos_actual = self.pos.copy()
 
-        self.localSemanticMap = np.zeros([self.world_size,self.world_size])
-        self.worldSemanticMap = np.zeros([self.world_size,self.world_size])
+
+        self.beliefSemanticMap = GPSemanticMap(groundTruth.config)
+        self.gtSemanticMap = groundTruth
+
+        self.sensor_params = sensor_params
         self.sensor = sensor_setter.set_env(sensor_params)
 
 
@@ -302,35 +305,12 @@ class AgentSemantic :
         return is_valid
 
 
-    def updateInfoTarget(self,visited_states,worldTargetMap,beliefThresh):
+    def updateSemantics(self,visited_states):
         measurement_list = []
+
         for state in visited_states:
-            r = state[0]
-            c = state[1]
-            range_ = int(self.sensor.sensor_range/2)
-            min_x = np.max([r - range_, 0])
-            min_y = np.max([c - range_, 0])
-            max_x = np.min([r + range_+1, self.beliefMap.shape[0]])
-            max_y = np.min([c + range_+1, self.beliefMap.shape[1]])
-            measurement = self.sensor.getMeasurement(state,worldTargetMap)
+            measurement = self.sensor.getMeasurement(state,self.gtSemanticMap)
             measurement_list.append(measurement)
-            for j in range(min_x,max_x):
-                for k in range(min_y,max_y):
-                    logodds_b_map = np.log(self.beliefMap[j,k]/(1-self.beliefMap[j,k]))
-                    sensor_log_odds = np.log((1-self.sensor.sensor_unc[j-(r-range_),k-(c-range_)])/ \
-                                            self.sensor.sensor_unc[j-(r-range_),k-(c-range_)])
-                    #print(sensor_log_odds)
-                    if measurement[j-(r-range_),k-(c-range_)]==0:
-                        logodds_b_map -= sensor_log_odds
-                    else:
-                        logodds_b_map += sensor_log_odds
-                    self.beliefMap[j,k] = 1/(np.exp(-logodds_b_map)+1)
-
-                # Update whether target is found
-
-                    if self.beliefMap[j,k]>=beliefThresh:
-                        self.targetMap[j,k]=2
-
-                    self.coverageMap[j,k] = 1.0
+            self.beliefSemanticMap.updateSemantics(state,measurement,self.sensor_params)
 
         return measurement_list
