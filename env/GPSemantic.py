@@ -108,13 +108,13 @@ class GPSemanticMap:
 
         return int(row_col[0]/self.resolution[0]),int(row_col[1]/self.resolution[1])
 
-    def get_observations(self, pos, fov, scale = None, type='semantic',return_distance = False):
+    def get_observations(self, pos, fov, scale = None, type='semantic',return_distance = False,resolution =None):
         '''
         Returns the necessary observations (semantic,coverage or obstacle)
         To return the distance map based on the field of view
         @params:
         pos :  Position of the agent
-        fov :  field of view in Gloval coordinate system
+        fov :  field of view in Global coordinate system
         type: type of the map
         scale: Integer
         return_distance:  returns distance mebeddings
@@ -134,11 +134,13 @@ class GPSemanticMap:
         if scale is None:
             scale = 1
 
+        if resolution is None:
+            resolution  = self.resolution
 
         range = list(self.get_row_col(fov))
 
-        range[0] = scale*range[0]
-        range[1] = scale*range[1]
+        range[0] = scale*range[0]*resolution
+        range[1] = scale*range[1]*resolution
 
         min_x = np.max([r - range[0], 0])
         min_y = np.max([c - range[1], 0])
@@ -151,25 +153,25 @@ class GPSemanticMap:
 
         feature = block_reduce(feature, (scale, scale), np.max)
 
-        distances = self.distances(range,scale)
+        distances = self.distances(range,scale,resolution)
 
             # print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
         return np.array(feature),distances
 
-    def distances(self,range,scale):
+    def distances(self,range,scale,resolution):
 
         distances_x = np.repeat(np.expand_dims(
-            np.arange(2*range[1])/self.resolution[1],axis=0),
+            np.arange(2*range[1])/resolution[1],axis=0),
                 repeats=2*range[0],axis=0)
         distances_x = np.square(distances_x - range[1])
         distances_y = np.repeat(np.expand_dims(
-            np.arange(2*range[0]/self.resolution[0]),
+            np.arange(2*range[0]/resolution[0]),
             axis=1),repeats=2*range[1],axis=1)
         distances_y = np.square(distances_y-range[0])
 
         distances = distances_x + distances_y
         distances = block_reduce(distances, (scale, scale), np.max)
-        return distances
+        return distances,distances_x,distances_y
 
     def init_map(self, load_dict = None):
 
@@ -302,32 +304,29 @@ class GPSemanticGym(gym.Env):
         self.episode_length = params_dict['episode_length']
         self.sensor_range = params_dict['sensor_range']
         self.max_steps = params_dict['episode_length']
+        self.scale = args_dict['SCALE']
 
         #Observation space setting
         if self.args_dict['SET_SEED']:
             self.seed = params_dict['seed']
         self.viewer = None
 
-        RANGE = self.args_dict['RANGE'] * self.args_dict['RESOLUTION']
+        self.RANGE = self.args_dict['RANGE'] * self.args_dict['RESOLUTION']
 
         if self.args_dict['OBSERVER'] == 'RANGE':
-            self.input_size = [2 * RANGE, 2 * RANGE, 1]
-        elif self.args_dict['OBSERVER'] == 'TILED':
-            self.input_size = [24, 1, 1]
-        elif self.args_dict['OBSERVER'] == 'TILEDwOBS':
-            self.input_size = [48, 1, 1]
+            self.input_size = [2 * self.RANGE, 2 * self.RANGE, 1]
         elif self.args_dict['OBSERVER'] == 'RANGEwOBS':
-            self.input_size = [2 * RANGE, 2 * RANGE, 2]
+            self.input_size = [2 * self.RANGE, 2 * self.RANGE, 2]
         elif self.args_dict['OBSERVER'] == 'RANGEwOBSwNEIGH':
-            self.input_size = [2 * (RANGE + 1), 2 * (RANGE + 1), 2]
+            self.input_size = [2 * (self.RANGE + 1), 2 * (self.RANGE + 1), 2]
         elif self.args_dict['OBSERVER'] == 'RANGEwOBSwPENC':
-            self.input_size = [2 * RANGE, 2 * RANGE, 4]
+            self.input_size = [2 * self.RANGE, 2 * self.RANGE, 4]
         elif self.args_dict['OBSERVER'] == 'RANGEwOBSwMULTI':
             self.map_length = 2
-            self.input_size = [2 * RANGE, 2 * RANGE, len(self.scale) * 2]
+            self.input_size = [2 * self.RANGE, 2 * self.RANGE, len(self.scale) * 2]
         elif self.args_dict['OBSERVER'] == 'RANGEwOBSwMULTIwCOV':
             self.map_length = 2
-            self.input_size = [2 * RANGE, 2 * RANGE, len(self.scale) * 3]
+            self.input_size = [2 * self.RANGE, 2 * self.RANGE, len(self.scale) * 3]
 
         self.observation_space = gym.spaces.Box(
             low=0, high=1, shape=self.input_size, dtype=np.float)
@@ -444,7 +443,6 @@ class GPSemanticGym(gym.Env):
                 valids.append(0)
         return np.array(action_coeffs),valids,np.array(mp_embeds)
 
-    # TODO
     def get_obs_all(self):
         obs = []
         agents_actions = []
@@ -455,12 +453,8 @@ class GPSemanticGym(gym.Env):
         mp_embeds = []
         agent_budgets = []
         for j in range(self.numAgents):
-            if self.args_dict['OBSERVER'] == 'TILED':
-                obs.append(self.get_obs_tiled(agentID=j))
-            elif self.args_dict['OBSERVER'] == 'RANGE':
+            if self.args_dict['OBSERVER'] == 'RANGE':
                 obs.append(self.get_obs_ranged(agentID=j))
-            elif self.args_dict['OBSERVER'] == 'TILEDwOBS':
-                obs.append(self.get_obs_tiled_wobs(agentID=j))
             elif self.args_dict['OBSERVER'] == 'RANGEwOBS':
                 obs.append(self.get_obs_ranged_wobs(agentID=j))
             elif self.args_dict['OBSERVER'] == 'RANGEwOBSwPENC':
@@ -493,214 +487,121 @@ class GPSemanticGym(gym.Env):
             obs_dict['budget'] = np.array(agent_budgets)
         return obs_dict
 
-    def get_obs_tiled_wobs(self,agentID):
-
-        r = self.agents[agentID].pos[0]
-        c = self.agents[agentID].pos[1]
-        phi_prime = []
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                if not (i == 0 and j == 0):
-                    phi_prime.append(self.worldMap[r + i, c + j])
-                    phi_prime.append(self.obstacle_map[r+i,c+j])
-                    phi_prime.append(self.phi_from_map_coords((r - 1 + 3 * i, r - 1 + 3 * (i + 1)),
-                                                         (c - 1 + 3 * j, c - 1 + 3 * (j + 1))))
-                    phi_prime.append(self.phi_from_map_coords((r - 1 + 3 * i, r - 1 + 3 * (i + 1)),
-                                                              (c - 1 + 3 * j, c - 1 + 3 * (j + 1)),map=self.obstacle_map))
-
-        for i in ((0, r - 4), (r - 4, r + 5), (r + 5, self.world_map_size)):
-            for j in ((0, c - 4), (c - 4, c + 5), (c + 5, self.world_map_size)):
-                if not (i == (r - 4, r + 5) and j == (c - 4, c + 5)):
-                    phi_prime.append(self.phi_from_map_coords(i, j))
-                    phi_prime.append(self.phi_from_map_coords(i, j,map=self.obstacle_map))
-
-        phi_prime = np.squeeze(np.array([phi_prime]))
-        phi_prime = np.expand_dims(np.expand_dims(phi_prime, axis=-1), axis=-1)
-        return phi_prime
-
-    def get_obs_tiled(self, agentID):
-
-        r = self.agents[agentID].pos[0]
-        c = self.agents[agentID].pos[1]
-        phi_prime = []
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                if not (i == 0 and j == 0):
-                    phi_prime.append(self.worldMap[r + i, c + j])
-                    phi_prime.append(self.phi_from_map_coords_max((r - 1 + 3 * i, r - 1 + 3 * (i + 1)),
-                                                                  (c - 1 + 3 * j, c - 1 + 3 * (j + 1))))
-
-        for i in ((0, r - 4), (r - 4, r + 5), (r + 5, self.world_map_size)):
-            for j in ((0, c - 4), (c - 4, c + 5), (c + 5, self.world_map_size)):
-                if not (i == (r - 4, r + 5) and j == (c - 4, c + 5)):
-                    phi_prime.append(self.phi_from_map_coords_max(i, j))
-
-        phi_prime = np.squeeze(np.array([phi_prime]))
-        phi_prime = np.expand_dims(np.expand_dims(phi_prime,axis=-1),axis=-1)
-        return phi_prime
-
-    def get_obs_all(self):
-        obs = []
-        for j in range(self.numAgents):
-            if self.args_dict['OBSERVER'] == 'TILED':
-                obs.append(self.get_obs_tiled(agentID=j))
-            elif self.args_dict['OBSERVER'] == 'RANGE':
-                obs.append(self.get_obs_ranged(agentID=j))
-            elif self.args_dict['OBSERVER'] == 'TILEDwOBS':
-                obs.append(self.get_obs_tiled_wobs(agentID=j))
-            elif self.args_dict['OBSERVER'] == 'RANGEwOBS':
-                obs.append(self.get_obs_ranged_wobs(agentID=j))
-            elif self.args_dict['OBSERVER'] == 'RANGEwOBSwPENC':
-                obs.append(self.get_obs_ranged_wobspenc(agentID=j))
-        obs_dict = dict()
-        obs_dict['obs'] = obs
-        obs_dict['valids'] = None
-        return obs_dict
 
     def get_obs_ranged(self,agentID):
-        r = self.agents[agentID].pos[0]
-        c = self.agents[agentID].pos[1]
-        min_x = np.max(r - RANGE,0)
-        min_y = np.max(c - RANGE,0)
-        max_x = np.min(r + RANGE,self.worldMap.shape[0])
-        max_y = np.min(c + RANGE,self.worldMap.shape[1])
-
-        infomap_feature = np.zeros((2*RANGE,2*RANGE))
-        infomap_feature[min_x-(r-RANGE):2*RANGE - (r+RANGE-max_x),\
-                        min_y-(c-RANGE):2*RANGE - (c+RANGE-max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
+        semantic_features,_ = self.beliefSemanticMap.get_observations(pos =self.agents[agentID].pos,
+                                                fov = self.sensor_range,
+                                                scale = 1,
+                                                resolution=self.resolution,
+                                                type= 'semantic' )
         #print("%d %d %d %d".format(min_x,min_y,max_x,max_y))
 
-        infomap_feature = np.expand_dims(infomap_feature,axis=-1)
+        infomap_feature = np.expand_dims(semantic_features,axis=-1)
 
         return infomap_feature
 
 
     def get_obs_ranged_wobs(self,agentID):
-        r = self.agents[agentID].pos[0]
-        c = self.agents[agentID].pos[1]
-        min_x = np.max([r - RANGE,0])
-        min_y = np.max([c - RANGE,0])
-        max_x = np.min([r + RANGE,self.worldMap.shape[0]])
-        max_y = np.min([c + RANGE,self.worldMap.shape[1]])
+        semantic_features,_ = self.beliefSemanticMap.get_observations(pos =self.agents[agentID].pos,
+                                                fov = self.sensor_range,
+                                                scale = 1,
+                                                resolution=self.resolution,
+                                                type= 'semantic' )
 
-        infomap_feature = np.zeros((2 * RANGE, 2 * RANGE))
-        obsmap_feature = np.ones((2 * RANGE, 2 * RANGE))
-        infomap_feature[min_x - (r - RANGE):2 * RANGE - (r + RANGE - max_x), \
-        min_y - (c - RANGE):2 * RANGE - (c + RANGE - max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
-
-        obsmap_feature[min_x - (r - RANGE):2 * RANGE - (r + RANGE - max_x), \
-        min_y - (c - RANGE):2 * RANGE - (c + RANGE - max_y)] = self.obstacle_map[min_x:max_x, min_y:max_y]
-
-        features = np.expand_dims(infomap_feature, axis=-1)
-        features = np.concatenate((features, np.expand_dims(obsmap_feature, axis=-1)), axis=-1)
-
+        obstacle_features, _ = self.beliefSemanticMap.get_observations(pos=self.agents[agentID].pos,
+                                                              fov=self.sensor_range,
+                                                              scale=1,
+                                                              resolution=self.resolution,
+                                                              type='obstacle')
+        features = np.expand_dims(semantic_features,axis=-1)
+        features = np.concatenate((features,np.expand_dims(obstacle_features,axis=-1)),axis=-1)
         return np.array(features)
 
     def get_obs_ranged_wobspenc(self,agentID):
-        r = self.agents[agentID].pos[0]
-        c = self.agents[agentID].pos[1]
-        min_x = np.max([r - RANGE,0])
-        min_y = np.max([c - RANGE,0])
-        max_x = np.min([r + RANGE,self.worldMap.shape[0]])
-        max_y = np.min([c + RANGE,self.worldMap.shape[1]])
 
-        infomap_feature = np.zeros((2*RANGE,2*RANGE))
-        obsmap_feature = np.ones((2 * RANGE, 2 * RANGE))
-        infomap_feature[min_x-(r-RANGE):2*RANGE - (r+RANGE-max_x),\
-                        min_y-(c-RANGE):2*RANGE - (c+RANGE-max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
+        semantic_features, _ = self.beliefSemanticMap.get_observations(pos=self.agents[agentID].pos,
+                                                              fov=self.sensor_range,
+                                                              scale=1,
+                                                              resolution=self.resolution,
+                                                              type='semantic')
 
-        obsmap_feature[min_x-(r-RANGE):2*RANGE - (r+RANGE-max_x),\
-                        min_y-(c-RANGE):2*RANGE - (c+RANGE-max_y)] = self.obstacle_map[min_x:max_x,min_y:max_y]
+        obstacle_features, _ = self.beliefSemanticMap.get_observations(pos=self.agents[agentID].pos,
+                                                              fov=self.sensor_range,
+                                                              scale=1,
+                                                              resolution=self.resolution,
+                                                              type='obstacle')
 
-        penc_x = np.expand_dims(np.arange(start=0,stop=1,step=1/(2*RANGE))-0.5,axis=1)\
-            .repeat(repeats=2*RANGE,axis=1)
-        penc_y = np.expand_dims(np.arange(start=0, stop=1, step=1 / (2 * RANGE))-0.5, axis=0)\
-            .repeat(repeats=2 * RANGE,axis=0)
 
-        features = np.expand_dims(infomap_feature,axis=-1)
-        features = np.concatenate((features,np.expand_dims(obsmap_feature,axis=-1),\
+        _,penc_x,penc_y = self.beliefSemanticMap.distances(range=self.sensor_range,
+                                                            scale= 1.0,
+                                                            resolution=self.resolution)
+
+
+        features = np.expand_dims(semantic_features,axis=-1)
+        features = np.concatenate((features,np.expand_dims(obstacle_features,axis=-1),\
                          np.expand_dims(penc_x,axis=-1),np.expand_dims(penc_y,axis=-1)),axis=-1)
         #print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
         return np.array(features)
 
 
     def get_obs_range_wobs_multi(self,agentID):
-        r = self.agents[agentID].pos[0]
-        c = self.agents[agentID].pos[1]
 
-        range = RANGE
         for s in self.scale:
-            range = s*RANGE
-            min_x = np.max([r - range, 0])
-            min_y = np.max([c - range, 0])
-            max_x = np.min([r + range, self.worldMap.shape[0]])
-            max_y = np.min([c + range, self.worldMap.shape[1]])
+            semantic_features, _ = self.beliefSemanticMap.get_observations(pos=self.agents[agentID].pos,
+                                                                           fov=self.sensor_range,
+                                                                           scale=s,
+                                                                           resolution=self.resolution,
+                                                                           type='semantic')
 
-            infomap_feature = np.zeros((2 * range, 2 * range))
-            obsmap_feature = np.zeros((2 * range, 2 * range))
-            infomap_feature[min_x - (r - range):2 * range - (r + range - max_x), \
-            min_y - (c - range):2 * range - (c + range - max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
-
-            obsmap_feature[min_x - (r - range):2 * range - (r + range - max_x), \
-            min_y - (c - range):2 * range - (c + range - max_y)] = self.obstacle_map[min_x:max_x, min_y:max_y]
+            obstacle_features, _ = self.beliefSemanticMap.get_observations(pos=self.agents[agentID].pos,
+                                                                           fov=self.sensor_range,
+                                                                           scale=s,
+                                                                           resolution=self.resolution,
+                                                                           type='obstacle')
 
             if s==1:
-                features = np.expand_dims(infomap_feature, axis=-1)
-                features = np.concatenate((features, np.expand_dims(obsmap_feature, axis=-1)), axis=-1)
+                features = np.expand_dims(semantic_features, axis=-1)
+                features = np.concatenate((features, np.expand_dims(obstacle_features, axis=-1)), axis=-1)
             else:
-                infomap_feature = block_reduce(infomap_feature,(s,s),np.max)
-                obsmap_feature = block_reduce(obsmap_feature,(s,s),np.max)
-                features = np.concatenate((features,np.expand_dims(infomap_feature, axis=-1)), axis=-1)
-                features = np.concatenate((features,np.expand_dims(obsmap_feature, axis=-1)), axis=-1)
-
-
+                features = np.concatenate((features,np.expand_dims(semantic_features, axis=-1)), axis=-1)
+                features = np.concatenate((features,np.expand_dims(obstacle_features, axis=-1)), axis=-1)
 
         # print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
         return np.array(features)
 
     def get_obs_range_coverage_multifov(self,agentID):
-        r = self.agents[agentID].pos[0]
-        c = self.agents[agentID].pos[1]
 
-        range = RANGE
         for s in self.scale:
-            range = s * RANGE
-            min_x = np.max([r - range, 0])
-            min_y = np.max([c - range, 0])
-            max_x = np.min([r + range, self.worldMap.shape[0]])
-            max_y = np.min([c + range, self.worldMap.shape[1]])
+            semantic_features, _ = self.beliefSemanticMap.get_observations(pos=self.agents[agentID].pos,
+                                                                           fov=self.sensor_range,
+                                                                           scale=s,
+                                                                           resolution=self.resolution,
+                                                                           type='semantic')
 
-            infomap_feature = np.zeros((2 * range, 2 * range))
-            obsmap_feature = np.zeros((2 * range, 2 * range))
+            obstacle_features, _ = self.beliefSemanticMap.get_observations(pos=self.agents[agentID].pos,
+                                                                           fov=self.sensor_range,
+                                                                           scale=s,
+                                                                           resolution=self.resolution,
+                                                                           type='obstacle')
 
-            coverage_feature = np.zeros((2 * range, 2 * range))
-
-            coverage_feature[min_x - (r - range):2 * range - (r + range - max_x), \
-            min_y - (c - range):2 * range - (c + range - max_y)] = self.agents[agentID].coverageMap[min_x:max_x,min_y:max_y]
-
-            infomap_feature[min_x - (r - range):2 * range - (r + range - max_x), \
-            min_y - (c - range):2 * range - (c + range - max_y)] = self.worldMap[min_x:max_x, min_y:max_y]
-
-            obsmap_feature[min_x - (r - range):2 * range - (r + range - max_x), \
-            min_y - (c - range):2 * range - (c + range - max_y)] = self.obstacle_map[min_x:max_x, min_y:max_y]
+            coverage_features, _ = self.beliefSemanticMap.get_observations(pos=self.agents[agentID].pos,
+                                                                           fov=self.sensor_range,
+                                                                           scale=s,
+                                                                           resolution=self.resolution,
+                                                                           type='coverage')
 
             if s == 1:
-                features = np.expand_dims(infomap_feature, axis=-1)
+                features = np.expand_dims(semantic_features, axis=-1)
                 features = (features,
-                            np.expand_dims(obsmap_feature, axis=-1),
-                            np.expand_dims(coverage_feature, axis=-1))
+                            np.expand_dims(obstacle_features, axis=-1),
+                            np.expand_dims(coverage_features, axis=-1))
 
                 features = np.concatenate(features, axis=-1)
-
             else:
-                infomap_feature = block_reduce(infomap_feature, (s, s), np.max)
-                obsmap_feature = block_reduce(obsmap_feature, (s, s), np.max)
-                coverage_feature = block_reduce(coverage_feature, (s, s), np.max)
-
                 features = (features,
-                            np.expand_dims(infomap_feature, axis=-1),
-                            np.expand_dims(obsmap_feature, axis=-1),
-                            np.expand_dims(coverage_feature, axis=-1))
+                            np.expand_dims(semantic_features, axis=-1),
+                            np.expand_dims(obstacle_features, axis=-1),
+                            np.expand_dims(coverage_features, axis=-1))
                 features = np.concatenate(features, axis=-1)
 
 
