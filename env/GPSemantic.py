@@ -295,12 +295,12 @@ class GPSemanticGym(gym.Env):
         else:
             self.reward_map_size = self.reward_map_size_list[params_dict['defaultMapChoice']]
 
+        self.env_params = params_dict
         # Parameters to create training maps
-        self.centers = params_dict['num_centers']
-        self.max_var = params_dict['max_var']
-        self.min_var = params_dict['min_var']
+        self.semantic_map_size = params_dict['rewardMapSizeList']  # m m size of the environment
+        self.resolution = params_dict['resolution']
         self.pad_size = params_dict['pad_size']
-        self.scale = params_dict['scale']
+
         self.world_map_size = self.reward_map_size + 2 * self.pad_size
 
         self.action_size = len(ACTIONS)
@@ -311,6 +311,8 @@ class GPSemanticGym(gym.Env):
         if SET_SEED:
             self.seed = params_dict['seed']
         self.viewer = None
+
+        RANGE = RANGE * RESOLUTION
 
         if OBSERVER == 'RANGE':
             self.input_size = [2 * RANGE, 2 * RANGE, 1]
@@ -339,12 +341,10 @@ class GPSemanticGym(gym.Env):
         self.create_mp_graph_encodings()
         self.spatial_dim = self.mp_graph.num_dims
 
-        self.defaultBelief = params_dict['defaultBelief']
         self.sensor_params = params_dict['sensor_params']
-        self.numrand_targets = params_dict['num_targets']
-        self.targetBeliefThresh = params_dict['targetBeliefThresh']
-        self.noise_max_var = params_dict['noise_max_var']
-        self.noise_min_var = params_dict['noise_min_var']
+        self.target_noise_scale = params_dict['TARGET_NOISE_SCALE']  # scale for setting random locations
+        self.random_centres = params_dict['RANDOM_CENTRES']
+        self.centre_size = params_dict['CENTRE_SIZE']
         self.metrics = SemanticMetrics()
 
     def load_graph(self):
