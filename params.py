@@ -43,14 +43,17 @@ SPAWN_RANDOM_AGENTS = True
 SET_SEED = False # Sets seed to ensure similar form of training
 SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawned deterministically
 
-ENV_TYPE = 'GPPrim' # MotionPrim or Discrete or GPPrim
+ENV_TYPE = 'GPPrim' # MotionPrim or Discrete or SEMANTIC
 
 #Episode Parameters
 FIXED_BUDGET = True
 BUDGET = 10.0
 
 # Observation Type
-RANGE = 8
+RANGE = 8           # m by m size
+if ENV_TYPE =='SEMANTIC':
+    RESOLUTION = 5
+    SCALE = [1,2,4]
 
 #MODEL TYPE
 CLASS_CONFIG = 'LSTM'  #Linear OR Transformer OR RSSM

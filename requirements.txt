@@ -23,4 +23,12 @@ jax[cuda11_cudnn805] # from https://storage.googleapis.com/jax-releases/jax_cuda
 optax
 mctx
 #####Install motion primitives from https://github.com/ljarin/motion_primitives ######'
-##
+## For semantic mapping
+
+OSMPythonTools
+geopy
+geojson
+geographiclib
+pyyaml
+shapely
+cupy
