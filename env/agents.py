@@ -11,7 +11,7 @@ from motion_primitives_py import MotionPrimitiveLattice
 from copy import deepcopy
 import os
 from env.sensors import *
-from env.GPSemantic import GPSemanticMap
+from env.SemanticMap import GPSemanticMap
 
 class Agent():
     def __init__(self,ID,row,col,map_size,pad,world_size):
@@ -192,7 +192,7 @@ class AgentGP(AgentMP):
 class AgentSemantic :
     def __init__(self,ID = 0,
                  pos = None,
-                 groundTruth = None,
+                 ground_truth = None,
                  mp_object = None,
                  sensor_params = None,
                  budget=None):
@@ -200,39 +200,33 @@ class AgentSemantic :
         self.ID = ID
         self.pos = np.array(pos)
 
-        self.pad = groundTruth.padding
+        self.pad = ground_truth.padding
 
         self.tiles = mp_object.num_tiles
 
-        self.worldMap = None
         self.visited_states = None
         self.mp_graph = mp_object.mp_graph
         self.lookup = mp_object.lookup
         self.index = 0
         self.spatial_dim = mp_object.spatial_dim
+        self.agent_budget = budget
 
         self.prev_action = 0
         self.pos_actual = self.pos.copy()
 
 
-        self.beliefSemanticMap = GPSemanticMap(groundTruth.config)
-        self.gtSemanticMap = groundTruth
+        self.belief_semantic_map = GPSemanticMap(ground_truth.config)
+        self.gt_semantic_map = ground_truth
 
         self.sensor_params = sensor_params
         self.sensor = sensor_setter.set_env(sensor_params)
 
 
-    def initBeliefMap(self,Map):
-        self.beliefMap = Map.copy()
+    def init_belief_map(self,map):
+        self.belief_semantic_map = deepcopy(map)
 
-
-    def updatePos(self,action,beliefThresh = 0.99):
-        valid,states,cost = super(AgentGP, self).updatePos(action)
-        return valid,states,cost
-
-
-    def updateMap(self,worldMap):
-        self.worldMap= worldMap
+    def updatemap(self,world_map):
+        self.belief_semantic_map = deepcopy(world_map)
 
     def get_mp(self,action):
         mp = deepcopy(self.mp_graph[self.index, action])
@@ -259,18 +253,18 @@ class AgentSemantic :
                 self.pos_actual = mp.end_state[:self.spatial_dim]
                 #print("{:d} {:d} {:d} {:d}".format(self.pos[0], self.pos[1], visited_states[0,0], visited_states[1,0]))
                 self.visited_states = visited_states
-                for s in visited_states.T:
-                    self.trajectory[s[0],s[1]] = 1
+                # for s in visited_states.T:
+                #     self.trajectory[s[0],s[1]] = 1
 
                 mpcost = mp.cost / mp.subclass_specific_data.get('rho', 1) / 10
-                if self.agentBudget is not None:
-                    self.agentBudget -= mpcost
+                if self.agent_budget is not None:
+                    self.agent_budget -= mpcost
                 return is_valid, visited_states, mpcost
-            if self.agentBudget is not None:
-                self.agentBudget -= mpcost
+            if self.agent_budget is not None:
+                self.agent_budget -= mpcost
             return False,visited_states,None
-        if self.agentBudget is not None:
-            self.agentBudget -= mpcost
+        if self.agent_budget is not None:
+            self.agent_budget -= mpcost
         return False,None, None
 
     def updatePosOdom(self,pos):
@@ -301,16 +295,16 @@ class AgentSemantic :
 
     def isValidPos(self, pos):
         is_valid = (np.array(pos - self.pad) > -1).all()
-        is_valid = is_valid and (np.array(pos + self.pad) < self.world_size).all()
+        is_valid = is_valid and (np.array(pos + self.pad) < self.gt_semantic_map.world_map_size).all()
         return is_valid
 
 
-    def updateSemantics(self,visited_states):
+    def update_semantics(self,visited_states):
         measurement_list = []
 
         for state in visited_states:
-            measurement = self.sensor.getMeasurement(state,self.gtSemanticMap)
+            measurement = self.sensor.get_measurements(state,self.gt_semantic_map)
             measurement_list.append(measurement)
-            self.beliefSemanticMap.updateSemantics(state,measurement,self.sensor_params)
+            self.belief_semantic_map.update_semantics(state,measurement,self.sensor_params)
 
         return measurement_list

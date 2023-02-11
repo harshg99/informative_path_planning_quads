@@ -1,5 +1,5 @@
 import numpy as np
-
+import functools
 
 class FieldSensor:
     def __init__(self,sensor_params):
@@ -35,31 +35,43 @@ class SemanticSensor:
         self.coeff = sensor_params['sensor_decay_coeff']
 
 
-    def getMeasurement(self,pos, groundTruth):
+    def get_measurements(self,pos, groundTruth):
 
-        groundTruthSemantic,distances = groundTruth.get_observations(pos,self.sensor_range)
+        ground_truth_semantic,distances = groundTruth.get_observations(pos,self.sensor_range,type='detected_semantic')
 
 
         # Measurements
-        sensor_measurement = np.zeros(groundTruthSemantic.shape)
+        sensor_measurement = np.zeros( ground_truth_semantic.shape)
 
         # Out of map bounds, no measurements
-        sensor_measurement[groundTruthSemantic==-1] = -1
+        sensor_measurement[ground_truth_semantic==-1] = -1
 
-        # Seed the probability
-        prob_matrix = np.zeros(list(groundTruthSemantic.shape) + [groundTruth.num_semantics])
-        prob_matrix = (1 - self.sensor_max_unc *(1-self.coeff*distances))/(groundTruthSemantic.num_semantics - 1)
-        prob_matrix[groundTruthSemantic[groundTruthSemantic>=0]] = self.sensor_max_unc * (1 - self.coeff * distances)
-        prob_matrix[groundTruthSemantic==-1][0] == self.sensor_max_unc * (1-self.coeff*distances)
 
-        measurement_flatten = np.random.choice(a=np.repeat(np.arange(groundTruth.num_semantics),
-                                                           repeats=np.array(groundTruthSemantic.shape).prod(),\
-                                                           p=prob_matrix.reshape((-1,groundTruth.num_semantics))))
+        prob_matrix = np.repeat(np.expand_dims((1 - self.sensor_max_unc *(1-self.coeff*distances[0]))/
+                                               ( groundTruth.num_semantics - 1),axis =-1),axis=-1,repeats=groundTruth.num_semantics)
+        prob_matrix = prob_matrix.reshape((-1,groundTruth.num_semantics))
 
-        sensor_measurement = measurement_flatten.reshape(list(groundTruthSemantic.shape) + [groundTruth.num_semantics])
-        sensor_measurement[groundTruthSemantic==-1] = -1
+        prob_matrix[np.arange(prob_matrix.shape[0]),
+                            ground_truth_semantic.astype(np.int32)[ground_truth_semantic>=0]]\
+                            = self.sensor_max_unc * (1 - self.coeff * distances[0]).reshape(-1)
+        # prob_matrix[ ground_truth_semantic==-1][0] == self.sensor_max_unc * (1-self.coeff*distances)
+
+        list_matrix = [np.repeat(np.expand_dims(np.arange(groundTruth.num_semantics),axis=0),axis=0,repeats=np.prod(ground_truth_semantic.shape)),
+                       prob_matrix]
+        matrix = np.concatenate(list_matrix,axis=-1)
+        measurement_flatten = np.apply_along_axis(functools.partial(self.sample,num_semantics = groundTruth.num_semantics)
+                                                   ,axis = 1, arr=matrix)
+
+        # measurement_flatten = np.random.choice(a=np.repeat(np.arange(groundTruth.num_semantics),
+        #                                                    repeats=np.array(ground_truth_semantic.shape).prod()),\
+        #                                                    p=prob_matrix)
+
+        sensor_measurement = measurement_flatten.reshape(list( ground_truth_semantic.shape))
 
         return sensor_measurement
+
+    def sample(self,array,num_semantics = 4):
+        return np.random.choice(a=array[:num_semantics:],p=array[num_semantics:])
 
 class sensor_setter:
 
@@ -67,6 +79,6 @@ class sensor_setter:
     def set_env(sensor_params):
         if sensor_params['type'] == 'FieldSensor':
             return FieldSensor(sensor_params)
-        elif  sensor_params['type'] == 'SemanticFieldSensor':
+        elif  sensor_params['type'] == 'SemanticSensor':
             # TODO: Define semantic sensor
             return SemanticSensor(sensor_params)

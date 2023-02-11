@@ -4,7 +4,7 @@ import cupy
 from typing import *
 from skimage.transform import resize
 from skimage.transform import rotate
-
+from copy import deepcopy
 import PIL
 DEBUG = True
 from skimage.measure import block_reduce
@@ -102,6 +102,8 @@ class GPSemanticMap:
 
         if type=='semantic':
             map = deepcopy(self.semantic_map)
+        elif type=='detected_semantic':
+            map = deepcopy(self.detected_semantic_map)
         elif type=='obstacle':
             map = deepcopy(self.obstacle_map)
         else:
@@ -116,8 +118,8 @@ class GPSemanticMap:
 
         range = list(self.get_row_col(fov))
 
-        range[0] = scale*range[0]*resolution
-        range[1] = scale*range[1]*resolution
+        range[0] = scale*range[0]
+        range[1] = scale*range[1]
 
         min_x = np.max([r - range[0], 0])
         min_y = np.max([c - range[1], 0])
@@ -126,9 +128,10 @@ class GPSemanticMap:
 
         feature = np.zeros((2 * range[0], 2 * range[1]))
         feature[min_x - (r - range[0]):2 * range[0] - (r + range[0] - max_x), \
-        min_y - (c - range[1]):2 * range[1] - (c + range[1] - max_y)] = map[min_x:max_x, min_y:max_y]
+        min_y - (c - range[1]):2 * range[1] - (c + range[1] - max_y)] = map[min_x:max_x, min_y:max_y].get()
 
-        feature = block_reduce(feature, (scale, scale), np.max)
+        if type is not self.detected_semantic_map:
+            feature = block_reduce(feature, (scale, scale), np.max)
 
         distances = self.distances(range,scale,resolution)
 
@@ -140,15 +143,15 @@ class GPSemanticMap:
         distances_x = np.repeat(np.expand_dims(
             np.arange(2*range[1])/resolution,axis=0),
                 repeats=2*range[0],axis=0)
-        distances_x = np.square(distances_x - range[1])
+        distances_x = np.square(distances_x - range[1]/resolution)
         distances_y = np.repeat(np.expand_dims(
-            np.arange(2*range[0]/resolution),
+            np.arange(2*range[0])/resolution,
             axis=1),repeats=2*range[1],axis=1)
-        distances_y = np.square(distances_y-range[0])
+        distances_y = np.square(distances_y-range[0]/resolution)
 
         distances = distances_x + distances_y
         distances = block_reduce(distances, (scale, scale), np.max)
-        return distances,distances_x,distances_y
+        return np.sqrt(distances),np.sqrt(distances_x),np.sqrt(distances_y)
 
     def init_map(self, load_dict = None):
 
@@ -222,7 +225,8 @@ class GPSemanticMap:
             raise AttributeError
 
         self.semantic_map = cupy.array(np.zeros(shape=self.map_size)+0.5)
-
+        self.coverage_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
+        self.obstacle_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
 
         if self.centre_locations is None:
             locations_x = np.arange(0,int(np.sqrt(params_dict['num_centres'])))*\
@@ -358,9 +362,9 @@ class GPSemanticMap:
         sensor_max_unc = sensor_params['sensor_max_acc']
         sensor_range = sensor_params['sensor_range']
         coeff = sensor_params['sensor_decay_coeff']
-        sensor_range_map = self.get_row_col(sensor_range)
+        sensor_range_map = np.array(self.get_row_col(sensor_range))*1
 
-        distances = self.distances(sensor_range,scale = 1)
+        distances,_,_ = self.distances(sensor_range,scale = 1,resolution=self.resolution)
 
         # asseeting if the measurement shape is equivalent to the sensor shape
         assert 2*sensor_range_map[0] == measurement.shape[0]
