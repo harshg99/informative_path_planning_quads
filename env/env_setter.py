@@ -2,6 +2,7 @@
 from env.searchenv import *
 from env.searchenvMP import *
 from env.GPEnvMP import *
+from env.GPSemantic import *
 class env_setter:
 
     @staticmethod
@@ -18,6 +19,10 @@ class env_setter:
             import env_params.GPPrim as parameters
             env_params_dict = env_setter.set_dict(parameters)
             return GPEnvMP(env_params_dict,args_dict)
+        elif args_dict['ENV_TYPE']  == 'Semantic':
+            import env_params.Semantic as parameters
+            env_params_dict = env_setter.set_dict(parameters)
+            return GPSemanticGym(env_params_dict,args_dict)
 
 
     @staticmethod
