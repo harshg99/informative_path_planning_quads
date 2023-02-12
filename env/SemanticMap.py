@@ -42,6 +42,7 @@ class GPSemanticMap:
             - num_semantics : number of semantics
             - world_map_size : tuple(int,int)
             - resolution :  tuple(int,int)
+            -target_belief_thresh : int
         '''
         self.config = config_dict
         self.resolution = self.config['resolution']
@@ -68,6 +69,8 @@ class GPSemanticMap:
             self.semantic_list = None
 
         self.centre_locations = None
+        self.target_belief_thresh = self.config['target_belief_thresh']
+
 
     def get_row_col(self,pos):
         '''
@@ -322,7 +325,8 @@ class GPSemanticMap:
         self.semantic_map[:, :, 0] = 1- self.semantic_map[:, :, 1:].mean(axis=-1)
         self.semantic_map[:,:,0] = np.clip(self.semantic_map[:,:,0],1-params_dict['clip'],params_dict['clip'])
 
-        self.detected_semantic_map = cupy.argmax(self.semantic_map,axis = -1)
+        #self.detected_semantic_map = cupy.argmax(self.semantic_map,axis = -1)
+        self.detected_semantic_map = cupy.zeros((self.semantic_map.shape[0],self.semantic_map.shape[1])) - 1
 
         if DEBUG:
             import matplotlib.pyplot as plt
@@ -363,8 +367,8 @@ class GPSemanticMap:
         sensor_range = sensor_params['sensor_range']
         coeff = sensor_params['sensor_decay_coeff']
         sensor_range_map = np.array(self.get_row_col(sensor_range))*1
-
-        distances,_,_ = self.distances(sensor_range,scale = 1,resolution=self.resolution)
+        range = [sensor_range_map[0],sensor_range_map[1]]
+        distances,_,_ = self.distances(range,scale = 1,resolution=self.resolution)
 
         # asseeting if the measurement shape is equivalent to the sensor shape
         assert 2*sensor_range_map[0] == measurement.shape[0]
@@ -373,25 +377,34 @@ class GPSemanticMap:
         r,c = self.get_row_col(state)
         min_x = np.max([r - sensor_range_map[0], 0])
         min_y = np.max([c - sensor_range_map[1], 0])
-        max_x = np.min([r + sensor_range_map[0] + 1, self.semantic_map.shape[0]])
-        max_y = np.min([c + sensor_range_map[1] + 1, self.semantic_map.shape[1]])
+        max_x = np.min([r + sensor_range_map[0], self.semantic_map.shape[0]])
+        max_y = np.min([c + sensor_range_map[1], self.semantic_map.shape[1]])
 
         self.coverage_map[min_x:max_x,min_y:max_y] = 1.
 
         sensor_odds =  np.log(sensor_max_unc *(1-coeff*distances)/(1-sensor_max_unc *(1-coeff*distances)))
-        semantic_map_log_odds = np.log(self.semantic_map[min_x:max_x, min_y:max_y,:]\
-                                       / (1 - self.semantic_map[min_x:max_x,min_y:max_y,:]))
-        semantic_map_log_odds -= sensor_odds[min_x- (r - sensor_range_map[0]) : max_x - (r-sensor_range_map[0])]\
-                                            [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]
-        semantic_map_log_odds[min_x:max_x,min_y:max_y,measurement] += 2*sensor_odds[min_x- (r - sensor_range_map[0]) :
-                                                                                    max_x - (r-sensor_range_map[0])]\
-                                            [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]
+        sensor_neg_odds =  np.log((3 - ((sensor_max_unc) *(1-coeff*distances)))/(2 + sensor_max_unc *(1-coeff*distances)))
+        semantic_map_log_odds = cupy.log(self.semantic_map[min_x:max_x, min_y:max_y,:]\
+                                       / (1 - self.semantic_map[min_x:max_x,min_y:max_y,:])).reshape((-1,self.num_semantics))
+        semantic_map_log_odds += cupy.expand_dims(cupy.array(sensor_neg_odds[min_x - (r - sensor_range_map[0]): max_x - (r - sensor_range_map[0])] \
+            [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]).reshape(-1),axis = -1)
+
+        semantic_map_log_odds[np.arange(np.prod(measurement.shape)),
+                measurement.reshape(-1).astype(np.int32)] += cupy.array(sensor_odds[min_x- (r - sensor_range_map[0]): max_x - (r-sensor_range_map[0])]\
+                                                    [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]).reshape(-1)
+
+        semantic_map_log_odds[np.arange(np.prod(measurement.shape)),
+                              measurement.reshape(-1).astype(np.int32)] += cupy.array(sensor_neg_odds[min_x- (r - sensor_range_map[0])
+                                                                          : max_x - (r-sensor_range_map[0])]\
+                                                    [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]).reshape(-1)
+
+        semantic_map_log_odds = semantic_map_log_odds.reshape(([measurement.shape[0],measurement.shape[1],self.num_semantics]))
         self.semantic_map[min_x:max_x,min_y:max_y] =  1 / (np.exp(-semantic_map_log_odds) + 1)
 
-        self.detected_semantic_map[min_x:max_x,min_y:max_y,np.max(self.semantic_map
-                                [min_x:max_x,min_y:max_y,:],axis=-1)>self.targetBeliefThresh] = \
-            np.argmax(self.semantic_map[min_x:max_x,min_y:max_y,np,max(
-                      self.semantic_map[min_x:max_x,min_y:max_y,:],axis=-1)>self.targetBeliefThresh],axis=-1)
+        self.detected_semantic_map[min_x:max_x,min_y:max_y][np.max(self.semantic_map
+                                [min_x:max_x,min_y:max_y,:],axis=-1)>self.target_belief_thresh] = \
+            np.argmax(self.semantic_map[min_x:max_x,min_y:max_y][np.max(
+                      self.semantic_map[min_x:max_x,min_y:max_y,:],axis=-1)>self.target_belief_thresh],axis=-1)
 
     def compute_entropy(self):
         '''

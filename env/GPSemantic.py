@@ -79,6 +79,7 @@ class VisBuffer:
         self.agent_pos_buff = {}
         self.belief_semantic_map_buff = {}
         self.global_semantic_map_buff = None
+        self.clear_buffer()
 
     def clear_buffer(self):
 
@@ -94,7 +95,7 @@ class VisBuffer:
 
         if self.belief_semantic_map_buff[agentID] is None:
             self.belief_semantic_map_buff[agentID] = []
-        self.belief_semantic_map_buff[agentID].append(deepcopy(beliefMap.detected_semantic_map))
+        self.belief_semantic_map_buff[agentID].append(deepcopy(beliefMap.detected_semantic_map.get()))
 
     def add_buffer_global(self, beliefMap):
 
@@ -184,7 +185,8 @@ class GPSemanticGym(gym.Env):
             'resolution':self.env_params['resolution'],
             'world_map_size':self.world_map_size,
             'padding':self.pad_size,
-            'num_semantics':self.env_params['num_semantics']
+            'num_semantics':self.env_params['num_semantics'],
+            'target_belief_thresh':self.env_params['TargetBeliefThresh']
         }
         self.ground_truth_semantic_map = GPSemanticMap(map_config_dict,isGroundTruth=True)
         self.belief_semantic_map = GPSemanticMap(map_config_dict)
@@ -618,8 +620,8 @@ class GPSemanticGym(gym.Env):
             measurements = self.agents[agentID].update_semantics(visited_states.T)
 
             for measurement,state in zip(measurements,visited_states.T):
-                self.belief_semantic_map.updateSemantics(state,measurement,self.sensor_params)
-                self.buffer.add_buffer(state,self.agents[agentID].belief_semantic_map)
+                self.belief_semantic_map.update_semantics(state,measurement,self.sensor_params)
+                self.buffer.add_buffer(agentID,state,self.agents[agentID].belief_semantic_map)
 
             reward_coverage = self._coverage(initialBelief,self.belief_semantic_map)
 
