@@ -542,7 +542,7 @@ class GPSemanticGym(gym.Env):
 
             self.ground_truth_semantic_map.init_map(load_dict)
             params_dict = {
-                "randomness":np.random.random()*self.target_noise_scale,
+                "randomness":self.target_noise_scale,
                 "num_centres":self.random_centres,
                 "sigma":self.centre_size,
                 "clip": self.env_params['MAX_CLIP']

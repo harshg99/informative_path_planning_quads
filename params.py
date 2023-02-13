@@ -6,11 +6,11 @@ NUM_DEVICES = torch.cuda.device_count()
 
 NUM_META_AGENTS = 1
 MAX_EPISODES = 50000
-DISCOUNT = 0.9
+DISCOUNT = 0.98
 LR = 1e-3
 DECAY = 1/MAX_EPISODES
 LAMBDA_RET = True
-LAMBDA = 0.8
+LAMBDA = 0.9
 
 class JOB_TYPES:
     getExperience      = 1
@@ -39,20 +39,20 @@ RAY_RESET_EPS = 1000
 
 
 #Environment Parameters
-SPAWN_RANDOM_AGENTS = True
+SPAWN_RANDOM_AGENTS = False
 SET_SEED = False # Sets seed to ensure similar form of training
 SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawned deterministically
 
-ENV_TYPE = 'GPPrim' # MotionPrim or Discrete or SEMANTIC
+ENV_TYPE = 'Semantic' # MotionPrim or Discrete or SEMANTIC
 
 #Episode Parameters
 FIXED_BUDGET = True
-BUDGET = 10.0
+BUDGET = 20.0
 
 # Observation Type
-RANGE = 8           # m by m size
-if ENV_TYPE =='SEMANTIC':
-    RESOLUTION = 5
+RANGE = 6           # m by m size
+if ENV_TYPE =='Semantic':
+    RESOLUTION = 4
     SCALE = [1,2,4]
 
 #MODEL TYPE
@@ -111,8 +111,8 @@ if ALG_TYPE=='SAC':
     MIN_CAPACITY = 200
 
 #Logging Params
-MODEL_NAME = 'GPAC_Model6'
-DESCRIPTION = 'Final_Version_Range16'
+MODEL_NAME = 'SemanticAC_Model6'
+DESCRIPTION = 'Range6_v1'
 TRAIN_PATH = 'data/train/'+MODEL_NAME+'_'+DESCRIPTION
 MODEL_PATH = 'data/models/'+MODEL_NAME+'_'+DESCRIPTION
 GIFS_PATH = 'data/gifs/'+MODEL_NAME+'_'+DESCRIPTION
@@ -127,7 +127,7 @@ TEST_GIFS = False
 TEST_GIFS_PATH = "data/test/{}/GIFS/"
 TEST_RESULTS_PATH= "data/test/{}/RESULTS/"
 
-NEPTUNE = False
+NEPTUNE = True
 NEPTUNE_RUN = None
 
 neptune_project        = "harshg99/SearchKR2" # USER-ID

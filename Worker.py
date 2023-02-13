@@ -99,7 +99,7 @@ class Worker:
             episode_step+=1
             episode_reward += np.array(rewards).sum()
             if RENDER_TRAINING and episodeNum%RENDER_TRAINING_WINDOW==0:
-                frames.append(self.env.render(mode='rgb_array'))
+                frames += self.env.render(mode='rgb_array')
 
             if done:
                 break

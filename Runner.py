@@ -4,11 +4,8 @@ import numpy as np
 import ray
 import os
 import sys
-from env.searchenv import *
 from Worker import Worker
-from models.Vanilla import Vanilla
 from params import *
-from models.model_setter import model_setter
 from env.env_setter import *
 from models.alg_setter import alg_setter
 import Utilities
