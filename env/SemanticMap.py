@@ -395,16 +395,23 @@ class GPSemanticMap:
         semantic_map_log_odds += cupy.expand_dims(cupy.array(sensor_neg_odds[min_x - (r - sensor_range_map[0]): max_x - (r - sensor_range_map[0])] \
             [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]).reshape(-1),axis = -1)
 
-        semantic_map_log_odds[np.arange(np.prod(measurement.shape)),
-                measurement.reshape(-1).astype(np.int32)] += cupy.array(sensor_odds[min_x- (r - sensor_range_map[0]): max_x - (r-sensor_range_map[0])]\
-                                                    [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]).reshape(-1)
+        shape = semantic_map_log_odds.shape[0]
+        measurement_slice = measurement[min_x- (r - sensor_range_map[0]): max_x - (r-sensor_range_map[0])]\
+                                                    [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]
 
-        semantic_map_log_odds[np.arange(np.prod(measurement.shape)),
-                              measurement.reshape(-1).astype(np.int32)] += cupy.array(sensor_neg_odds[min_x- (r - sensor_range_map[0])
-                                                                          : max_x - (r-sensor_range_map[0])]\
-                                                    [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]).reshape(-1)
+        semantic_map_log_odds[np.arange(shape),measurement_slice.astype(np.int32).reshape(-1)]\
+                                                            += cupy.array(sensor_odds[min_x- (r - sensor_range_map[0]):\
+                                                                                       max_x - (r-sensor_range_map[0])]\
+                                                                                      [min_y - (c - sensor_range_map[1]): \
+                                                                         max_y - (c - sensor_range_map[1])]).reshape(-1)
 
-        semantic_map_log_odds = semantic_map_log_odds.reshape(([measurement.shape[0],measurement.shape[1],self.num_semantics]))
+        semantic_map_log_odds[np.arange(shape),measurement_slice.astype(np.int32).reshape(-1)] \
+                                                        += cupy.array(sensor_neg_odds[min_x- (r - sensor_range_map[0]):\
+                                                                                       max_x - (r-sensor_range_map[0])]\
+                                                                                      [min_y - (c - sensor_range_map[1]): \
+                                                                         max_y - (c - sensor_range_map[1])]).reshape(-1)
+
+        semantic_map_log_odds = semantic_map_log_odds.reshape(([max_x-min_x,max_y-min_y,self.num_semantics]))
         self.semantic_map[min_x:max_x,min_y:max_y] =  1 / (np.exp(-semantic_map_log_odds) + 1)
 
         self.detected_semantic_map[min_x:max_x,min_y:max_y][np.max(self.semantic_map

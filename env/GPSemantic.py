@@ -584,6 +584,8 @@ class GPSemanticGym(gym.Env):
         for agent in self.agents:
             agent.init_belief_map(self.belief_semantic_map)
 
+        self.metrics.update(self.belief_semantic_map)
+
     def step_all(self, action_dict):
         rewards = []
         for j in range(self.numAgents):
@@ -655,9 +657,9 @@ class GPSemanticGym(gym.Env):
                 self.belief_semantic_map.update_semantics(state,measurement,self.sensor_params)
                 self.buffer.add_buffer(agentID,state,self.agents[agentID].belief_semantic_map)
 
-            reward_coverage = self._coverage(initial_belief,self.belief_semantic_map)
+            reward_coverage = self._coverage(initial_belief,self.belief_semantic_map).get().item()
 
-            reward += self._get_reward(initial_belief, self.belief_semantic_map)
+            reward += self._get_reward(initial_belief, self.belief_semantic_map).get().item()
             reward += reward_coverage
 
             reward -= cost / REWARD.MP.value
@@ -672,10 +674,12 @@ class GPSemanticGym(gym.Env):
         elif visited_states is not None:
             # reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
             reward += REWARD.COLLISION.value
+            self.buffer.add_buffer(agentID, self.agents[agentID].pos, self.agents[agentID].belief_semantic_map)
         else:
             reward += REWARD.COLLISION.value * 1.5
+            self.buffer.add_buffer(agentID, self.agents[agentID].pos, self.agents[agentID].belief_semantic_map)
 
-        return reward.get().item()
+        return reward
 
     def render(self, mode='visualise', W=800, H=800):
         # TODO: Get rid of this crap, need to render via the GPU
@@ -693,12 +697,14 @@ class GPSemanticGym(gym.Env):
                                        background_image=map_image,
                                        quad_poses=positions,
                                        config_dict={"num_semantics":self.env_params['num_semantics'],
-                                            "alpha":0.2, "resolution": self.ground_truth_semantic_map.resolution}))
+                                            "alpha":0.4, "resolution": self.ground_truth_semantic_map.resolution}))
 
         self.buffer.clear_buffer()
 
         return frame_list
 
+    def get_final_metrics(self):
+        return self.metrics.compute_metrics(self.belief_semantic_map,self.ground_truth_semantic_map)
 
 
 
@@ -750,9 +756,9 @@ class QuadRender:
         )
         semantic_image_frame = np.zeros(background_image.shape)
         semantic_image_frame[:,:,:] = self.UNDETECTED_SEMANTIC
-        semantic_image_frame[semantic_image>0,:] =  semantic_pallete[semantic_image[semantic_image>0].astype(np.int)]
         semantic_image_frame[semantic_image==0,:] = frame[semantic_image==0,:]
-        semantic_image_frame = (1 - config_dict['alpha'])*frame + config_dict['alpha']*semantic_image_frame
+        semantic_image_frame[semantic_image>0,:] =  semantic_pallete[semantic_image[semantic_image>0].astype(np.int)]
+        semantic_image_frame = (1 - 1.2*config_dict['alpha'])*frame + 1.2*config_dict['alpha']*semantic_image_frame
 
         # For entropy
         entropy_image = np.repeat(np.expand_dims(resize(entropy_image, output_shape=(self.render_w, self.render_h)),
@@ -765,7 +771,7 @@ class QuadRender:
         ground_truth = resize(ground_truth, output_shape=(self.render_w, self.render_h))
         gt_image_frame = frame
         gt_image_frame[ground_truth>0] = semantic_pallete[ground_truth[ground_truth>0].astype(np.int)]
-        gt_image_frame = (1 - config_dict['alpha']) * frame + config_dict['alpha'] * gt_image_frame
+        gt_image_frame = (1 - 0.5*config_dict['alpha']) * frame + 0.5*config_dict['alpha'] * gt_image_frame
 
 
         # Add quadrotor image to the position

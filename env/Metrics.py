@@ -54,43 +54,42 @@ class SemanticMetrics:
     def __init__(self):
         pass
 
-    def update(self, initBeliefMap):
-        assert initBeliefMap is not None
-        self.initBeliefMap =  deepcopy(initBeliefMap)
-        self.initial_entropy = initBeliefMap.get_entropy().sum()
-        self.num_targets = np.sum(self.initTargetMap == 1)
+    def update(self, init_belief_map):
+        assert init_belief_map is not None
+        self.init_belief_map =  deepcopy(init_belief_map)
+        self.initial_entropy = init_belief_map.get_entropy().sum()
 
-    def compute_coverage_metric(self, FinalMap, GroundTruthMap):
-        return (FinalMap.coverageMap.sum() - self.initBeliefMap.coverage_map.sum())\
-               /(np.prod(self.initBeliefMap.coverage_map.shape))*100
+    def compute_coverage_metric(self, final_map, ground_truth_map):
+        return (final_map.coverage_map.sum() - self.init_belief_map.coverage_map.sum())\
+               /(np.prod(self.init_belief_map.coverage_map.shape))*100
 
-    def compute_semantics_found(self, beliefMap, targetMap):
+    def compute_semantics_found(self, belief_map, target_map):
         semantic_change_proportion = {}
         total_semantic_det = 0
         total_semantics_gt = 0
-        for sem in targetMap.semantic_list:
-            semantic_change_proportion[sem] = np.sum(targetMap.detected_semantic_map
-                                                     [beliefMap.detected_semantic_map == sem]) \
-                                              / targetMap.semantic_proportion[sem]
+        for sem in target_map.semantic_list:
+            semantic_change_proportion[sem] = np.sum(target_map.detected_semantic_map
+                                                     [belief_map.detected_semantic_map == sem]) \
+                                              / target_map.semantic_proportion[sem]
 
-            total_semantic_det += np.sum(targetMap.detected_semantic_map
-                                                     [beliefMap.detected_semantic_map == sem])
-            total_semantics_gt += targetMap.semantic_proportion[sem]
+            total_semantic_det += np.sum(target_map.detected_semantic_map
+                                                     [belief_map.detected_semantic_map == sem])
+            total_semantics_gt += target_map.semantic_proportion[sem]
 
         return total_semantic_det/total_semantics_gt*100,semantic_change_proportion
 
-    def compute_map_entropy(self, beliefMap, targetMap):
-        current_entropy = beliefMap.get_entropy().sum()
+    def compute_map_entropy(self, belief_map, target_map):
+        current_entropy = belief_map.get_entropy().sum()
         return (1 - current_entropy / self.initial_entropy) * 100
 
-    def compute_metrics(self, beliefMap, targetMap):
+    def compute_metrics(self, belief_map, target_map):
         '''
         beliefMap: current belief map
         targetMap: current fround truth target map
         '''
-        self.coverage = self.compute_coverage_metric(beliefMap, targetMap)
-        self.map_entropy = self.compute_map_entropy(beliefMap, targetMap)
-        self.targetsfound,_ = self.compute_semantics_found(beliefMap, targetMap)
+        self.coverage = self.compute_coverage_metric(belief_map, target_map)
+        self.map_entropy = self.compute_map_entropy(belief_map, target_map)
+        self.targetsfound,_ = self.compute_semantics_found(belief_map, target_map)
         metrics = dict()
         metrics['coverage'] = self.coverage
         metrics['map_entropy_reduction'] = self.map_entropy
