@@ -43,7 +43,7 @@ class REWARD(Enum):
     STAY      = -0.5
     PMAP = 15.0
     MAP  = 10.0
-    TARGET  = +35.0
+    TARGET  = +20.0
     COLLISION = -1.0
     MP = 10000
 
@@ -79,6 +79,8 @@ class VisBuffer:
         self.agent_pos_buff = {}
         self.belief_semantic_map_buff = {}
         self.global_semantic_map_buff = None
+        self.belief_detected_semantic_map_buff = {}
+        self.global_detected_semantic_map_buff = None
         self.clear_buffer()
 
     def clear_buffer(self):
@@ -86,7 +88,9 @@ class VisBuffer:
         for idx in range(self.num_agents):
             self.agent_pos_buff[idx] = None
             self.belief_semantic_map_buff[idx] = None
-        self.globalSemanticMappBuff = None
+            self.belief_detected_semantic_map_buff[idx] = None
+        self.global_semantic_map_buff = None
+        self.global_detected_semantic_map_buff = None
 
     def add_buffer(self,agentID,agent_pos,beliefMap):
         if self.agent_pos_buff[agentID] is None:
@@ -95,13 +99,19 @@ class VisBuffer:
 
         if self.belief_semantic_map_buff[agentID] is None:
             self.belief_semantic_map_buff[agentID] = []
-        self.belief_semantic_map_buff[agentID].append(deepcopy(beliefMap.detected_semantic_map.get()))
+        if self.belief_detected_semantic_map_buff[agentID] is None:
+            self.belief_detected_semantic_map_buff[agentID] = []
+        self.belief_semantic_map_buff[agentID].append(deepcopy(beliefMap.semantic_map.get()))
+        self.belief_detected_semantic_map_buff[agentID].append(deepcopy(beliefMap.detected_semantic_map.get()))
 
     def add_buffer_global(self, beliefMap):
 
-        if self.globalSemanticMappBuff is None:
+        if self.global_semantic_map_buff is None:
             self.global_semantic_map_buff = []
-        self.global_semantic_map_buff.append(deepcopy(beliefMap.detected_semantic_map))
+        if self.global_detected_semantic_map_buff is None:
+            self.global_detected_semantic_map_buff = []
+        self.global_semantic_map_buff.append(deepcopy(beliefMap.semantic_map))
+        self.global_detected_semantic_map_buff.append(deepcopy(beliefMap.detected_semantic_map))
 
     def get_buffer_size(self):
         return len(self.global_semantic_map_buff)
@@ -112,7 +122,7 @@ class VisBuffer:
         for agent in self.agent_pos_buff:
             positions.append(self.agent_pos_buff[agent][idx])
 
-        return positions,self.globalSemanticMappBuff[idx]
+        return positions,self.global_semantic_map_buff[idx],self.global_detected_semantic_map_buff[idx]
 
 class GPSemanticGym(gym.Env):
 
@@ -124,6 +134,8 @@ class GPSemanticGym(gym.Env):
 
         # Necessary parameters for semantic environments
         self.numAgents = params_dict['numAgents']
+
+        self.params_dict = params_dict
         self.args_dict = args_dict
 
         self.env_params = params_dict
@@ -145,22 +157,22 @@ class GPSemanticGym(gym.Env):
             self.seed = params_dict['seed']
         self.viewer = None
 
-        self.RANGE = self.args_dict['RANGE'] * self.args_dict['RESOLUTION']
+        self.RANGE = self.args_dict['RANGE'] * int(self.params_dict['resolution']/self.args_dict['RESOLUTION'])
 
         if self.args_dict['OBSERVER'] == 'RANGE':
-            self.input_size = [2 * self.RANGE, 2 * self.RANGE, 1]
+            self.input_size = [2 * self.RANGE, 2 * self.RANGE, self.params_dict['num_semantics']]
         elif self.args_dict['OBSERVER'] == 'RANGEwOBS':
-            self.input_size = [2 * self.RANGE, 2 * self.RANGE, 2]
+            self.input_size = [2 * self.RANGE, 2 * self.RANGE,  self.params_dict['num_semantics'] + 1]
         elif self.args_dict['OBSERVER'] == 'RANGEwOBSwNEIGH':
-            self.input_size = [2 * (self.RANGE + 1), 2 * (self.RANGE + 1), 2]
+            self.input_size = [2 * (self.RANGE + 1), 2 * (self.RANGE + 1),self.params_dict['num_semantics'] + 1]
         elif self.args_dict['OBSERVER'] == 'RANGEwOBSwPENC':
-            self.input_size = [2 * self.RANGE, 2 * self.RANGE, 4]
+            self.input_size = [2 * self.RANGE, 2 * self.RANGE,  self.params_dict['num_semantics']  + 3]
         elif self.args_dict['OBSERVER'] == 'RANGEwOBSwMULTI':
             self.map_length = 2
-            self.input_size = [2 * self.RANGE, 2 * self.RANGE, len(self.scale) * 2]
+            self.input_size = [2 * self.RANGE, 2 * self.RANGE, len(self.scale)*(self.params_dict['num_semantics']+1)]
         elif self.args_dict['OBSERVER'] == 'RANGEwOBSwMULTIwCOV':
             self.map_length = 2
-            self.input_size = [2 * self.RANGE, 2 * self.RANGE, len(self.scale) * 3]
+            self.input_size = [2 * self.RANGE, 2 * self.RANGE, len(self.scale)*(self.params_dict['num_semantics']+2)]
 
         self.observation_space = gym.spaces.Box(
             low=0, high=1, shape=self.input_size, dtype=np.float)
@@ -228,7 +240,8 @@ class GPSemanticGym(gym.Env):
             self.motionprim_tokensize = 20
         else:
             self.motionprim_tokensize = self.num_graph_nodes + self.mp_graph.edges.shape[1]
-        self.mp_graph_embeddings = np.zeros((self.mp_graph.edges.shape[0],self.mp_graph.edges.shape[1],self.motionprim_tokensize))
+        self.mp_graph_embeddings = np.zeros((self.mp_graph.edges.shape[0],self.mp_graph.edges.shape[1],
+                                             self.motionprim_tokensize))
         for j in range(self.mp_graph.edges.shape[0]):
             for k in range(self.action_size):
                 if not bits:
@@ -319,7 +332,7 @@ class GPSemanticGym(gym.Env):
             previous_actions.append(self.agents[j].prev_action)
             agent_idx.append(self.agents[j].index)
             if self.args_dict['FIXED_BUDGET']:
-                agent_budgets.append([self.agents[j].agentBudget/self.args_dict['BUDGET']/REWARD.MP.value])
+                agent_budgets.append([self.agents[j].agent_budget/self.args_dict['BUDGET']/REWARD.MP.value])
 
         obs_dict = dict()
         obs_dict['obs'] = obs
@@ -336,7 +349,7 @@ class GPSemanticGym(gym.Env):
 
     def get_obs_ranged(self,agentID):
         semantic_features,_ = self.belief_semantic_map.get_observations(pos =self.agents[agentID].pos,
-                                                fov = self.sensor_range,
+                                                fov = [self.args_dict['RANGE'],self.args_dict['RANGE']],
                                                 scale = 1,
                                                 resolution=self.resolution,
                                                 type= 'semantic' )
@@ -349,13 +362,13 @@ class GPSemanticGym(gym.Env):
 
     def get_obs_ranged_wobs(self,agentID):
         semantic_features,_ = self.belief_semantic_map.get_observations(pos =self.agents[agentID].pos,
-                                                fov = self.sensor_range,
+                                                fov = [self.args_dict['RANGE'],self.args_dict['RANGE']],
                                                 scale = 1,
                                                 resolution=self.resolution,
                                                 type= 'semantic' )
 
         obstacle_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
-                                                              fov=self.sensor_range,
+                                                              fov=[self.args_dict['RANGE'],self.args_dict['RANGE']],
                                                               scale=1,
                                                               resolution=self.resolution,
                                                               type='obstacle')
@@ -366,19 +379,23 @@ class GPSemanticGym(gym.Env):
     def get_obs_ranged_wobspenc(self,agentID):
 
         semantic_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
-                                                              fov=self.sensor_range,
+                                                              fov=[self.args_dict['RANGE'],self.args_dict['RANGE']],
                                                               scale=1,
                                                               resolution=self.resolution,
                                                               type='semantic')
 
         obstacle_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
-                                                              fov=self.sensor_range,
+                                                              fov=[self.args_dict['RANGE'],self.args_dict['RANGE']],
                                                               scale=1,
                                                               resolution=self.resolution,
                                                               type='obstacle')
 
 
-        _,penc_x,penc_y = self.belief_semantic_map.distances(range=self.sensor_range,
+        semantic_features = block_reduce(semantic_features, (self.args_dict['RESOLUTION'], self.args_dict['RESOLUTION'],1), np.max)
+        obstacle_features = block_reduce(obstacle_features,
+                                         (self.args_dict['RESOLUTION'], self.args_dict['RESOLUTION']), np.max)
+
+        _,penc_x,penc_y = self.belief_semantic_map.distances(range=[self.args_dict['RANGE'],self.args_dict['RANGE']],
                                                             scale= 1.0,
                                                             resolution=self.resolution)
 
@@ -394,16 +411,22 @@ class GPSemanticGym(gym.Env):
 
         for s in self.scale:
             semantic_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
-                                                                           fov=self.sensor_range,
+                                                                           fov=[self.args_dict['RANGE'],self.args_dict['RANGE']],
                                                                            scale=s,
                                                                            resolution=self.resolution,
                                                                            type='semantic')
 
             obstacle_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
-                                                                           fov=self.sensor_range,
+                                                                           fov=[self.args_dict['RANGE'],self.args_dict['RANGE']],
                                                                            scale=s,
                                                                            resolution=self.resolution,
                                                                            type='obstacle')
+
+
+            semantic_features = block_reduce(semantic_features, (self.args_dict['RESOLUTION'], self.args_dict['RESOLUTION'],1), np.max)
+            obstacle_features = block_reduce(obstacle_features,
+                                             (self.args_dict['RESOLUTION'], self.args_dict['RESOLUTION']), np.max)
+
 
             if s==1:
                 features = np.expand_dims(semantic_features, axis=-1)
@@ -419,33 +442,39 @@ class GPSemanticGym(gym.Env):
 
         for s in self.scale:
             semantic_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
-                                                                           fov=self.sensor_range,
+                                                                           fov=[self.args_dict['RANGE'],self.args_dict['RANGE']],
                                                                            scale=s,
                                                                            resolution=self.resolution,
                                                                            type='semantic')
 
             obstacle_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
-                                                                           fov=self.sensor_range,
+                                                                           fov=[self.args_dict['RANGE'],self.args_dict['RANGE']],
                                                                            scale=s,
                                                                            resolution=self.resolution,
                                                                            type='obstacle')
 
             coverage_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
-                                                                           fov=self.sensor_range,
+                                                                           fov=[self.args_dict['RANGE'],self.args_dict['RANGE']],
                                                                            scale=s,
                                                                            resolution=self.resolution,
                                                                            type='coverage')
 
+
+            semantic_features = block_reduce(semantic_features, (self.args_dict['RESOLUTION'], self.args_dict['RESOLUTION'],1), np.max)
+            obstacle_features = block_reduce(obstacle_features,
+                                             (self.args_dict['RESOLUTION'], self.args_dict['RESOLUTION']), np.max)
+            coverage_features = block_reduce(coverage_features,
+                                             (self.args_dict['RESOLUTION'], self.args_dict['RESOLUTION']), np.max)
+
             if s == 1:
-                features = np.expand_dims(semantic_features, axis=-1)
-                features = (features,
+                features = (semantic_features,
                             np.expand_dims(obstacle_features, axis=-1),
                             np.expand_dims(coverage_features, axis=-1))
 
                 features = np.concatenate(features, axis=-1)
             else:
                 features = (features,
-                            np.expand_dims(semantic_features, axis=-1),
+                            semantic_features,
                             np.expand_dims(obstacle_features, axis=-1),
                             np.expand_dims(coverage_features, axis=-1))
                 features = np.concatenate(features, axis=-1)
@@ -575,35 +604,38 @@ class GPSemanticGym(gym.Env):
             if np.array(valids).sum() == 0:
                 done = True
             if self.args_dict['FIXED_BUDGET']:
-                if self.agents[agent_idx].agentBudget != None and self.agents[agent_idx].agentBudget < 0:
+                if self.agents[agent_idx].agent_budget != None and self.agents[agent_idx].agent_budget < 0:
                     agents_done = agents_done or True
 
+        self.buffer.add_buffer_global(self.belief_semantic_map)
         if self.args_dict['FIXED_BUDGET']:
             done = done or agents_done
 
         return rewards, done
 
     def _coverage(self, initial_belief,final_belief):
-        return (final_belief.coverageMap.sum() - initial_belief.coverage_map.sum())\
-               /(np.prod(final_belief.coverage_map.shape))
+        return (final_belief.coverage_map.sum() - initial_belief.coverage_map.sum())\
+               /(np.prod(final_belief.coverage_map.shape)) * REWARD.MAP.value
 
 
     def _get_reward(self,initial_belief,final_belief):
         oldentropy = initial_belief.get_entropy().mean()
         newEntropy = final_belief.get_entropy().mean()
         # Normalising total entropy reward to between 0 and 100
-        return (newEntropy-oldentropy)/(np.log(2))*REWARD.MAP.value
+        return -(newEntropy-oldentropy)/(np.log(2))*REWARD.PMAP.value
 
     def _get_semantic_reward(self,final_belief,initial_belief):
 
         detected_initial_semantics = self.ground_truth_semantic_map.detected_semantic_map
-        semantic_change_proportion = {}
+        semantic_change_proportion = {j:0.0 for j in range(self.ground_truth_semantic_map.num_semantics)}
         for sem in self.ground_truth_semantic_map.semantic_list:
+            if sem ==0:
+                continue
             semantic_change_proportion[sem] = np.sum(self.ground_truth_semantic_map.detected_semantic_map
-                                                     [final_belief.detected_semantic_map == sem])\
+                                                     [final_belief.detected_semantic_map == sem]).item()\
                                               /self.ground_truth_semantic_map.semantic_proportion[sem]
             semantic_change_proportion[sem] -= np.sum(self.ground_truth_semantic_map.detected_semantic_map
-                                                     [initial_belief.detected_semantic_map == sem])\
+                                                     [initial_belief.detected_semantic_map == sem]).item()\
                                               /self.ground_truth_semantic_map.semantic_proportion[sem]
 
         return semantic_change_proportion
@@ -614,7 +646,7 @@ class GPSemanticGym(gym.Env):
         """
         valid, visited_states, cost = self.agents[agentID].updatePos(action)
         reward = 0
-        initialBelief = deepcopy(self.belief_semantic_map)
+        initial_belief = deepcopy(self.belief_semantic_map)
 
         if valid:
             measurements = self.agents[agentID].update_semantics(visited_states.T)
@@ -623,14 +655,14 @@ class GPSemanticGym(gym.Env):
                 self.belief_semantic_map.update_semantics(state,measurement,self.sensor_params)
                 self.buffer.add_buffer(agentID,state,self.agents[agentID].belief_semantic_map)
 
-            reward_coverage = self._coverage(initialBelief,self.belief_semantic_map)
+            reward_coverage = self._coverage(initial_belief,self.belief_semantic_map)
 
-            reward += self._get_reward(initialBelief, self.belief_semantic_map)
+            reward += self._get_reward(initial_belief, self.belief_semantic_map)
             reward += reward_coverage
 
             reward -= cost / REWARD.MP.value
 
-            semantics_found = self._get_semantic_reward(self.belief_semantic_map,initialBelief)
+            semantics_found = self._get_semantic_reward(self.belief_semantic_map,initial_belief)
             semantics_found_total = 0
             for j in semantics_found:
                 semantics_found_total+=semantics_found[j]
@@ -643,24 +675,27 @@ class GPSemanticGym(gym.Env):
         else:
             reward += REWARD.COLLISION.value * 1.5
 
-        return reward
+        return reward.get().item()
 
     def render(self, mode='visualise', W=800, H=800):
         # TODO: Get rid of this crap, need to render via the GPU
         frame_list = []
         for idx in range(self.buffer.get_buffer_size()):
-            positions,map = self.buffer.get_buffer_element(idx)
-            semanticBelief = map.detected_semantic_map
-            entropy = map.get_entropy()
-            semanticGT = self.ground_truth_semantic_map.detected_semantic_map
-            mapImage = self.ground_truth_semantic_map.map_image
-            frame_list.append(self.renderer.render_image(semantic_image=semanticBelief,
-                                       ground_truth=semanticGT,
-                                       entropy_image=entropy,
-                                       background_image=mapImage,
+            positions,belief_map,semantic_map = self.buffer.get_buffer_element(idx)
+            semantic_belief = belief_map.get()
+            detected_semantic_map = semantic_map.get()
+            #entropy = semantic_map.get_entropy().get()
+            semantic_groundtruth = self.ground_truth_semantic_map.detected_semantic_map.get()
+            map_image = self.ground_truth_semantic_map.map_image.get()
+            frame_list.append(self.renderer.render_image(semantic_image=detected_semantic_map,
+                                       ground_truth=semantic_groundtruth,
+                                       entropy_image= 1 - semantic_belief[:,:,0],
+                                       background_image=map_image,
                                        quad_poses=positions,
                                        config_dict={"num_semantics":self.env_params['num_semantics'],
-                                                    "alpha":0.4}))
+                                            "alpha":0.2, "resolution": self.ground_truth_semantic_map.resolution}))
+
+        self.buffer.clear_buffer()
 
         return frame_list
 
@@ -668,19 +703,23 @@ class GPSemanticGym(gym.Env):
 
 
 class QuadRender:
-    def __init__(self,quad_img_path='env/assets/quad.jpg',render_H=600,render_W=600):
+    def __init__(self,quad_img_path='env/assets/quad.jpg',render_H=320,render_W=320):
         # Load the quadrotor image as a numpy array
         self.image = np.array(PIL.Image.open(os.getcwd() + "/"+quad_img_path))
         self.aspect_Ratio = self.image.shape[0]/self.image.shape[1]
 
-        self.quad_image = resize(self.image,output_shape=(self.aspect_Ratio*30,30))
+        self.quad_image = np.ones(shape = (30,30,4))
+        self.quad_image[:,:,:3] = resize(self.image,output_shape=(30,30))
 
         # Define an exhaustive list of semantic colours
-        self.SEMANTIC_PALLETE = np.array([[1.0,0.3,0.3],[0.3,0.3,1.0],[0.3,1.0,0.3],[1.0,1,0,0.3],[1.0,0.3,1.0],[0.3,1.0,1.0]])
-        self.NO_SEMANTIC = np.array([(0.9,0.9,0.9)])
+        self.SEMANTIC_PALLETE = np.stack([[1.0,0.3,0.3,1.0],[0.3,0.3,1.0,1.0],
+                                          [0.3,1.0,0.3,1.0],[1.0,1.0,0.3,1.0],
+                                          [1.0,0.3,1.0,1.0],[0.3,1.0,1.0,1.0]])
+        self.NO_SEMANTIC = np.array([[0.1,0.1,0.1,1.0]])
+        self.UNDETECTED_SEMANTIC = np.array([0.0,0.0,0.0,1.0])
 
-        self.max_entropy = np.array([0.9,0.2,0.2])
-        self.min_entropy = np.array([0.5,0.2,0.2])
+        self.max_entropy = np.array([0.3,0.3,1.0,1.0])
+        self.min_entropy = np.array([0.3,0.3,0.7,1.0])
 
         # Rendering sizes
         self.render_w = render_W
@@ -699,43 +738,59 @@ class QuadRender:
                         (number of semantics,
         '''
 
-        frame = np.zeros(background_image.shape)
+        frame = background_image
         frame = resize(frame,output_shape=(self.render_w,self.render_h,background_image.shape[-1]))
+
 
         # For semantics
         semantic_image = resize(semantic_image,output_shape=(self.render_w,self.render_h))
-        semantic_pallete = np.concatenate((self.SEMANTIC_PALLETE[:config_dict.num_semantics-1],self.NO_SEMANTIC),axis = 0)
-        semantic_image_frame =  semantic_pallete[semantic_image]
-        semantic_image_frame = (1 - config_dict.alpha)*frame + config_dict.alpha*semantic_image_frame
+        semantic_pallete = np.concatenate(
+            (self.NO_SEMANTIC,self.SEMANTIC_PALLETE[:config_dict['num_semantics']-1]),
+            axis = 0
+        )
+        semantic_image_frame = np.zeros(background_image.shape)
+        semantic_image_frame[:,:,:] = self.UNDETECTED_SEMANTIC
+        semantic_image_frame[semantic_image>0,:] =  semantic_pallete[semantic_image[semantic_image>0].astype(np.int)]
+        semantic_image_frame[semantic_image==0,:] = frame[semantic_image==0,:]
+        semantic_image_frame = (1 - config_dict['alpha'])*frame + config_dict['alpha']*semantic_image_frame
 
         # For entropy
-        entropy_image = resize(entropy_image, output_shape=(self.render_w, self.render_h))
-        entropy_image_frame = self.min_entropy + entropy_image*(self.max_entropy - self.min_entropy)
-        entropy_image_frame = (1 - config_dict.alpha) * frame + config_dict.alpha * entropy_image_frame
+        entropy_image = np.repeat(np.expand_dims(resize(entropy_image, output_shape=(self.render_w, self.render_h)),
+                                                 axis=-1),repeats=4,axis=-1)
+        entropy_image_frame = ((1-entropy_image/entropy_image.max())*frame +\
+                               entropy_image/entropy_image.max() * (self.max_entropy))
+        entropy_image_frame = (1 - 0.5) * frame + 0.5 * entropy_image_frame
 
         # For ground truth
         ground_truth = resize(ground_truth, output_shape=(self.render_w, self.render_h))
-        gt_image_frame = semantic_pallete[ground_truth]
-        gt_image_frame = (1 - config_dict.alpha) * frame + config_dict.alpha * gt_image_frame
+        gt_image_frame = frame
+        gt_image_frame[ground_truth>0] = semantic_pallete[ground_truth[ground_truth>0].astype(np.int)]
+        gt_image_frame = (1 - config_dict['alpha']) * frame + config_dict['alpha'] * gt_image_frame
 
 
         # Add quadrotor image to the position
         for quad_position in quad_poses:
+            quad_position = (int(quad_position[0]*config_dict['resolution'] ),int(quad_position[1]*config_dict['resolution']))
             quad_shape = self.quad_image.shape
-            semantic_image_frame[quad_position[0]-int(quad_shape[0]/2):quad_position[0]+quad_shape[0]-int(quad_shape[0]/2),
-                                 quad_position[1]-int(quad_shape[1]/2):quad_position[1]+quad_shape[1]-int(quad_shape[1]/2),:]\
-                = self.quad_image
 
-            entropy_image_frame[
-            quad_position[0] - int(quad_shape[0] / 2):quad_position[0] + quad_shape[0] - int(quad_shape[0] / 2),
-            quad_position[1] - int(quad_shape[1] / 2):quad_position[1] + quad_shape[1] - int(quad_shape[1] / 2), :] \
-                = self.quad_image
+            max_x = min(quad_position[0] + quad_shape[0] - int(quad_shape[0]/2),self.render_w)
+            max_y = min(quad_position[1] + quad_shape[1] - int(quad_shape[1]/2),self.render_h)
+            min_y = max(quad_position[1]-int(quad_shape[1]/2),0)
+            min_x = max(quad_position[0]-int(quad_shape[0]/2),0)
 
-            gt_image_frame[
-            quad_position[0] - int(quad_shape[0] / 2):quad_position[0] + quad_shape[0] - int(quad_shape[0] / 2),
-            quad_position[1] - int(quad_shape[1] / 2):quad_position[1] + quad_shape[1] - int(quad_shape[1] / 2), :] \
-                = self.quad_image
 
-        frame = np.concatenate((semantic_image_frame,entropy_image_frame,gt_image_frame),axis = 0)
+            semantic_image_frame[min_x:max_x,min_y:max_y,:]= \
+                self.quad_image[min_x - (quad_position[0]-int(quad_shape[0]/2)):max_x - (quad_position[0]-int(quad_shape[0]/2))]\
+            [min_y - (quad_position[1] - int(quad_shape[1] / 2)): max_y - (quad_position[1] - int(quad_shape[1] / 2))]
+
+            entropy_image_frame[min_x:max_x,min_y:max_y,:] \
+                =    self.quad_image[min_x - (quad_position[0]-int(quad_shape[0]/2)):max_x - (quad_position[0]-int(quad_shape[0]/2))]\
+            [min_y - (quad_position[1] - int(quad_shape[1] / 2)): max_y - (quad_position[1] - int(quad_shape[1] / 2))]
+
+            gt_image_frame[min_x:max_x,min_y:max_y,:] \
+                =   self.quad_image[min_x - (quad_position[0]-int(quad_shape[0]/2)):max_x - (quad_position[0]-int(quad_shape[0]/2))]\
+            [min_y - (quad_position[1] - int(quad_shape[1] / 2)): max_y - (quad_position[1] - int(quad_shape[1] / 2))]
+
+        frame = np.concatenate((semantic_image_frame,entropy_image_frame,gt_image_frame),axis = 1)
 
         return frame

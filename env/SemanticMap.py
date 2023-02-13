@@ -130,12 +130,17 @@ class GPSemanticMap:
         max_y = np.min([c + range[1], self.map_size[1]])
 
         feature = np.zeros((2 * range[0], 2 * range[1]))
+        if type=='semantic':
+            feature = np.zeros((2 * range[0], 2 * range[1],self.num_semantics))
+
         feature[min_x - (r - range[0]):2 * range[0] - (r + range[0] - max_x), \
         min_y - (c - range[1]):2 * range[1] - (c + range[1] - max_y)] = map[min_x:max_x, min_y:max_y].get()
 
         if type is not self.detected_semantic_map:
-            feature = block_reduce(feature, (scale, scale), np.max)
-
+            if type =='semantic':
+                feature = block_reduce(feature, (scale, scale,1), np.mean)
+            else:
+                feature = block_reduce(feature, (scale, scale), np.mean)
         distances = self.distances(range,scale,resolution)
 
             # print("{:d} {:d} {:d} {:d}".format(min_x, min_y, max_x, max_y))
@@ -351,7 +356,8 @@ class GPSemanticMap:
         return match
 
     def get_entropy(self):
-        entropy = self.semantic_map * np.log(np.clip(self.semantic_map, 1e-7, 1))
+        entropy = -np.sum(self.semantic_map * np.log(np.clip(self.semantic_map, 1e-7, 1)),axis = -1) + \
+                  -np.sum((1-self.semantic_map) * np.log(np.clip((1-self.semantic_map), 1e-7, 1)), axis=-1)
         return entropy
     '''
     Returns the total entropy at the desired locations
@@ -406,10 +412,5 @@ class GPSemanticMap:
             np.argmax(self.semantic_map[min_x:max_x,min_y:max_y][np.max(
                       self.semantic_map[min_x:max_x,min_y:max_y,:],axis=-1)>self.target_belief_thresh],axis=-1)
 
-    def compute_entropy(self):
-        '''
-        returns the entropy in the semantic map classification results
-        '''
-        return np.sum(np.log(np.clip(self.semantic_map,1e-6,1.0))*self.semantic_map)
 
 # TODO: New gym environment with observation structure
