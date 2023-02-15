@@ -101,8 +101,8 @@ class VisBuffer:
             self.belief_semantic_map_buff[agentID] = []
         if self.belief_detected_semantic_map_buff[agentID] is None:
             self.belief_detected_semantic_map_buff[agentID] = []
-        self.belief_semantic_map_buff[agentID].append(deepcopy(beliefMap.semantic_map.get()))
-        self.belief_detected_semantic_map_buff[agentID].append(deepcopy(beliefMap.detected_semantic_map.get()))
+        self.belief_semantic_map_buff[agentID].append(deepcopy(beliefMap.semantic_map))
+        self.belief_detected_semantic_map_buff[agentID].append(deepcopy(beliefMap.detected_semantic_map))
 
     def add_buffer_global(self, beliefMap):
 
@@ -657,9 +657,9 @@ class GPSemanticGym(gym.Env):
                 self.belief_semantic_map.update_semantics(state,measurement,self.sensor_params)
                 self.buffer.add_buffer(agentID,state,self.agents[agentID].belief_semantic_map)
 
-            reward_coverage = self._coverage(initial_belief,self.belief_semantic_map).get().item()
+            reward_coverage = self._coverage(initial_belief,self.belief_semantic_map).item()
 
-            reward += self._get_reward(initial_belief, self.belief_semantic_map).get().item()
+            reward += self._get_reward(initial_belief, self.belief_semantic_map).item()
             reward += reward_coverage
 
             reward -= cost / REWARD.MP.value
@@ -686,11 +686,11 @@ class GPSemanticGym(gym.Env):
         frame_list = []
         for idx in range(self.buffer.get_buffer_size()):
             positions,belief_map,semantic_map = self.buffer.get_buffer_element(idx)
-            semantic_belief = belief_map.get()
-            detected_semantic_map = semantic_map.get()
-            #entropy = semantic_map.get_entropy().get()
-            semantic_groundtruth = self.ground_truth_semantic_map.detected_semantic_map.get()
-            map_image = self.ground_truth_semantic_map.map_image.get()
+            semantic_belief = belief_map
+            detected_semantic_map = semantic_map
+            #entropy = semantic_map.get_entropy().
+            semantic_groundtruth = self.ground_truth_semantic_map.detected_semantic_map
+            map_image = self.ground_truth_semantic_map.map_image
             frame_list.append(self.renderer.render_image(semantic_image=detected_semantic_map,
                                        ground_truth=semantic_groundtruth,
                                        entropy_image= 1 - semantic_belief[:,:,0],

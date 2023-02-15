@@ -91,7 +91,7 @@ class SemanticMetrics:
         self.map_entropy = self.compute_map_entropy(belief_map, target_map)
         self.targetsfound,_ = self.compute_semantics_found(belief_map, target_map)
         metrics = dict()
-        metrics['coverage'] = self.coverage.get()
-        metrics['map_entropy_reduction'] = self.map_entropy.get()
-        metrics['semantics_found'] = self.targetsfound.get()
+        metrics['coverage'] = self.coverage
+        metrics['map_entropy_reduction'] = self.map_entropy
+        metrics['semantics_found'] = self.targetsfound
         return metrics
