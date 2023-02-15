@@ -18,11 +18,11 @@ def Gaussian(mean, cov,map_size,scale = 0.5):
     # Making the gaussians circular
 
 
-    xPred = cupy.array([np.reshape(x1Mesh, (map_size * map_size,)) \
+    xPred = np.array([np.reshape(x1Mesh, (map_size * map_size,)) \
                          , np.reshape(x2Mesh, (map_size * map_size,))])
     diff = xPred - mean.reshape((mean.shape[0], 1))
     diff_ = np.linalg.norm(diff,axis=0)
-    gaussian = 1 / (2 * np.pi *np.square(cov)) * cupy.exp(-0.5*np.square(diff_/cov))
+    gaussian = 1 / (2 * np.pi *np.square(cov)) * np.exp(-0.5*np.square(diff_/cov))
     gaussian = (gaussian/gaussian.sum()).reshape((map_size,map_size))
     indicator = (np.max(np.abs(diff),axis=0)<cov).reshape((map_size,map_size)).astype(np.int)
     #plt.imshow((gaussian/gaussian.max()).get().reshape((336, 336)))
@@ -169,15 +169,15 @@ class GPSemanticMap:
         '''
         # TODO detected semantic map to change accordingly,stores only the semantic label
         if load_dict is None:
-            self.semantic_map = cupy.array(np.zeros(shape=self.map_size))
-            self.coverage_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
-            self.obstacle_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
-            self.detected_semantic_map =  cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1]))) - 1
+            self.semantic_map = np.array(np.zeros(shape=self.map_size))
+            self.coverage_map = np.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
+            self.obstacle_map = np.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
+            self.detected_semantic_map =  np.array(np.zeros(shape=(self.map_size[0], self.map_size[1]))) - 1
         else:
             # Load the semantic map from the file path
-            #self.semantic_map = cupy.array(np.load(load_dict['semantic_file_path']))
-            self.coverage_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
-            self.obstacle_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
+            #self.semantic_map = np.array(np.load(load_dict['semantic_file_path']))
+            self.coverage_map = np.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
+            self.obstacle_map = np.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
 
             detected_semantic_map = np.load(load_dict['semantic_file_path'])
             self.detected_semantic_map = np.zeros(shape=(self.map_size[0],self.map_size[1]))
@@ -192,10 +192,10 @@ class GPSemanticMap:
             for sem in self.semantic_list:
                 self.semantic_proportion[sem] = np.sum(self.detected_semantic_map==sem)
 
-            self.detected_semantic_map = cupy.array(rotate(self.detected_semantic_map,90))
+            self.detected_semantic_map = np.array(rotate(self.detected_semantic_map,90))
 
         self.map_image = np.array(PIL.Image.open((os.getcwd() + "/"+ load_dict['map_image_file_path'])))/255
-        self.map_image =cupy.array(resize(self.map_image, output_shape=(self.map_size[0], self.map_size[1],self.map_image.shape[-1])))
+        self.map_image =np.array(resize(self.map_image, output_shape=(self.map_size[0], self.map_size[1],self.map_image.shape[-1])))
 
         if DEBUG:
             plt.imshow(self.detected_semantic_map.get())
@@ -212,7 +212,7 @@ class GPSemanticMap:
         if self.isGroundTruth:
             raise AttributeError
 
-        self.semantic_map = cupy.array(np.load(params_dict['semantic_test_path']))
+        self.semantic_map = np.array(np.load(params_dict['semantic_test_path']))
         self.detected_semantic_map = np.argmax(self.semantic_map, axis=2)
         map1 = ground_truth_map.detected_semantic_map >0
         map2 = self.detected_semantic_map >0
@@ -232,9 +232,9 @@ class GPSemanticMap:
         if self.isGroundTruth:
             raise AttributeError
 
-        self.semantic_map = cupy.array(np.zeros(shape=self.map_size)+0.5)
-        self.coverage_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
-        self.obstacle_map = cupy.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
+        self.semantic_map = np.array(np.zeros(shape=self.map_size)+0.5)
+        self.coverage_map = np.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
+        self.obstacle_map = np.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
 
         if self.centre_locations is None:
             locations_x = np.arange(0,int(np.sqrt(params_dict['num_centres'])))*\
@@ -251,7 +251,7 @@ class GPSemanticMap:
         gauss_list = []
         indicator_list = []
         for j,loc in enumerate(self.centre_locations):
-            gaussian,indicator = Gaussian(cupy.array(loc), params_dict['sigma'],
+            gaussian,indicator = Gaussian(np.array(loc), params_dict['sigma'],
                                           map_size=self.map_size[0],
                                           scale=params_dict['clip'])
             gaussian = np.expand_dims(gaussian,axis=-1)
@@ -260,8 +260,8 @@ class GPSemanticMap:
             gauss_list.append(gaussian)
             indicator_list.append(indicator)
 
-        gauss = cupy.array(np.concatenate(gauss_list,axis = -1))
-        indicator = cupy.array(np.concatenate(indicator_list,axis = -1))
+        gauss = np.array(np.concatenate(gauss_list,axis = -1))
+        indicator = np.array(np.concatenate(indicator_list,axis = -1))
 
         # for j in range(self.num_semantics):
         #     map_ = np.expand_dims((ground_truth_map.detected_semantic_map == j).astype(np.float),axis = -1)
@@ -270,7 +270,7 @@ class GPSemanticMap:
         #     proportion = ground_truth_map.semantic_proportion[j]/np.prod(map_.shape)
         #
         #     #weights_gauss = 2*(gauss*np.repeat(map_,repeats=self.centre_locations.shape[0],axis=-1)).sum(axis=0).sum(axis=0)
-        #     randomiser = cupy.random.random(params_dict['num_centres'])*params_dict['randomness'] - 0.5*params_dict['randomness']
+        #     randomiser = np.random.random(params_dict['num_centres'])*params_dict['randomness'] - 0.5*params_dict['randomness']
         #     if proportion>0.5:
         #         weights -= 1
         #     else:
@@ -299,7 +299,7 @@ class GPSemanticMap:
         # weights -=1
 
         #weights_gauss = 2*(gauss*np.repeat(map_,repeats=self.centre_locations.shape[0],axis=-1)).sum(axis=0).sum(axis=0)
-        # randomiser = cupy.random.random(params_dict['num_centres'])*params_dict['randomness'] - 0.5*params_dict['randomness']
+        # randomiser = np.random.random(params_dict['num_centres'])*params_dict['randomness'] - 0.5*params_dict['randomness']
         #
         # randomised_weights = 0.5*weights + randomiser
         # neg = randomised_weights<0
@@ -311,7 +311,7 @@ class GPSemanticMap:
                   /indicator.sum(axis=0).sum(axis=0)
         prop = map_.sum()/np.prod(map_.shape)
 
-        randomiser = cupy.random.random(params_dict['num_centres']) * params_dict['randomness'] * 2 *prop
+        randomiser = np.random.random(params_dict['num_centres']) * params_dict['randomness'] * 2 *prop
         weights = weights + (randomiser - prop)
         weights[weights<0] = 0
         weights[weights>prop] = prop
@@ -326,12 +326,12 @@ class GPSemanticMap:
         for j in range(1,self.num_semantics):
             self.semantic_map[:, :, j]  += b_map
             self.semantic_map[:, :, j] = np.clip(self.semantic_map[:, :, j], 1 - params_dict['clip'],params_dict['clip'])
-            self.semantic_map[:, :, j] = self.semantic_map[:, :, j] + cupy.random.random(self.semantic_map[:, :, j].shape)*0.001
+            self.semantic_map[:, :, j] = self.semantic_map[:, :, j] + np.random.random(self.semantic_map[:, :, j].shape)*0.001
         self.semantic_map[:, :, 0] = 1- self.semantic_map[:, :, 1:].mean(axis=-1)
         self.semantic_map[:,:,0] = np.clip(self.semantic_map[:,:,0],1-params_dict['clip'],params_dict['clip'])
 
-        #self.detected_semantic_map = cupy.argmax(self.semantic_map,axis = -1)
-        self.detected_semantic_map = cupy.zeros((self.semantic_map.shape[0],self.semantic_map.shape[1])) - 1
+        #self.detected_semantic_map = np.argmax(self.semantic_map,axis = -1)
+        self.detected_semantic_map = np.zeros((self.semantic_map.shape[0],self.semantic_map.shape[1])) - 1
 
         if DEBUG:
             import matplotlib.pyplot as plt
@@ -390,11 +390,11 @@ class GPSemanticMap:
 
         sensor_odds =  np.log(sensor_max_unc *(1-coeff*distances)/(1-sensor_max_unc *(1-coeff*distances)))
         sensor_neg_odds =  np.log((3 - ((sensor_max_unc) *(1-coeff*distances)))/(2 + sensor_max_unc *(1-coeff*distances)))
-        semantic_map_log_odds = cupy.log(self.semantic_map[min_x:max_x, min_y:max_y,:]\
+        semantic_map_log_odds = np.log(self.semantic_map[min_x:max_x, min_y:max_y,:]\
                                        / (1 - self.semantic_map[min_x:max_x,min_y:max_y,:])).reshape((-1,self.num_semantics))
 
         try:
-            semantic_map_log_odds += cupy.expand_dims(cupy.array(sensor_neg_odds[min_x - (r - sensor_range_map[0]): max_x - (r - sensor_range_map[0])] \
+            semantic_map_log_odds += np.expand_dims(np.array(sensor_neg_odds[min_x - (r - sensor_range_map[0]): max_x - (r - sensor_range_map[0])] \
             [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]).reshape(-1),axis = -1)
         except:
             print("r,c {}".format([r,c]))
@@ -409,13 +409,13 @@ class GPSemanticMap:
                                                     [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]
 
         semantic_map_log_odds[np.arange(shape),measurement_slice.astype(np.int32).reshape(-1)]\
-                                                            += cupy.array(sensor_odds[min_x- (r - sensor_range_map[0]):\
+                                                            += np.array(sensor_odds[min_x- (r - sensor_range_map[0]):\
                                                                                        max_x - (r-sensor_range_map[0])]\
                                                                                       [min_y - (c - sensor_range_map[1]): \
                                                                          max_y - (c - sensor_range_map[1])]).reshape(-1)
 
         semantic_map_log_odds[np.arange(shape),measurement_slice.astype(np.int32).reshape(-1)] \
-                                                        += cupy.array(sensor_neg_odds[min_x- (r - sensor_range_map[0]):\
+                                                        += np.array(sensor_neg_odds[min_x- (r - sensor_range_map[0]):\
                                                                                        max_x - (r-sensor_range_map[0])]\
                                                                                       [min_y - (c - sensor_range_map[1]): \
                                                                          max_y - (c - sensor_range_map[1])]).reshape(-1)
