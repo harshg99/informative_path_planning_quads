@@ -6,7 +6,7 @@ from skimage.transform import resize
 from skimage.transform import rotate
 from copy import deepcopy
 import PIL
-DEBUG = True
+DEBUG = False
 from skimage.measure import block_reduce
 import os
 
