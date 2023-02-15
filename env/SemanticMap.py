@@ -392,8 +392,16 @@ class GPSemanticMap:
         sensor_neg_odds =  np.log((3 - ((sensor_max_unc) *(1-coeff*distances)))/(2 + sensor_max_unc *(1-coeff*distances)))
         semantic_map_log_odds = cupy.log(self.semantic_map[min_x:max_x, min_y:max_y,:]\
                                        / (1 - self.semantic_map[min_x:max_x,min_y:max_y,:])).reshape((-1,self.num_semantics))
-        semantic_map_log_odds += cupy.expand_dims(cupy.array(sensor_neg_odds[min_x - (r - sensor_range_map[0]): max_x - (r - sensor_range_map[0])] \
+
+        try:
+            semantic_map_log_odds += cupy.expand_dims(cupy.array(sensor_neg_odds[min_x - (r - sensor_range_map[0]): max_x - (r - sensor_range_map[0])] \
             [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]).reshape(-1),axis = -1)
+        except:
+            print("r,c {}".format([r,c]))
+            print("m_x m_y {} {} {} {}".format(min_x,max_x,min_y,max_y))
+            print("m_x m_y {} {} {} {}".format(min_x - (r - sensor_range_map[0]),  max_x - (r - sensor_range_map[0]),
+                                               min_y - (c - sensor_range_map[1]),  max_y - (c - sensor_range_map[1])))
+
 
         shape = semantic_map_log_odds.shape[0]
         measurement_slice = measurement[min_x- (r - sensor_range_map[0]): max_x - (r-sensor_range_map[0])]\
