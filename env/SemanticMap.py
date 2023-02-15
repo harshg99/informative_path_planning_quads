@@ -401,6 +401,7 @@ class GPSemanticMap:
             print("m_x m_y {} {} {} {}".format(min_x,max_x,min_y,max_y))
             print("m_x m_y {} {} {} {}".format(min_x - (r - sensor_range_map[0]),  max_x - (r - sensor_range_map[0]),
                                                min_y - (c - sensor_range_map[1]),  max_y - (c - sensor_range_map[1])))
+            print("r1 r2 {} {}".format(sensor_range_map[0],sensor_range_map[1]))
 
 
         shape = semantic_map_log_odds.shape[0]
