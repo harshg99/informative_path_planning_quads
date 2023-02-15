@@ -134,7 +134,7 @@ class GPSemanticMap:
             feature = np.zeros((2 * range[0], 2 * range[1],self.num_semantics))
 
         feature[min_x - (r - range[0]):2 * range[0] - (r + range[0] - max_x), \
-        min_y - (c - range[1]):2 * range[1] - (c + range[1] - max_y)] = map[min_x:max_x, min_y:max_y].get()
+        min_y - (c - range[1]):2 * range[1] - (c + range[1] - max_y)] = map[min_x:max_x, min_y:max_y]
 
         if type is not self.detected_semantic_map:
             if type =='semantic':
@@ -198,9 +198,9 @@ class GPSemanticMap:
         self.map_image =np.array(resize(self.map_image, output_shape=(self.map_size[0], self.map_size[1],self.map_image.shape[-1])))
 
         if DEBUG:
-            plt.imshow(self.detected_semantic_map.get())
+            plt.imshow(self.detected_semantic_mapnp)
             plt.figure()
-            plt.imshow(self.map_image.get())
+            plt.imshow(self.map_image)
 
     def load_prior_semantics(self, params_dict=None, ground_truth_map=None):
         '''
@@ -290,7 +290,7 @@ class GPSemanticMap:
         #     if DEBUG:
         #         import matplotlib.pyplot as plt
         #         plt.figure()
-        #         plt.imshow(self.semantic_map[:, :, j].get())
+        #         plt.imshow(self.semantic_map[:, :, j])
 
 
         # map_ = np.expand_dims((ground_truth_map.detected_semantic_map == 0).astype(np.float),axis = -1)
@@ -336,19 +336,19 @@ class GPSemanticMap:
         if DEBUG:
             import matplotlib.pyplot as plt
             plt.figure()
-            plt.imshow(b_map.get())
+            plt.imshow(b_map)
             plt.figure()
-            plt.imshow(ground_truth_map.detected_semantic_map.get())
+            plt.imshow(ground_truth_map.detected_semantic_map)
             plt.figure()
-            plt.imshow(self.detected_semantic_map.get())
+            plt.imshow(self.detected_semantic_map)
             plt.figure()
-            plt.imshow(self.semantic_map[:, :, 0].get())
+            plt.imshow(self.semantic_map[:, :, 0])
             plt.figure()
-            plt.imshow(self.semantic_map[:,:,1].get())
+            plt.imshow(self.semantic_map[:,:,1])
             plt.figure()
-            plt.imshow(self.semantic_map[:, :, 2].get())
+            plt.imshow(self.semantic_map[:, :, 2])
             plt.figure()
-            plt.imshow(self.semantic_map[:, :, 3].get())
+            plt.imshow(self.semantic_map[:, :, 3])
         # degree of randomness
         map1 = ground_truth_map.detected_semantic_map >0
         map2 = self.detected_semantic_map >0
