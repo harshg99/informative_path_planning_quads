@@ -168,7 +168,7 @@ if __name__=='__main__':
                 if reinitialize:
                     reinit_count = NUM_META_AGENTS
                     joblist, curr_episode = init_jobs(meta_agents, weights, curr_episode)
-
+                print(len(joblist))
             else:
                 if curr_episode < MAX_EPISODES:
                     joblist.extend([meta_agents[info].job.remote(weights, curr_episode)])
