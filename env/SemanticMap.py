@@ -407,24 +407,32 @@ class GPSemanticMap:
                                                min_y - (c - sensor_range_map[1]),  max_y - (c - sensor_range_map[1])))
             print("r1 r2 {} {}".format(sensor_range_map[0],sensor_range_map[1]))
 
+        try:
+            shape = semantic_map_log_odds.shape[0]
+            measurement_slice = measurement[min_x- (r - sensor_range_map[0]): max_x - (r-sensor_range_map[0])]\
+                                                        [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]
 
-        shape = semantic_map_log_odds.shape[0]
-        measurement_slice = measurement[min_x- (r - sensor_range_map[0]): max_x - (r-sensor_range_map[0])]\
-                                                    [min_y - (c - sensor_range_map[1]): max_y - (c - sensor_range_map[1])]
+            semantic_map_log_odds[np.arange(shape),measurement_slice.astype(np.int32).reshape(-1)]\
+                                                                += np.array(sensor_odds[min_x- (r - sensor_range_map[0]):\
+                                                                                           max_x - (r-sensor_range_map[0])]\
+                                                                                          [min_y - (c - sensor_range_map[1]): \
+                                                                             max_y - (c - sensor_range_map[1])]).reshape(-1)
 
-        semantic_map_log_odds[np.arange(shape),measurement_slice.astype(np.int32).reshape(-1)]\
-                                                            += np.array(sensor_odds[min_x- (r - sensor_range_map[0]):\
-                                                                                       max_x - (r-sensor_range_map[0])]\
-                                                                                      [min_y - (c - sensor_range_map[1]): \
-                                                                         max_y - (c - sensor_range_map[1])]).reshape(-1)
+            semantic_map_log_odds[np.arange(shape),measurement_slice.astype(np.int32).reshape(-1)] \
+                                                            += np.array(sensor_neg_odds[min_x- (r - sensor_range_map[0]):\
+                                                                                           max_x - (r-sensor_range_map[0])]\
+                                                                                          [min_y - (c - sensor_range_map[1]): \
+                                                                             max_y - (c - sensor_range_map[1])]).reshape(-1)
 
-        semantic_map_log_odds[np.arange(shape),measurement_slice.astype(np.int32).reshape(-1)] \
-                                                        += np.array(sensor_neg_odds[min_x- (r - sensor_range_map[0]):\
-                                                                                       max_x - (r-sensor_range_map[0])]\
-                                                                                      [min_y - (c - sensor_range_map[1]): \
-                                                                         max_y - (c - sensor_range_map[1])]).reshape(-1)
+            semantic_map_log_odds = semantic_map_log_odds.reshape(([max_x-min_x,max_y-min_y,self.num_semantics]))
+        except:
+            print("state {}".format(state))
+            print("r,c {}".format([r,c]))
+            print("m_x m_y {} {} {} {}".format(min_x,max_x,min_y,max_y))
+            print("m_x m_y {} {} {} {}".format(min_x - (r - sensor_range_map[0]),  max_x - (r - sensor_range_map[0]),
+                                               min_y - (c - sensor_range_map[1]),  max_y - (c - sensor_range_map[1])))
+            print("r1 r2 {} {}".format(sensor_range_map[0],sensor_range_map[1]))
 
-        semantic_map_log_odds = semantic_map_log_odds.reshape(([max_x-min_x,max_y-min_y,self.num_semantics]))
         self.semantic_map[min_x:max_x,min_y:max_y] =  1 / (np.exp(-semantic_map_log_odds) + 1)
 
         self.detected_semantic_map[min_x:max_x,min_y:max_y][np.max(self.semantic_map

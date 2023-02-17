@@ -4,9 +4,9 @@ graph_file_name = 'latticeData/faster20.json'
 numAgents=1
 seed=45
 episode_length = 100
-pad_size = 3
+pad_size = 4
 
-rewardMapSize = 34 # m m size of the environment
+rewardMapSize = 32 # m m size of the environment
 defaultMapChoice = 0
 resolution = 8 # m m to pixel conversion (map will be 200 by 200)
 num_semantics = 4  # include background semantic
