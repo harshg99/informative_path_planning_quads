@@ -31,7 +31,7 @@ class Worker:
     def reset(self,episodeNum):
         # Resets to episode number
         self.episodeNum = episodeNum
-        self.env.reset()
+        self.env.reset(episode_num = episodeNum)
         self.model.reset(episodeNum)
 
     def single_threaded_episode(self,episodeNum):

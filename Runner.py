@@ -9,7 +9,7 @@ from params import *
 from env.env_setter import *
 from models.alg_setter import alg_setter
 import Utilities
-
+import cProfile
 @ray.remote(num_cpus=1,num_gpus=NUM_DEVICES*int(GPU)/(NUM_META_AGENTS+1))
 class Runner(object):
     def __init__(self,id,args_dict):
@@ -42,5 +42,7 @@ if __name__ == '__main__':
     params = Utilities.set_dict(parameters)
     #neptune_run = Utilities.setup_neptune(params)
 
+    # Profile the runnner object
+    
     rs = Runner(0,params)
-    rs.singleThreadedJob(900)
+    cProfile.run('rs.singleThreadedJob(900)')
