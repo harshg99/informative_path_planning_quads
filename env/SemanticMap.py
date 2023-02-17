@@ -112,7 +112,11 @@ class GPSemanticMap:
         else:
             map = deepcopy(self.coverage_map)
 
-        r,c = self.get_row_col(pos)
+        try:
+            r,c = self.get_row_col(pos)
+        except:
+            print("Position {}".format(pos))
+
         if scale is None:
             scale = 1
 
