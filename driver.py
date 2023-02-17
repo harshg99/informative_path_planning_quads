@@ -60,7 +60,7 @@ def compute_vae_reconstruction_loss(global_model,buffer,params_dict):
     return metrics
 
 def init_ray():
-    ray.init(num_gpus=int(GPU))
+    ray.init(num_gpus=int(GPU)*int(NUM_DEVICES))
 
 
 def init_jobs(agents, weights, curr_episode):
