@@ -439,9 +439,9 @@ class ModelMF4(Model6):
             hidden_in = torch.zeros((1,len(self.env.agents),self.params_dict['embed_size']))\
                 .to(torch.float32)
 
-        observation = torch.tensor([observation], dtype=torch.float32).to(self.args_dict['DEVICE'])
-        pos = torch.tensor([pos], dtype=torch.float32).to(self.args_dict['DEVICE'])
-        prev_a = F.one_hot(torch.tensor([prev_a]),
+        observation = torch.tensor(np.array([observation]), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        pos = torch.tensor(np.array([pos]), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        prev_a = F.one_hot(torch.tensor(np.array([prev_a])),
                            num_classes = self.action_size).to(self.args_dict['DEVICE'])
         graph_nodes = F.one_hot(torch.tensor(np.array([graph_nodes])),
                                 num_classes = self.num_graph_nodes).to(self.args_dict['DEVICE'])
