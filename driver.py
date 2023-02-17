@@ -159,7 +159,7 @@ if __name__=='__main__':
                 if joblist == []:
                     print('REINITIALIZING RAY')
                     ray.shutdown()
-                    ray.init(num_gpus=params['NUM_DEVICES']*int(GPU))
+                    init_ray()
                     meta_agents = [Runner.remote(i,params) for i in range(NUM_META_AGENTS)]
                     reinitialize = True
                 else:
