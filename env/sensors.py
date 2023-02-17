@@ -56,12 +56,13 @@ class SemanticSensor:
                             = self.sensor_max_unc * (1 - self.coeff * distances[0]).reshape(-1)
         # prob_matrix[ ground_truth_semantic==-1][0] == self.sensor_max_unc * (1-self.coeff*distances)
 
-        list_matrix = [np.repeat(np.expand_dims(np.arange(groundTruth.num_semantics),axis=0),axis=0,repeats=np.prod(ground_truth_semantic.shape)),
-                       prob_matrix]
-        matrix = np.concatenate(list_matrix,axis=-1)
-        measurement_flatten = np.apply_along_axis(functools.partial(self.sample,num_semantics = groundTruth.num_semantics)
-                                                   ,axis = 1, arr=matrix)
+        # list_matrix = [np.repeat(np.expand_dims(np.arange(groundTruth.num_semantics),axis=0),axis=0,repeats=np.prod(ground_truth_semantic.shape)),
+        #                prob_matrix]
+        # matrix = np.concatenate(list_matrix,axis=-1)
+        # measurement_flatten = np.apply_along_axis(functools.partial(self.sample,num_semantics = groundTruth.num_semantics)
+        #                                            ,axis = 1, arr=matrix)
 
+        measurement_flatten = self.sample(prob_matrix,axis = 1)
         # measurement_flatten = np.random.choice(a=np.repeat(np.arange(groundTruth.num_semantics),
         #                                                    repeats=np.array(ground_truth_semantic.shape).prod()),\
         #                                                    p=prob_matrix)
@@ -70,8 +71,9 @@ class SemanticSensor:
 
         return sensor_measurement
 
-    def sample(self,array,num_semantics = 4):
-        return np.random.choice(a=array[:num_semantics:],p=array[num_semantics:])
+    def sample(self,a, axis=1):
+        r = np.expand_dims(np.random.rand(a.shape[1 - axis]), axis=axis)
+        return (a.cumsum(axis=axis) > r).argmax(axis=axis)
 
 class sensor_setter:
 

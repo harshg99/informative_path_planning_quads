@@ -276,7 +276,17 @@ class AgentSemantic :
         mp.translate_start_position(self.pos_actual)
         _, sp = mp.get_sampled_position()
         # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
-        visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
+        #visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
+        visited_states = np.round(sp).astype(np.int32)
+        visited_states_ = []
+        dict_ = {}
+        for j in range(len(visited_states)):
+            if tuple(visited_states[j]) not in dict_.keys():
+                visited_states_.append(visited_states[j])
+                dict_[tuple(visited_states[j])] = 1.0
+
+        visited_states = np.array(visited_states_)
+
         #is_valid = is_valid and self.isValidPoses(visited_states)
         final_pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
         is_valid = is_valid and self.isValidFinalPose(final_pos)

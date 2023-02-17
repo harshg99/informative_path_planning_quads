@@ -216,6 +216,8 @@ class GPSemanticGym(gym.Env):
         self.training_map_indices = shuffled_indices[0:int(self.env_params['TOTAL_MAPS']*self.env_params['TRAIN_PROP'])]
         self.test_map_indices = shuffled_indices[int(self.env_params['TOTAL_MAPS']*self.env_params['TRAIN_PROP']):]
 
+        self.episode_num = 0.0
+
     def load_graph(self):
         self.mp_graph = MotionPrimitiveLattice.load(self.mp_graph_file_name)
         self.mp_graph.edges = self.mp_graph.edges.T
@@ -506,9 +508,11 @@ class GPSemanticGym(gym.Env):
         return pos, index, False, None, None
 
     '''
-         Creates and loads the ground turth semantics world and intializes a prior        '''
-    def reset(self,test = False, test_indices = None):
+         Creates and loads the ground truth semantics world and intializes a prior        '''
+    def reset(self,episode_num = None, test = False, test_indices = None):
         self.create_world(test,test_indices)
+        self.buffer.clear_buffer()
+        self.episode_num = episode_num
 
     #TODO : Add something to the buffer here
     def create_world(self, test, test_indices = None):
@@ -609,7 +613,9 @@ class GPSemanticGym(gym.Env):
                 if self.agents[agent_idx].agent_budget != None and self.agents[agent_idx].agent_budget < 0:
                     agents_done = agents_done or True
 
-        self.buffer.add_buffer_global(self.belief_semantic_map)
+        if self.episode_num is not None and self.args_dict['RENDER_TRAINING'] and \
+                self.episode_num% self.args_dict['RENDER_TRAINING_WINDOW'] == 0:
+            self.buffer.add_buffer_global(self.belief_semantic_map)
         if self.args_dict['FIXED_BUDGET']:
             done = done or agents_done
 
@@ -655,7 +661,9 @@ class GPSemanticGym(gym.Env):
 
             for measurement,state in zip(measurements,visited_states.T):
                 self.belief_semantic_map.update_semantics(state,measurement,self.sensor_params)
-                self.buffer.add_buffer(agentID,state,self.agents[agentID].belief_semantic_map)
+                if self.episode_num is not None and self.args_dict['RENDER_TRAINING'] and \
+                        self.episode_num % self.args_dict['RENDER_TRAINING_WINDOW'] == 0:
+                    self.buffer.add_buffer(agentID,state,self.agents[agentID].belief_semantic_map)
 
             reward_coverage = self._coverage(initial_belief,self.belief_semantic_map).item()
 
@@ -674,10 +682,14 @@ class GPSemanticGym(gym.Env):
         elif visited_states is not None:
             # reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
             reward += REWARD.COLLISION.value
-            self.buffer.add_buffer(agentID, self.agents[agentID].pos, self.agents[agentID].belief_semantic_map)
+            if self.episode_num is not None and self.args_dict['RENDER_TRAINING'] and \
+                    self.episode_num % self.args_dict['RENDER_TRAINING_WINDOW'] == 0:
+                self.buffer.add_buffer(agentID, self.agents[agentID].pos, self.agents[agentID].belief_semantic_map)
         else:
             reward += REWARD.COLLISION.value * 1.5
-            self.buffer.add_buffer(agentID, self.agents[agentID].pos, self.agents[agentID].belief_semantic_map)
+            if self.episode_num is not None and self.args_dict['RENDER_TRAINING'] and \
+                    self.episode_num % self.args_dict['RENDER_TRAINING_WINDOW'] == 0:
+                self.buffer.add_buffer(agentID, self.agents[agentID].pos, self.agents[agentID].belief_semantic_map)
 
         return reward
 
