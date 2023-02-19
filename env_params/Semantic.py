@@ -36,4 +36,7 @@ RANDOM_CENTRES = 64
 CENTRE_SIZE = 25 # In pixels
 MAX_CLIP = 0.9
 
+# For tests
+TEST_PER_MAP = 2
+
 
