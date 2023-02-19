@@ -527,6 +527,7 @@ class GPSemanticGym(gym.Env):
                 'map_image_file_path':self.env_params['assets_folder'] +'gmap{}.png'.format(map_index)
             }
 
+
             self.ground_truth_semantic_map.init_map(load_dict)
             #TODO: appropirate path referenced
             params_dict = {

@@ -68,13 +68,14 @@ class SemanticMetrics:
         total_semantic_det = 0
         total_semantics_gt = 0
         for sem in target_map.semantic_list:
-            semantic_change_proportion[sem] = np.sum(target_map.detected_semantic_map
-                                                     [belief_map.detected_semantic_map == sem]) \
-                                              / target_map.semantic_proportion[sem]
+            if sem is not 0:
+                semantic_change_proportion[sem] = np.sum(target_map.detected_semantic_map
+                                                         [belief_map.detected_semantic_map == sem]) \
+                                                  / target_map.semantic_proportion[sem]
 
-            total_semantic_det += np.sum(target_map.detected_semantic_map
-                                                     [belief_map.detected_semantic_map == sem])
-            total_semantics_gt += target_map.semantic_proportion[sem]
+                total_semantic_det += np.sum(target_map.detected_semantic_map
+                                                         [belief_map.detected_semantic_map == sem])
+                total_semantics_gt += target_map.semantic_proportion[sem]
 
         return total_semantic_det/total_semantics_gt*100,semantic_change_proportion
 

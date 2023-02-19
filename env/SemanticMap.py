@@ -175,13 +175,13 @@ class GPSemanticMap:
         if load_dict is None:
             self.semantic_map = np.array(np.zeros(shape=self.map_size))
             self.coverage_map = np.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
-            self.obstacle_map = np.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
+            self.obstacle_map = np.array(np.ones(shape=(self.map_size[0], self.map_size[1])))
             self.detected_semantic_map =  np.array(np.zeros(shape=(self.map_size[0], self.map_size[1]))) - 1
         else:
             # Load the semantic map from the file path
             #self.semantic_map = np.array(np.load(load_dict['semantic_file_path']))
             self.coverage_map = np.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
-            self.obstacle_map = np.array(np.zeros(shape=(self.map_size[0], self.map_size[1])))
+            self.obstacle_map = np.array(np.ones(shape=(self.map_size[0], self.map_size[1])))
 
             detected_semantic_map = np.load(load_dict['semantic_file_path'])
             self.detected_semantic_map = np.zeros(shape=(self.map_size[0],self.map_size[1]))
@@ -200,7 +200,8 @@ class GPSemanticMap:
 
         self.map_image = np.array(PIL.Image.open((os.getcwd() + "/"+ load_dict['map_image_file_path'])))/255
         self.map_image =np.array(resize(self.map_image, output_shape=(self.map_size[0], self.map_size[1],self.map_image.shape[-1])))
-
+        self.obstacle_map[self.padding*self.resolution: self.resolution*(self.world_map_size[0]- self.padding),
+                          self.padding*self.resolution: self.resolution*(self.world_map_size[1]- self.padding)] = 0.0
         if DEBUG:
             plt.imshow(self.detected_semantic_mapnp)
             plt.figure()
@@ -337,6 +338,8 @@ class GPSemanticMap:
         #self.detected_semantic_map = np.argmax(self.semantic_map,axis = -1)
         self.detected_semantic_map = np.zeros((self.semantic_map.shape[0],self.semantic_map.shape[1])) - 1
 
+
+        self.obstacle_map = deepcopy(ground_truth_map.obstacle_map)
         if DEBUG:
             import matplotlib.pyplot as plt
             plt.figure()
@@ -359,13 +362,27 @@ class GPSemanticMap:
         match = np.sum(map1==map2)/ np.prod(ground_truth_map.detected_semantic_map.shape)
         return match
 
+    def load_prior_semantics(self, ground_truth_map,semantic_prior_map_path):
+        '''
+        Loads a prior to the semantic map
+        @params: semantic_map_prior: semantic_prior_map: the prior map
+        '''
+
+
+        self.semantic_map =  np.load(semantic_prior_map_path)
+        self.coverage_map  = np.zeros((self.semantic_map.shape[0],self.semantic_map.shape[1]))
+        self.detected_semantic_map = np.argmax(self.semantic_map,axis = -1)
+        self.obstacle_map = deepcopy(ground_truth_map.obstacle_map)
+
     def get_entropy(self):
+        '''
+        Returns the total entropy at the desired locations
+        '''
+
         entropy = -np.sum(self.semantic_map * np.log(np.clip(self.semantic_map, 1e-7, 1)),axis = -1) + \
                   -np.sum((1-self.semantic_map) * np.log(np.clip((1-self.semantic_map), 1e-7, 1)), axis=-1)
         return entropy
-    '''
-    Returns the total entropy at the desired locations
-    '''
+
 
     def update_semantics(self, state, measurement,sensor_params):
         '''
