@@ -200,8 +200,8 @@ class GPSemanticMap:
 
         self.map_image = np.array(PIL.Image.open((os.getcwd() + "/"+ load_dict['map_image_file_path'])))/255
         self.map_image =np.array(resize(self.map_image, output_shape=(self.map_size[0], self.map_size[1],self.map_image.shape[-1])))
-        self.obstacle_map[self.padding*self.resolution: self.resolution*(self.world_map_size[0]- self.padding),
-                          self.padding*self.resolution: self.resolution*(self.world_map_size[1]- self.padding)] = 0.0
+        self.obstacle_map[int(self.padding*self.resolution): int(self.resolution*(self.world_map_size- self.padding)),
+                          int(self.padding*self.resolution): int(self.resolution*(self.world_map_size- self.padding))] = 0.0
         if DEBUG:
             plt.imshow(self.detected_semantic_mapnp)
             plt.figure()
