@@ -58,7 +58,7 @@ class il_wrapper_semantic:
 
         import env_params.Semantic as parameters
         env_params_dict = set_dict(parameters)
-        env_params_dict['home_dir'] = os.getcwd() + home_dir
+        env_params_dict['home_dir'] =home_dir
         self.env_params_dict = env_params_dict
 
         import params as args

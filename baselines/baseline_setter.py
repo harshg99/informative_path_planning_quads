@@ -35,6 +35,29 @@ class baseline_setter:
             return prioritised_coverage_mp(env_params_dict)
 
     @staticmethod
+    def set_baseline_semantic(type):
+        if type == 'Greedy':
+            import baseline_params.GreedySemantic as parameters
+            from baselines.greedy_semantic import GreedySemantic
+            env_params_dict = baseline_setter.set_dict(parameters)
+            return GreedySemantic(env_params_dict)
+        elif type == 'CMAES':
+            import baseline_params.CMAESSemantic as parameters
+            from baselines.CMAESSemantic import CMAESSemantic
+            env_params_dict = baseline_setter.set_dict(parameters)
+            return CMAESSemantic(env_params_dict)
+        elif type == 'coverage':
+            import baseline_params.CoverageSemanticParams as parameters
+            from baselines.coverage_planner_semantic import coverage_planner_semantic
+            env_params_dict = baseline_setter.set_dict(parameters)
+            return coverage_planner_semantic(env_params_dict)
+        elif type == 'prior_coverage':
+            import baseline_params.PriorCoverageSemantic as parameters
+            from baselines.prioritised_coverage_semantic import prioritised_coverage_semantic
+            env_params_dict = baseline_setter.set_dict(parameters)
+            return prioritised_coverage_semantic(env_params_dict)
+
+    @staticmethod
     def set_dict(parameters):
         globals_dict = vars(parameters)
         new_dict = {}

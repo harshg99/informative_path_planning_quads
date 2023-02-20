@@ -1,6 +1,5 @@
 import json
 
-from env.GPEnvMP import *
 from env.env_setter import *
 import numpy as np
 from copy import deepcopy
@@ -14,16 +13,16 @@ from env.GPSemantic import *
 from env.SemanticMap import *
 
 class GreedySemantic(il_wrapper_semantic):
-    def __init__(self,params_dict,home_dir="/"):
+    def __init__(self,params_dict,home_dir="./"):
         super().__init__(params_dict,home_dir)
         self.test_params = params_dict
         self.results_path = params_dict['RESULTS_PATH']
         self.depth = params_dict['depth']
         self.exploration = params_dict['exploration']
 
-        if not os.path.isdir(self.gifs_path):
+        if not os.path.exists(self.gifs_path):
             os.makedirs(self.gifs_path)
-        if not os.path.isdir(self.results_path):
+        if not os.path.exists(self.results_path):
             os.makedirs(self.results_path)
 
 
@@ -170,5 +169,5 @@ class GreedySemantic(il_wrapper_semantic):
 if __name__=="__main__":
     import baseline_params.GreedySemantic as parameters
     map_index = 20
-    planner = GreedySemantic(set_dict(parameters),home_dir='/../')
+    planner = GreedySemantic(set_dict(parameters),home_dir='../')
     print(planner.run_test(test_map_ID=0,test_ID=0))
