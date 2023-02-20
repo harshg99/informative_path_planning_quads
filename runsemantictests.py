@@ -11,12 +11,13 @@ import pandas as pd
 from Utilities import set_dict
 class Tests:
     def unit_tests(self,type,test_map):
-        baseline_planner = baseline_setter.baseline_setter.set_baseline_semantic(type)
+
         import env_params.Semantic as params
         params_dict = set_dict(params)
 
         results_list = []
         for j in range(params_dict['TEST_PER_MAP']):
+            baseline_planner = baseline_setter.baseline_setter.set_baseline_semantic(type)
             results_list.append(baseline_planner.run_test(test_map_ID=test_map, test_ID=j))
 
         return results_list
