@@ -51,17 +51,25 @@ class il_wrapper:
 
 
 class il_wrapper_semantic:
-    def __init__(self,home_dir):
+    def __init__(self,params_dict,home_dir):
+        self.gifs = params_dict['GIFS']
+        self.gifs_path = params_dict['GIFS_PATH']
+
 
         import env_params.Semantic as parameters
         env_params_dict = set_dict(parameters)
         env_params_dict['home_dir'] = os.getcwd() + home_dir
         self.env_params_dict = env_params_dict
+
         import params as args
 
         args_dict = set_dict(args)
         self.args_dict = args_dict
-        self.env = GPSemanticGym(env_params_dict,args_dict)
+
+        if self.gifs:
+            args_dict['RENDER_TRAINING'] = True
+            args_dict['RENDER_TRAINING_WINDOW'] = 1
+        self.env = GPSemanticGym(env_params_dict, args_dict)
 
         self.mp_graph = self.env.minimum_action_mp_graph
         self.lookup = self.env.lookup_dictionary
@@ -88,7 +96,7 @@ class il_wrapper_semantic:
     def isValidPos(self, pos, agentID):
         is_valid = (np.array(pos - self.env.agents[agentID].pad) > -1).all()
         is_valid = is_valid and (np.array(pos + self.env.agents[agentID].pad) \
-                                 < self.env.agents[agentID].world_size).all()
+                                 < self.env.agents[agentID].belief_semantic_map.world_map_size).all()
         return is_valid
 
     def isValidFinalPose(self, final_pose,agentID):

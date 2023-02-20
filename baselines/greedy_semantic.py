@@ -10,19 +10,16 @@ from Utilities import set_dict
 from env.render import *
 from multiprocessing import Pool as pool
 from baselines.il_wrapper import il_wrapper_semantic
-from env.GPEnvSemantic import *
+from env.GPSemantic import *
 from env.SemanticMap import *
 
 class GreedySemantic(il_wrapper_semantic):
     def __init__(self,params_dict,home_dir="/"):
-        super().__init__(home_dir)
+        super().__init__(params_dict,home_dir)
         self.test_params = params_dict
-
-        self.gifs = params_dict['GIFS']
-        self.gifs_path = params_dict['GIFS_PATH']
         self.results_path = params_dict['RESULTS_PATH']
         self.depth = params_dict['depth']
-        self.exploration = params_dict['depth']
+        self.exploration = params_dict['exploration']
 
         if not os.path.isdir(self.gifs_path):
             os.makedirs(self.gifs_path)
@@ -47,9 +44,9 @@ class GreedySemantic(il_wrapper_semantic):
 
         init_entropy = world_map_init.get_entropy()
         final_entropy = world_map.get_entropy()
-        entropy_reduction = init_entropy - final_entropy
+        entropy_reduction = (init_entropy - final_entropy).sum()
 
-        return entropy_reduction/np.square(self.env.sensor_params['sensor_range'])
+        return entropy_reduction/(np.square(self.env.sensor_params['sensor_range'][0])*world_map.resolution**2)
         #return entropy_reduction
 
     def getMean(self,visited_states,worldMap):
@@ -61,9 +58,9 @@ class GreedySemantic(il_wrapper_semantic):
                                                        return_distance=False, resolution=None)
 
 
-            entropy_reduction += semantic_obs.sum()
+            entropy_reduction += semantic_obs.mean(axis=-1).sum()
 
-        return entropy_reduction / np.square(self.env.sensor_params['sensor_range'])
+        return entropy_reduction / (np.square(self.env.sensor_params['sensor_range'][0])*worldMap.resolution**2)
         #return entropy_reduction
 
     def getmpcost(self,pos,index,action,agentID,worldMap):
@@ -99,7 +96,7 @@ class GreedySemantic(il_wrapper_semantic):
 
     def plan_action(self,pos,index,agentID,current_depth=0,worldMap=None):
         if current_depth>=self.depth:
-            return self.env.getEntropy(worldMap.copy()).mean()
+            return worldMap.get_entropy().mean()
         else:
             costs = []
             for j in range(self.env.action_size):
@@ -127,12 +124,12 @@ class GreedySemantic(il_wrapper_semantic):
         '''
         Run a test episode
         @param test_map_ID: ID of the test map (0-24)
-        @param test_ID: testing ID for this set of map (0-ENV_PARAMS['TESTS_PER_MAP']-1)
+        @param test_ID: testing ID for this set of map (0-ENV_PARAMS['TEST_PER_MAP']-1)
         '''
 
         episode_step = 0.0
         episode_rewards = 0.0
-        self.env.reset(test_ID,test_map_ID)
+        self.env.reset(episode_num = 0, test_map = test_ID, test_indices = test_map_ID)
         frames = []
         done = False
 
@@ -144,8 +141,7 @@ class GreedySemantic(il_wrapper_semantic):
 
         while ((not self.args_dict['FIXED_BUDGET'] and episode_step < self.env.episode_length) \
                or (self.args_dict['FIXED_BUDGET'])):
-            if self.gifs:
-                frames.append(self.env.render(mode='rgb_array'))
+
             action_dict = {}
             worldMap = deepcopy(self.env.belief_semantic_map)
             for j,agent in enumerate(self.env.agents):
@@ -153,6 +149,8 @@ class GreedySemantic(il_wrapper_semantic):
             rewards,done = self.env.step_all(action_dict)
             episode_rewards += np.array(rewards).sum()
             episode_step+=1
+            if self.gifs:
+                frames += self.env.render(mode='rgb_array')
             if done:
                 break
 
@@ -164,13 +162,13 @@ class GreedySemantic(il_wrapper_semantic):
         if self.gifs:
             make_gif(np.array(frames),
                  '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(self.gifs_path,
-                                                          test_map_ID*self.env_params['TESTS_PER_MAP']+test_ID ,
+                                                          test_map_ID*self.env_params_dict['TEST_PER_MAP']+test_ID ,
                                                           0,
                                                           episode_rewards))
         return metrics
 
 if __name__=="__main__":
-    import baseline_params.GreedyGPparams as parameters
+    import baseline_params.GreedySemantic as parameters
     map_index = 20
     planner = GreedySemantic(set_dict(parameters),home_dir='/../')
     print(planner.run_test(test_map_ID=0,test_ID=0))

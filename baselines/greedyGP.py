@@ -18,7 +18,7 @@ class GreedyGP(il_wrapper):
         self.gifs_path = params_dict['GIFS_PATH']
         self.results_path = params_dict['RESULTS_PATH']
         self.depth = params_dict['depth']
-        self.exploration = params_dict['depth']
+        self.exploration = params_dict['exploration']
 
         if not os.path.isdir(self.gifs_path):
             os.makedirs(self.gifs_path)
@@ -142,6 +142,7 @@ class GreedyGP(il_wrapper):
             is_valid, visited_states = self.isValidMP(pos,mp,agentID)
             reward  = 0
             if is_valid:
+                reward -= mp.cost/ mp.subclass_specific
                 next_index = self.lookup[index, action]
                 next_index = int(np.floor(next_index / self.num_tiles))
                 next_pos =  np.round(mp.end_state[:self.spatial_dim]).astype(int)
