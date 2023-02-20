@@ -40,7 +40,7 @@ class Node:
 
 
 class coverage_planner_semantic(il_wrapper_semantic):
-    def __init__(self,params_dict,home_dir="/"):
+    def __init__(self,params_dict,home_dir="./"):
         super().__init__(params_dict,home_dir)
 
         self.depth = params_dict['depth']

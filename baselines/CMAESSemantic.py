@@ -13,7 +13,7 @@ from env.GPSemantic import *
 from env.SemanticMap import *
 
 class CMAESSemantic(il_wrapper_semantic):
-    def __init__(self,params_dict,home_dir="/"):
+    def __init__(self,params_dict,home_dir="./"):
         super().__init__(params_dict,home_dir)
         self.population_size = params_dict['population_size']
         self.depth = params_dict['depth']

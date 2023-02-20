@@ -39,7 +39,7 @@ class Node:
 
 
 class prioritised_coverage_semantic(coverage_planner_semantic):
-    def __init__(self,params_dict,home_dir="/"):
+    def __init__(self,params_dict,home_dir="./"):
         super().__init__(params_dict,home_dir)
 
 
