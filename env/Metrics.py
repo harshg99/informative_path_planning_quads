@@ -74,7 +74,7 @@ class SemanticMetrics:
                                                   / target_map.semantic_proportion[sem]
 
                 total_semantic_det += np.sum(target_map.detected_semantic_map
-                                                         [belief_map.detected_semantic_map == sem])
+                                                         [belief_map.detected_semantic_map == sem]==sem)
                 total_semantics_gt += target_map.semantic_proportion[sem]
 
         return total_semantic_det/total_semantics_gt*100,semantic_change_proportion

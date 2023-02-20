@@ -393,7 +393,8 @@ class GPSemanticGym(gym.Env):
                                                               type='obstacle')
 
 
-        semantic_features = block_reduce(semantic_features, (self.args_dict['RESOLUTION'], self.args_dict['RESOLUTION'],1), np.max)
+        semantic_features = block_reduce(semantic_features, (self.args_dict['RESOLUTION'],
+                                                             self.args_dict['RESOLUTION'],1), np.max)
         obstacle_features = block_reduce(obstacle_features,
                                          (self.args_dict['RESOLUTION'], self.args_dict['RESOLUTION']), np.max)
 
@@ -413,19 +414,22 @@ class GPSemanticGym(gym.Env):
 
         for s in self.scale:
             semantic_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
-                                                                           fov=[self.args_dict['RANGE'],self.args_dict['RANGE']],
+                                                                           fov=[self.args_dict['RANGE'],
+                                                                                self.args_dict['RANGE']],
                                                                            scale=s,
                                                                            resolution=self.resolution,
                                                                            type='semantic')
 
             obstacle_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
-                                                                           fov=[self.args_dict['RANGE'],self.args_dict['RANGE']],
+                                                                           fov=[self.args_dict['RANGE'],
+                                                                                self.args_dict['RANGE']],
                                                                            scale=s,
                                                                            resolution=self.resolution,
                                                                            type='obstacle')
 
 
-            semantic_features = block_reduce(semantic_features, (self.args_dict['RESOLUTION'], self.args_dict['RESOLUTION'],1), np.max)
+            semantic_features = block_reduce(semantic_features, (self.args_dict['RESOLUTION'],
+                                                                 self.args_dict['RESOLUTION'],1), np.max)
             obstacle_features = block_reduce(obstacle_features,
                                              (self.args_dict['RESOLUTION'], self.args_dict['RESOLUTION']), np.max)
 
@@ -509,31 +513,39 @@ class GPSemanticGym(gym.Env):
 
     '''
          Creates and loads the ground truth semantics world and intializes a prior        '''
-    def reset(self,episode_num = None, test = False, test_indices = None):
-        self.create_world(test,test_indices)
+    def reset(self,episode_num = None, test_map = False, test_indices = None):
+        self.create_world(test_map,test_indices)
         self.buffer.clear_buffer()
         self.episode_num = episode_num
 
     #TODO : Add something to the buffer here
-    def create_world(self, test, test_indices = None):
+    def create_world(self, test_map, test_index = None):
 
-        if test:
+        if test_map is not None:
             # GENERATING AND INITIALISING SEMANTIC MAP PRIOR
-            test_indices = self.test_map_indices if test_indices is None else test_indices
-            map_index = np.random.choice(test_indices)
+            assert test_map>=0 and test_map<self.env_params['TEST_PER_MAP'], "Invalid test map number"
             #map_index= 10
+            suffix = './'
+            if 'home_dir' in self.env_params:
+                suffix = self.env_params['home_dir']
+
             load_dict = {
-                'semantic_file_path': self.env_params['assets_folder'] +'sem{}.npy'.format(map_index),
-                'map_image_file_path':self.env_params['assets_folder'] +'gmap{}.png'.format(map_index)
+                'semantic_file_path': suffix + self.env_params['assets_folder'] +'sem{}.npy'.format(test_index),
+                'map_image_file_path': suffix + self.env_params['assets_folder'] +'gmap{}.png'.format(test_index)
             }
 
 
             self.ground_truth_semantic_map.init_map(load_dict)
             #TODO: appropirate path referenced
             params_dict = {
-                "semantic_file_path":np.random.random()*self.target_noise_scale,
+                "semantic_test_path":suffix +"tests/semantic/" +'sem_prior{}.npy'.format(test_index*
+                                                            self.env_params['TEST_PER_MAP'] + test_map)
             }
-            self.proximity = self.belief_semantic_map.init_prior_semantics(params_dict=params_dict,ground_truth_map=self.ground_truth_semantic_map)
+            self.proximity = self.belief_semantic_map.load_prior_semantics(
+                semantic_prior_map_path=params_dict['semantic_test_path'],
+                ground_truth_map=self.ground_truth_semantic_map
+            )
+
 
         else:
             # Generating and initialising semantic map prior

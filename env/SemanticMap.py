@@ -207,22 +207,6 @@ class GPSemanticMap:
             plt.figure()
             plt.imshow(self.map_image)
 
-    def load_prior_semantics(self, params_dict=None, ground_truth_map=None):
-        '''
-        Assigns a prior to the semantic map based on stored data
-        @params: params_dict: dictionary containing the prior parameters
-                    params_dict['senamtic_test_path'] : path to the semantic test data
-        '''
-
-        if self.isGroundTruth:
-            raise AttributeError
-
-        self.semantic_map = np.array(np.load(params_dict['semantic_test_path']))
-        self.detected_semantic_map = np.argmax(self.semantic_map, axis=2)
-        map1 = ground_truth_map.detected_semantic_map >0
-        map2 = self.detected_semantic_map >0
-        match = np.sum(map1==map2)/ np.prod(ground_truth_map.detected_semantic_map.shape)
-        return match
 
     def init_prior_semantics(self, params_dict = None,ground_truth_map = None):
         '''
@@ -373,6 +357,12 @@ class GPSemanticMap:
         self.coverage_map  = np.zeros((self.semantic_map.shape[0],self.semantic_map.shape[1]))
         self.detected_semantic_map = np.argmax(self.semantic_map,axis = -1)
         self.obstacle_map = deepcopy(ground_truth_map.obstacle_map)
+        # degree of randomness
+        map1 = ground_truth_map.detected_semantic_map >0
+        map2 = self.detected_semantic_map >0
+        match = np.sum(map1==map2)/ np.prod(ground_truth_map.detected_semantic_map.shape)
+        return match
+
 
     def get_entropy(self):
         '''
