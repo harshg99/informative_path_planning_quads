@@ -9,7 +9,7 @@ from cmaes import CMA
 from multiprocessing import Pool as pool
 import functools
 from baselines.il_wrapper import il_wrapper
-from baselines.coverage_planner_mp import coverage_planner_mp
+from baselines.coverage_planner_semantic import coverage_planner_semantic
 
 class Node:
     def __init__(self,incoming,outgoing,state,map_state,current_cost,depth = None,cost_fn=None):
@@ -38,7 +38,7 @@ class Node:
         return self.cost_fn(self.map_state)
 
 
-class prioritised_coverage_semantic(coverage_planner_mp):
+class prioritised_coverage_semantic(coverage_planner_semantic):
     def __init__(self,params_dict,home_dir="/"):
         super().__init__(params_dict,home_dir)
 

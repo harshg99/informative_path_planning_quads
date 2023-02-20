@@ -1,4 +1,4 @@
-from env.GPSemantic import *
+
 from env.env_setter import *
 import numpy as np
 from copy import deepcopy
@@ -9,6 +9,8 @@ from cmaes import CMA
 from multiprocessing import Pool as pool
 import functools
 from baselines.il_wrapper import il_wrapper_semantic
+from env.GPSemantic import *
+from env.SemanticMap import *
 
 class Node:
     def __init__(self,incoming,outgoing,state,map_state,current_cost,depth = None,cost_fn=None):
@@ -39,7 +41,7 @@ class Node:
 
 class coverage_planner_semantic(il_wrapper_semantic):
     def __init__(self,params_dict,home_dir="/"):
-        super().__init__(home_dir)
+        super().__init__(params_dict,home_dir)
 
         self.depth = params_dict['depth']
         self.counter = 0
@@ -99,7 +101,7 @@ class coverage_planner_semantic(il_wrapper_semantic):
                 next_pos =  np.round(mp.end_state[:self.spatial_dim]).astype(int)
                 # print("{:d} {:d} {:d} {:d}".format(self.pos[0], self.pos[1], visited_states[0,0], visited_states[1,0]))
                 self.visited_states = visited_states.T
-                reward = self.getCoverage(visited_states,world_map)
+                reward = self.getCoverage(self.visited_states,world_map)
 
             elif visited_states is not None:
                 # reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
@@ -117,10 +119,10 @@ class coverage_planner_semantic(il_wrapper_semantic):
 
             for j in range(self.env.action_size):
                 coverageMap = deepcopy(worldMap)
-                cost, next_index, next_pos,is_valid = self.getmpcost(pos, index, j, agentID, worldMap)
+                cost, next_index, next_pos,is_valid = self.getmpcost(pos, index, j, agentID, coverageMap)
                 if is_valid:
                     costs.append(cost + self.plan_action(next_pos,next_index,agentID,
-                                                         current_depth+1,worldMap))
+                                                         current_depth+1,coverageMap))
                 else:
                     costs.append(cost + -100000)
 

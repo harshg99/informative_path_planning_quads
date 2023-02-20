@@ -1,4 +1,4 @@
-from env.GPSemantic import *
+
 from env.env_setter import *
 import numpy as np
 from copy import deepcopy
@@ -9,10 +9,12 @@ from cmaes import CMA
 from multiprocessing import Pool as pool
 import functools
 from baselines.il_wrapper import il_wrapper_semantic
+from env.GPSemantic import *
+from env.SemanticMap import *
 
 class CMAESSemantic(il_wrapper_semantic):
     def __init__(self,params_dict,home_dir="/"):
-        super().__init__(home_dir)
+        super().__init__(params_dict,home_dir)
         self.population_size = params_dict['population_size']
         self.depth = params_dict['depth']
         self.threads = params_dict['threads']
@@ -34,7 +36,7 @@ class CMAESSemantic(il_wrapper_semantic):
         pos = np.stack(args[0])
         index = args[1]
         agentID = args[2]
-        worldMap = deepcopy(np.stack(args[3]))
+        worldMap = deepcopy(args[3])
         # pos = 0
         # index = 0
         # agentID = 0
@@ -48,7 +50,7 @@ class CMAESSemantic(il_wrapper_semantic):
         next_index = index
         objective = 0
         for action in action_list:
-            cost, next_index, next_pos = self.getmpcost(next_pos, next_index, int(action), agentID, worldMap)
+            cost, next_index, next_pos,valid = self.getmpcost(next_pos, next_index, int(action), agentID, worldMap)
             objective += cost
 
         objective += worldMap.get_entropy().sum()
@@ -124,7 +126,7 @@ class CMAESSemantic(il_wrapper_semantic):
         return reward,next_index,next_pos,is_valid
 
     def plan_action(self,pos,index,agentID,worldMap=None):
-        args = [deepcopy(pos.tolist()),index,agentID,deepcopy(worldMap.tolist())]
+        args = [deepcopy(pos.tolist()),index,agentID,deepcopy(worldMap)]
         bounds = np.zeros((self.depth,2))
         bounds[:,0] = -1.0
         bounds[:,1] = 1.0
@@ -174,23 +176,18 @@ class CMAESSemantic(il_wrapper_semantic):
         self.counter+=1
         return self.action_list[self.counter-1],self.costs[self.counter-1]
 
-    def run_test(self,rewardMap,ID=0,targetMap=None,orig_target_map_dist=None):
+    def run_test(self,test_map_ID=0,test_ID=0):
+        '''
+        Run a test episode
+        @param test_map_ID: ID of the test map (0-24)
+        @param test_ID: testing ID for this set of map (0-ENV_PARAMS['TEST_PER_MAP']-1)
+        '''
+
         episode_step = 0.0
-        episode_rewards = 0
-
-        np.random.seed(seed=ID)
-        self.env.reset(rewardMap,targetMap,orig_target_map_dist)
-
+        episode_rewards = 0.0
+        self.env.reset(episode_num = 0, test_map = test_ID, test_indices = test_map_ID)
         frames = []
-        metrics = dict()
         done = False
-        beleif1 = self.env.worldBeliefMap / self.env.worldBeliefMap.sum()
-        belief2 = self.env.orig_target_distribution_map / self.env.orig_target_distribution_map.sum()
-        div = beleif1 * np.log(
-            np.clip(beleif1, 1e-10, 1) / np.clip(belief2, 1e-10, 1)) + belief2 * np.log(
-            np.clip(belief2, 1e-10, 1) / np.clip(beleif1, 1e-10, 1))
-
-        kl_divergence = div.sum()
 
         # kl_divergence = np.mean(self.env.worldBeliefMap*np.log(
         #     np.clip(self.env.worldBeliefMap,1e-10,1)/np.clip(orig_target_map_dist,1e-10,1)
@@ -201,8 +198,7 @@ class CMAESSemantic(il_wrapper_semantic):
                or (self.args_dict['FIXED_BUDGET'])):
             action_dicts = [{} for j in range(self.depth)]
             for j,agent in enumerate(self.env.agents):
-                worldMap = deepcopy(self.env.worldMap)
-                worldMap[self.env.worldTargetMap==2] = 0
+                worldMap = deepcopy(self.env.belief_semantic_map)
                 action_list,costs  = self.plan_action(
                     deepcopy(agent.pos),
                     deepcopy(agent.index),
@@ -226,15 +222,14 @@ class CMAESSemantic(il_wrapper_semantic):
         metrics = self.env.get_final_metrics()
         metrics['episode_reward'] = episode_rewards
         metrics['episode_length'] = episode_step
-        metrics['divergence'] = kl_divergence
+        metrics['divergence'] = self.env.proximity
 
         if self.gifs:
             make_gif(np.array(frames),
-                     '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(
-                         self.gifs_path,
-                         ID,
-                         0,
-                         episode_rewards))
+                 '{}/episode_{:d}_{:d}_{:.1f}.gif'.format(self.gifs_path,
+                                                          test_map_ID*self.env_params_dict['TEST_PER_MAP']+test_ID ,
+                                                          0,
+                                                          episode_rewards))
         return metrics
 
 if __name__=="__main__":
