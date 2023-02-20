@@ -20,8 +20,8 @@ def unit_create_semantic_tests(test_index =None,num_maps_index = None,save_dir =
         # Initialize the maps
         map_config_dict = {
             'resolution': env_params['resolution'],
-            'world_map_size': env_params['rewwardMapSize'] + 2 *env_params['pad_size'],
-            'padding': env_params['pad+ size'],
+            'world_map_size': env_params['rewardMapSize'] + 2 *env_params['pad_size'],
+            'padding': env_params['pad_size'],
             'num_semantics': env_params['num_semantics'],
             'target_belief_thresh': env_params['TargetBeliefThresh']
         }
@@ -29,6 +29,7 @@ def unit_create_semantic_tests(test_index =None,num_maps_index = None,save_dir =
         belief_semantic_map = GPSemanticMap(map_config_dict)
 
         # map_index= 10
+        print("Generating Map Index {} MapNum {}".format(map_index, j))
         load_dict = {
             'semantic_file_path': env_params['assets_folder'] + 'sem{}.npy'.format(map_index),
             'map_image_file_path': env_params['assets_folder'] + 'gmap{}.png'.format(map_index)
@@ -45,17 +46,19 @@ def unit_create_semantic_tests(test_index =None,num_maps_index = None,save_dir =
         proximity = belief_semantic_map.init_prior_semantics(params_dict=params_dict,
                                                                        ground_truth_map=ground_truth_semantic_map)
         # Store the prior map in the save_dir
-        import os
-        if os.path.exists(save_dir) is False:
-            os.makedirs(save_dir)
 
-        np.save(save_dir + 'sem{}.npy'.format(test_index*env_params['TOTAL_MAPS']+j),
+        np.save(save_dir + '/sem_prior{}.npy'.format(map_index*num_maps_index + j),
                 belief_semantic_map.semantic_map,
                 allow_pickle=False)
 
+        from matplotlib import pyplot as plt
+        plt.imshow(belief_semantic_map.semantic_map[:,:,0])
+        plt.savefig(save_dir + '/sem_prior{}.png'.format(map_index*num_maps_index + j))
+        plt.close()
+
         proximities.append(proximity)
 
-    return proximities
+    return tuple(proximities)
 
 def create_semantic_tests(test_indices ,num_maps_index = None,num_cpus = None,save_dir =None):
 
@@ -85,14 +88,19 @@ def parse_args():
 if __name__ == '__main__':
 
     args = parse_args()
-    num_maps = args.num_maps
     num_cpus = args.num_cpus
+    import os
+
+    if os.path.exists(args.save_dir) is False:
+        os.makedirs(args.save_dir)
 
 
     test_indices = list(range(env_params['TOTAL_MAPS']))
-    proximities = create_semantic_tests(test_indices, env_params['TEST_PER_MAP'], num_cpus)
+    proximities = create_semantic_tests(test_indices, env_params['TEST_PER_MAP'], num_cpus, args.save_dir)
 
-    proximities = np.concatenate(proximities,axis=1)
+    proximities = np.concatenate(proximities,axis=0)
+
+
     divergences_mean = proximities.mean()
     divergences_std = proximities.std()
     print('Divergences Mean{} Std{} Max{} Min {}'.format(divergences_mean,
