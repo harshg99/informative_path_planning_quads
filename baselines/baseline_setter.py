@@ -47,7 +47,7 @@ class baseline_setter:
             env_params_dict = baseline_setter.set_dict(parameters)
             return CMAESSemantic(env_params_dict)
         elif type == 'coverage':
-            import baseline_params.CoverageSemanticParams as parameters
+            import baseline_params.CoverageSemantic as parameters
             from baselines.coverage_planner_semantic import coverage_planner_semantic
             env_params_dict = baseline_setter.set_dict(parameters)
             return coverage_planner_semantic(env_params_dict)
