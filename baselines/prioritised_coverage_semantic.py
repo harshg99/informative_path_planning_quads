@@ -58,8 +58,10 @@ class prioritised_coverage_semantic(coverage_planner_semantic):
             world_map.update_semantics(state, projected_measurement, self.env.sensor_params)
 
 
-        init_coverage = (world_map_init.coverage_map*world_map_init.semantic_map).mean(axis=-1).sum()
-        final_coverage = (world_map.coverage_map*world_map.semantic_map).mean(axis=-1).sum()
+        init_coverage = (np.expand_dims(world_map_init.coverage_map,axis = -1)
+                         *world_map_init.semantic_map).mean(axis=-1).sum()
+        final_coverage = (np.expand_dims(world_map.coverage_map,axis = -1)
+                          *world_map.semantic_map).mean(axis=-1).sum()
         coverage = (final_coverage - init_coverage).sum()
 
         return coverage/(np.square(self.env.sensor_params['sensor_range'][0])*world_map.resolution**2)
