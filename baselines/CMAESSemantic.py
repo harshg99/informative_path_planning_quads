@@ -209,11 +209,12 @@ class CMAESSemantic(il_wrapper_semantic):
                     action_dicts[k][j] = action
 
             for j in range(self.depth):
-                if self.gifs:
-                    frames.append(self.env.render(mode='rgb_array'))
+
                 rewards,done = self.env.step_all(action_dicts[j])
                 episode_rewards += np.array(rewards).sum()
                 episode_step+=1
+                if self.gifs:
+                    frames += self.env.render(mode='rgb_array')
                 if done:
                     break
             if done:
