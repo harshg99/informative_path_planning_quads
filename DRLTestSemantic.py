@@ -32,6 +32,9 @@ class DRLTest:
                                                                  0,
                                                                  args_dict['BUDGET']
                                                                  )
+        if not os.path.exists(self.gifs_path):
+            os.makedirs(self.gifs_path)
+
         if self.gifs:
             self.args_dict['RENDER_TRAINING'] = True
             self.args_dict['RENDER_TRAINING_WINDOW'] = 1
