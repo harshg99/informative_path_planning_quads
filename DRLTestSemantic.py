@@ -168,7 +168,7 @@ if __name__=="__main__":
     args = parse_args()
 
     TestObj  = Tests()
-    results = TestObj.run_tests(args.num_tests,args.type,args.num_threads)
+    results = TestObj.run_tests(args.num_tests,args.model_path,args.num_threads)
     results_cat = []
 
     for result in results:
