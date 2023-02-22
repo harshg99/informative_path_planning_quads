@@ -39,7 +39,7 @@ class DRLTest:
         self.env = GPSemanticGym(env_params_dict, self.args_dict)
         self.model = alg_setter.set_model(self.env,self.args_dict)
         print('Loading Model')
-        model_path = 'data/models/' + model_path
+        model_path = "data/models/" + model_path
         checkpoint = torch.load(model_path + "/checkpoint.pkl",map_location = self.args_dict['DEVICE'])
         self.model.load_state_dict(checkpoint['model_state_dict'])
 
