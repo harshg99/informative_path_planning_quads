@@ -146,7 +146,7 @@ class Tests:
 
         return results
 
-    def run_tests(self,model_path:str,num_tests:int,num_threads:int):
+    def run_tests(self,num_tests:int,model_path:str,num_threads:int):
         import params as args
         args_dict = Utilities.set_dict(args)
         self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path, 0,args_dict['BUDGET'])
