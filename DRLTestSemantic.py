@@ -28,10 +28,7 @@ class DRLTest:
 
         self.gifs = self.args_dict['TEST_GIFS']
 
-        self.gifs_path = self.args_dict['TEST_GIFS_PATH'].format(model_path,
-                                                                 0,
-                                                                 args_dict['BUDGET']
-                                                                 )
+        self.gifs_path = self.args_dict['TEST_GIFS_PATH'].format(model_path)
         if not os.path.exists(self.gifs_path):
             os.makedirs(self.gifs_path)
 
