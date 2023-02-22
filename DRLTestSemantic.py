@@ -17,7 +17,7 @@ from env.GPSemantic import GPSemanticGym
 from env.render import make_gif
 
 class DRLTest:
-    def __init__(self,args_dict: dict,model_path: str,map_size: int):
+    def __init__(self,args_dict: dict,model_path: str):
 
         self.args_dict = args_dict
         import env_params.Semantic as parameters
@@ -35,7 +35,7 @@ class DRLTest:
         self.gifs = args_dict['TEST_GIFS']
 
         self.gifs_path = self.args_dict['TEST_GIFS_PATH'].format(model_path,
-                                                                 map_size,
+                                                                 0,
                                                                  args_dict['BUDGET']
                                                                  )
         if self.gifs:
