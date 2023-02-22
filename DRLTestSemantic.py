@@ -95,7 +95,7 @@ class DRLTest:
             observation = self.env.get_obs_all()
 
             if self.gifs:
-                frames.append(self.env.render(mode='rgb_array'))
+                frames += self.env.render(mode='rgb_array')
             episode_step+=1
             if done:
                 break
