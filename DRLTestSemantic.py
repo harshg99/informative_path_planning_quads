@@ -21,6 +21,7 @@ class DRLTest:
 
         self.args_dict = args_dict
         self.args_dict['GPU'] = False # CPU testing
+        self.args_dict['DEVICE'] = 'cpu'
         import env_params.Semantic as parameters
         env_params_dict = set_dict(parameters)
         env_params_dict['home_dir'] = "./"
