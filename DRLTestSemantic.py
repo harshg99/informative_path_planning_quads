@@ -136,7 +136,7 @@ class Tests:
             drl_planner = DRLTest(args_dict,model_path)
             self.model_path = model_path
             dir_name = os.getcwd() + "/" + MAP_TEST_DIR + '/' + TEST_TYPE.format(0) +'/'
-            drl_planner.run_test(test_map_ID=testID,test_ID=j)
+            results.append(drl_planner.run_test(test_map_ID=testID,test_ID=j))
 
 
 
