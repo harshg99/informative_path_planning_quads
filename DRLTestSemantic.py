@@ -20,6 +20,7 @@ class DRLTest:
     def __init__(self,args_dict: dict,model_path: str):
 
         self.args_dict = args_dict
+        self.args_dict['GPU'] = False # CPU testing
         import env_params.Semantic as parameters
         env_params_dict = set_dict(parameters)
         env_params_dict['home_dir'] = "./"
