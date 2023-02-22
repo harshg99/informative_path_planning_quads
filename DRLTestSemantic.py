@@ -70,7 +70,8 @@ class DRLTest:
 
         episode_step = 0.0
         episode_rewards = 0.0
-        observation = self.env.reset(episode_num=0, test_map=test_ID, test_indices=test_map_ID)
+        self.env.reset(episode_num=0, test_map=test_ID, test_indices=test_map_ID)
+        observation = self.env.get_obs_all()
         frames = []
         done = False
 
@@ -82,8 +83,7 @@ class DRLTest:
 
         while ((not self.args_dict['FIXED_BUDGET'] and episode_step < self.env.episode_length) \
                or (self.args_dict['FIXED_BUDGET'])):
-            if self.gifs:
-                frames.append(self.env.render(mode='rgb_array'))
+
 
             if self.args_dict['LSTM']:
                 action_dict,hidden_in = self.plan_action(observation,hidden_in)
@@ -94,6 +94,8 @@ class DRLTest:
             episode_rewards += np.array(rewards).sum()
             observation = self.env.get_obs_all()
 
+            if self.gifs:
+                frames.append(self.env.render(mode='rgb_array'))
             episode_step+=1
             if done:
                 break
