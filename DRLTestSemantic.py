@@ -20,32 +20,24 @@ class DRLTest:
     def __init__(self,args_dict: dict,model_path: str):
 
         self.args_dict = args_dict
-        self.args_dict['GPU'] = False # CPU testing
-        self.args_dict['DEVICE'] = 'cpu'
         import env_params.Semantic as parameters
         env_params_dict = set_dict(parameters)
         env_params_dict['home_dir'] = "./"
         self.env_params_dict = env_params_dict
 
-        import params as args
 
-        args_dict = set_dict(args)
-        self.args_dict = args_dict
-
-
-
-        self.gifs = args_dict['TEST_GIFS']
+        self.gifs = self.args_dict['TEST_GIFS']
 
         self.gifs_path = self.args_dict['TEST_GIFS_PATH'].format(model_path,
                                                                  0,
                                                                  args_dict['BUDGET']
                                                                  )
         if self.gifs:
-            args_dict['RENDER_TRAINING'] = True
-            args_dict['RENDER_TRAINING_WINDOW'] = 1
+            self.args_dict['RENDER_TRAINING'] = True
+            self.args_dict['RENDER_TRAINING_WINDOW'] = 1
 
-        self.env = GPSemanticGym(env_params_dict, args_dict)
-        self.model = alg_setter.set_model(self.env, args_dict)
+        self.env = GPSemanticGym(env_params_dict, self.args_dict)
+        self.model = alg_setter.set_model(self.env,self.args_dict)
         print('Loading Model')
         model_path = 'data/models/' + model_path
         checkpoint = torch.load(model_path + "/checkpoint.pkl",map_location = self.args_dict['DEVICE'])
