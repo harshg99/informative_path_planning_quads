@@ -9,11 +9,12 @@ import json
 from pdb import set_trace as T
 import Utilities
 from models.alg_setter import alg_setter
-from env.GPSemantic import GPSemanticGym
+from env.searchenv import *
 from copy import  deepcopy
 import pandas as pd
-
 from Utilities import set_dict
+from env.GPSemantic import GPSemanticGym
+from env.render import make_gif
 
 class DRLTest:
     def __init__(self,args_dict: dict,model_path: str,map_size: int):
@@ -75,7 +76,7 @@ class DRLTest:
 
         episode_step = 0.0
         episode_rewards = 0.0
-        self.env.reset(episode_num=0, test_map=test_ID, test_indices=test_map_ID)
+        observation = self.env.reset(episode_num=0, test_map=test_ID, test_indices=test_map_ID)
         frames = []
         done = False
 
@@ -121,7 +122,7 @@ class Tests:
         import params as args
         args_dict = Utilities.set_dict(args)
         #self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path)
-        self.results_path = None
+        #self.results_path = None
 
     def unit_tests(self,testID:int,model_path:str):
         import params as args
@@ -148,7 +149,7 @@ class Tests:
     def run_tests(self,model_path:str,num_tests:int,num_threads:int):
         import params as args
         args_dict = Utilities.set_dict(args)
-        self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path, args_dict['BUDGET'])
+        self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path, 0,args_dict['BUDGET'])
         with mp.Pool(num_threads) as pool:
             types = [type for _ in range(num_tests)]
             results = pool.starmap(self.unit_tests,zip(range(num_tests),types))
