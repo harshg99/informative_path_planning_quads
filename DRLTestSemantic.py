@@ -145,7 +145,7 @@ class Tests:
         args_dict = Utilities.set_dict(args)
         self.results_path = args_dict['TEST_RESULTS_PATH'].format(model_path, 0,args_dict['BUDGET'])
         with mp.Pool(num_threads) as pool:
-            types = [type for _ in range(num_tests)]
+            types = [model_path for _ in range(num_tests)]
             results = pool.starmap(self.unit_tests,zip(range(num_tests),types))
             return results
 
