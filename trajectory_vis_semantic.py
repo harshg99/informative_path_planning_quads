@@ -159,10 +159,9 @@ class TrajectoryVisualisation:
                 xs = state_sampling[2,:]
                 ys = self.env.world_map_size - state_sampling[1,:]
                 for i in range(3):
-                    for j in range(state_sampling.T.shape[0]):
-                        axs[i].plot(xs * self.env.belief_semantic_map.resolution,
-                                    ys* self.env.belief_semantic_map.resolution, '.',
-                                    color='black',alpha=0.5,markersize=1)
+                    axs[i].plot(xs * self.env.belief_semantic_map.resolution,
+                                ys* self.env.belief_semantic_map.resolution, '.',
+                                color='black',alpha=0.5,markersize=1)
 
                     axs[i].plot(pose[1]*self.env.belief_semantic_map.resolution,
                                 (self.env.world_map_size - pose[0])*self.env.belief_semantic_map.resolution, 'y.')

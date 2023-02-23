@@ -749,8 +749,8 @@ class QuadRender:
         self.NO_SEMANTIC = np.array([[0.1,0.1,0.1,1.0]])
         self.UNDETECTED_SEMANTIC = np.array([0.0,0.0,0.0,1.0])
 
-        self.max_entropy = np.array([0.3,0.3,1.0,1.0])
-        self.min_entropy = np.array([0.3,0.3,0.7,1.0])
+        self.max_entropy = np.array([0.1,0.1,1.0,1.0])
+        self.min_entropy = np.array([0.9,0.9,1.0,1.0])
 
         # Rendering sizes
         self.render_w = render_W
@@ -788,9 +788,11 @@ class QuadRender:
         # For entropy
         entropy_image = np.repeat(np.expand_dims(resize(entropy_image, output_shape=(self.render_w, self.render_h)),
                                                  axis=-1),repeats=4,axis=-1)
-        entropy_image_frame = ((1-entropy_image/entropy_image.max())*frame +\
-                               entropy_image/entropy_image.max() * (self.max_entropy))
-        entropy_image_frame = (1 - 0.5) * frame + 0.5 * entropy_image_frame
+        entropy_image[:,:,-1] = 1.0
+        # entropy_image_frame = ((1-entropy_image/entropy_image.max())*frame +\
+        #                        entropy_image/entropy_image.max() * (self.max_entropy))
+        entropy_image = self.min_entropy + (self.max_entropy - self.min_entropy) * entropy_image
+        entropy_image_frame = (1 - 0.8) * frame + 0.8 * entropy_image
 
         # For ground truth
         ground_truth = resize(ground_truth, output_shape=(self.render_w, self.render_h))

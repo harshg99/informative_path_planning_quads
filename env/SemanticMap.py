@@ -355,11 +355,12 @@ class GPSemanticMap:
 
         self.semantic_map =  np.load(semantic_prior_map_path)
         self.coverage_map  = np.zeros((self.semantic_map.shape[0],self.semantic_map.shape[1]))
-        self.detected_semantic_map = np.argmax(self.semantic_map,axis = -1)
+        self.detected_semantic_map = np.zeros((self.semantic_map.shape[0],self.semantic_map.shape[1])) - 1
+        init_detected_semantic_map = np.argmax(self.semantic_map,axis = -1)
         self.obstacle_map = deepcopy(ground_truth_map.obstacle_map)
         # degree of randomness
         map1 = ground_truth_map.detected_semantic_map >0
-        map2 = self.detected_semantic_map >0
+        map2 = init_detected_semantic_map >0
         match = np.sum(map1==map2)/ np.prod(ground_truth_map.detected_semantic_map.shape)
         return match
 
