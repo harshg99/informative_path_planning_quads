@@ -40,10 +40,14 @@ RAY_RESET_EPS = 1000
 
 #Environment Parameters
 SPAWN_RANDOM_AGENTS = False
+
+#SPAWN_RANDOM_AGENTS = False
+
 SET_SEED = False # Sets seed to ensure similar form of training
 SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawned deterministically
 
 ENV_TYPE = 'Semantic' # MotionPrim or Discrete or SEMANTIC
+#ENV_TYPE = 'GPPrim'
 
 #Episode Parameters
 FIXED_BUDGET = True
@@ -51,6 +55,8 @@ BUDGET = 20.0
 
 # Observation Type
 RANGE = 6           # m by m size
+#RANGE = 8
+SCALE = [1, 2, 4]
 if ENV_TYPE =='Semantic':
     RESOLUTION = 4
     SCALE = [1,2,4]
