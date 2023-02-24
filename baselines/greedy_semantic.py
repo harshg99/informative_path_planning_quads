@@ -95,7 +95,7 @@ class GreedySemantic(il_wrapper_semantic):
 
     def plan_action(self,pos,index,agentID,current_depth=0,worldMap=None):
         if current_depth>=self.depth:
-            return worldMap.get_entropy().mean()
+            return -worldMap.get_entropy().mean()
         else:
             costs = []
             for j in range(self.env.action_size):

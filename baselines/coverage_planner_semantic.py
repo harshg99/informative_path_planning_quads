@@ -124,12 +124,14 @@ class coverage_planner_semantic(il_wrapper_semantic):
                     costs.append(cost + self.plan_action(next_pos,next_index,agentID,
                                                          current_depth+1,coverageMap))
                 else:
-                    costs.append(cost + -100000)
+                    costs.append(cost + -1000000.0)
 
 
             if current_depth == 0:
-                best_action = np.argmax(np.array(costs))
-                return best_action, np.max(np.array(costs))
+                best_cost = np.max(np.array(costs))
+                best_actions = np.argwhere(costs==best_cost)
+                best_action = np.random.choice(best_actions.flatten())
+                return best_action, np.array(costs)[best_actions]
             else:
                 return np.max(np.array(costs))
 
@@ -165,11 +167,8 @@ class coverage_planner_semantic(il_wrapper_semantic):
                 frames += self.env.render(mode='rgb_array')
             if done:
                 break
-
-            episode_rewards += np.array(rewards).sum()
-            episode_step += 1
-            if done:
-                break
+            if episode_step==50:
+                print("pause")
 
         metrics = self.env.get_final_metrics()
         metrics['episode_reward'] = episode_rewards

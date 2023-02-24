@@ -53,7 +53,7 @@ class CMAESSemantic(il_wrapper_semantic):
             cost, next_index, next_pos,valid = self.getmpcost(next_pos, next_index, int(action), agentID, worldMap)
             objective += cost
 
-        objective += worldMap.get_entropy().sum()
+        objective -= worldMap.get_entropy().mean()
 
         return objective
 
