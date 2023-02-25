@@ -288,12 +288,12 @@ class AgentSemantic :
                 dict_[tuple(visited_states[:,j])] = 1.0
 
         visited_states = np.array(visited_states_).T
-        visited_states_ = [visited_states[0]]
-        for j in range(1,visited_states.shape[0]-1,1):
+        visited_states_ = [visited_states[:,0]]
+        for j in range(1,visited_states.shape[1]-1,1):
             if j%self.measurement_step==0:
-                visited_states_.append(visited_states[j])
-        visited_states_.append(visited_states[-1])
-        visited_states = np.array(visited_states_)
+                visited_states_.append(visited_states[:,j])
+        visited_states_.append(visited_states[:,-1])
+        visited_states = np.transpose(np.array(visited_states_))
 
         #is_valid = is_valid and self.isValidPoses(visited_states)
         final_pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
