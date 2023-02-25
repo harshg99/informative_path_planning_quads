@@ -151,7 +151,7 @@ class GreedyGP(il_wrapper):
                 reward = self.exploration * self.getMean(self.visited_states,worldMap)+\
                 self.getExpectedEntropy(self.visited_states,worldMap)
 
-                reward -= mp.cost/ mp.subclass_specific_data.get('rho', 1) / 10 / REWARD.MP.value
+                reward -= mp.cost/ mp.subclass_specific_data.get('rho', 1) / 10 / self.env.mp_cost_norm
             elif visited_states is not None:
                 # reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
                 reward += REWARD.COLLISION.value

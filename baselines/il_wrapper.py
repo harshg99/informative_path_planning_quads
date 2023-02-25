@@ -60,6 +60,7 @@ class il_wrapper_semantic:
         env_params_dict = set_dict(parameters)
         env_params_dict['home_dir'] =home_dir
         self.env_params_dict = env_params_dict
+        self.measurement_step = env_params_dict['measurement_step']
 
         import params as args
 
@@ -76,15 +77,31 @@ class il_wrapper_semantic:
         self.num_tiles = self.env.mp_graph.num_tiles
         self.spatial_dim = self.env.mp_graph.num_dims
 
-    def isValidMP(self,pos,mp,agentID):
+    def isValidMP(self, pos, mp, agentID):
         is_valid = mp.is_valid
         mp.translate_start_position(pos)
         _, sp = mp.get_sampled_position()
         # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
-        visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
+        #visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
+        visited_states = np.round(sp).astype(np.int32)
+        visited_states_ = []
+        dict_ = {}
+        for j in range(0,visited_states.shape[-1]):
+            if tuple(visited_states[:,j]) not in dict_.keys():
+                visited_states_.append(visited_states[:,j])
+                dict_[tuple(visited_states[:,j])] = 1.0
+
+        visited_states = np.array(visited_states_).T
+        visited_states_ = [visited_states[:,0]]
+        for j in range(1,visited_states.shape[1]-1,1):
+            if j%self.measurement_step==0:
+                visited_states_.append(visited_states[:,j])
+        visited_states_.append(visited_states[:,-1])
+        visited_states = np.transpose(np.array(visited_states_))
+
+        #is_valid = is_valid and self.isValidPoses(visited_states)
         final_pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
-        #is_valid = is_valid and self.isValidPoses(visited_states, agentID)
-        is_valid = is_valid and self.isValidFinalPose(final_pos.T,agentID)
+        is_valid = is_valid and self.isValidFinalPose(visited_states, agentID)
         return is_valid,visited_states
 
     def isValidPoses(self, poses, agentID):

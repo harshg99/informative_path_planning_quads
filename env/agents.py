@@ -209,6 +209,7 @@ class AgentSemantic :
         self.lookup = mp_object.lookup
         self.index = 0
         self.spatial_dim = mp_object.spatial_dim
+        self.mp_cost_norm = mp_object.mp_cost_norm
         self.agent_budget = budget
 
         self.prev_action = 0
@@ -235,7 +236,7 @@ class AgentSemantic :
 
     def updatePos(self,action):
         mp = deepcopy(self.mp_graph[self.index, action])
-        mpcost = 5000
+        mpcost = self.mp_cost_norm
         if mp is not None:
             #mp.translate_start_position(self.pos)
             #_, sp = mp.get_sampled_position()

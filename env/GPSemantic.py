@@ -45,7 +45,6 @@ class REWARD(Enum):
     MAP  = 10.0
     TARGET  = +20.0
     COLLISION = -1.0
-    MP = 10000
 
 '''
 Constant Envrionment Variables for rendering
@@ -66,11 +65,13 @@ class MPObject:
     def __init__(self,minimum_action_mp_grpah = None,
                  lookup_dict = None,
                  spatial_dim = None,
-                 num_tiles = None):
+                 num_tiles = None,
+                 mp_cost_norm = None):
         self.mp_graph = minimum_action_mp_grpah
         self.lookup = lookup_dict
         self.spatial_dim = spatial_dim
         self.num_tiles = num_tiles
+        self.mp_cost_norm = mp_cost_norm
 
 
 class VisBuffer:
@@ -238,6 +239,27 @@ class GPSemanticGym(gym.Env):
         self.num_other_states = self.minimum_action_mp_graph.shape[0]
         self.num_actions_per_state = [len([j for j in i if j != None]) for i in self.minimum_action_mp_graph]
 
+        z = []
+        costs = []
+        for _ in self.mp_graph.edges:
+            for edge in _:
+                if edge is not None:
+                    # print(edge.start_state[0:2])
+                    # print(edge.end_state[0:2])
+                    # print(np.linalg.norm(edge.end_state[0:2] - edge.start_state[0:2]))
+                    z.append(np.linalg.norm(edge.end_state[0:2] - edge.start_state[0:2]))
+                    costs.append(edge.cost)
+        print(self.mp_graph.motion_primitive_type)
+        print(np.mean(z))
+        print([len([j for j in i if j != None]) for i in self.mp_graph.edges.T])
+        print(np.mean([len([j for j in i if j != None]) for i in self.mp_graph.edges.T]))
+        print(self.mp_graph.max_state)
+        print(np.mean(costs))
+        print(np.min(costs))
+        print(np.max(costs))
+        print(np.median(costs))
+        self.mp_cost_norm = np.max(costs)
+
     def create_mp_graph_encodings(self,bits= True):
         if bits:
             self.motionprim_tokensize = 20
@@ -335,7 +357,7 @@ class GPSemanticGym(gym.Env):
             previous_actions.append(self.agents[j].prev_action)
             agent_idx.append(self.agents[j].index)
             if self.args_dict['FIXED_BUDGET']:
-                agent_budgets.append([self.agents[j].agent_budget/self.args_dict['BUDGET']/REWARD.MP.value])
+                agent_budgets.append([self.agents[j].agent_budget/self.args_dict['BUDGET']/self.mp_cost_norm.item()])
 
         obs_dict = dict()
         obs_dict['obs'] = obs
@@ -580,14 +602,15 @@ class GPSemanticGym(gym.Env):
 
         # Creating the agents
         if self.args_dict['FIXED_BUDGET']:
-            agent_budget = self.args_dict['BUDGET']*REWARD.MP.value
+            agent_budget = self.args_dict['BUDGET']*self.mp_cost_norm
         else:
             agent_budget = None
 
         self.mp_object = MPObject(minimum_action_mp_grpah=self.minimum_action_mp_graph,
                          lookup_dict=self.lookup_dictionary,
                          spatial_dim=self.spatial_dim,
-                         num_tiles=self.mp_graph.num_tiles)
+                         num_tiles=self.mp_graph.num_tiles,
+                         mp_cost_norm=self.mp_cost_norm)
 
         if self.args_dict['SPAWN_RANDOM_AGENTS']:
             row = np.random.randint(self.pad_size, self.semantic_map_size + self.pad_size, (self.numAgents,))
@@ -694,7 +717,7 @@ class GPSemanticGym(gym.Env):
             reward += self._get_reward(initial_belief, self.belief_semantic_map).item()
             reward += reward_coverage
 
-            reward -= cost / REWARD.MP.value
+            reward -= cost / self.mp_cost_norm
 
             semantics_found = self._get_semantic_reward(self.belief_semantic_map,initial_belief)
             semantics_found_total = 0

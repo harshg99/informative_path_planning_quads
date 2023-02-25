@@ -84,7 +84,7 @@ class GreedySemantic(il_wrapper_semantic):
                 reward = self.exploration * self.getMean(self.visited_states,worldMap)+\
                 self.getExpectedEntropy(self.visited_states,worldMap)
 
-                reward -= mp.cost/ mp.subclass_specific_data.get('rho', 1) / 10 / REWARD.MP.value
+                reward -= mp.cost/ mp.subclass_specific_data.get('rho', 1) /  self.env.mp_cost_norm
             elif visited_states is not None:
                 # reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
                 reward += REWARD.COLLISION.value
@@ -148,6 +148,8 @@ class GreedySemantic(il_wrapper_semantic):
             rewards,done = self.env.step_all(action_dict)
             episode_rewards += np.array(rewards).sum()
             episode_step+=1
+            print("Step: {:d}, Reward: {:.2f}, Cost: {:.2f} BudgetRem{:.2f}"
+                  .format(int(episode_step),episode_rewards,cost,self.env.agents[0].agent_budget/self.env.mp_cost_norm))
             if self.gifs:
                 frames += self.env.render(mode='rgb_array')
             if done:

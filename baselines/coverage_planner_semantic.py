@@ -102,7 +102,7 @@ class coverage_planner_semantic(il_wrapper_semantic):
                 # print("{:d} {:d} {:d} {:d}".format(self.pos[0], self.pos[1], visited_states[0,0], visited_states[1,0]))
                 self.visited_states = visited_states.T
                 reward = self.getCoverage(self.visited_states,world_map)
-
+                reward -= mp.cost / mp.subclass_specific_data.get('rho', 1) / 10 / self.env.mp_cost_norm
             elif visited_states is not None:
                 # reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
                 reward += REWARD.COLLISION.value
