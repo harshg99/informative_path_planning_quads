@@ -295,8 +295,7 @@ class AgentSemantic :
         indices = [0] + np.arange(self.measurement_step,visited_states_.shape[1]-1,self.measurement_step).tolist() \
                   + [visited_states_.shape[1]-1]
 
-        visited_states = np.transpose(np.array(visited_states_)[:,indices])
-
+        visited_states = np.array(visited_states_)[:,indices]
         #is_valid = is_valid and self.isValidPoses(visited_states)
         final_pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
         is_valid = is_valid and self.isValidFinalPose(final_pos)

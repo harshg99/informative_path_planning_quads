@@ -98,7 +98,7 @@ class il_wrapper_semantic:
         indices = [0] + np.arange(self.measurement_step, visited_states_.shape[1] - 1, self.measurement_step).tolist() \
                   + [visited_states_.shape[1] - 1]
 
-        visited_states = np.transpose(np.array(visited_states_)[:, indices])
+        visited_states = np.array(visited_states_)[:, indices]
 
         # is_valid = is_valid and self.isValidPoses(visited_states)
         is_valid = is_valid and self.isValidFinalPose(visited_states, agentID)

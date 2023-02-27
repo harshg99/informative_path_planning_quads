@@ -30,7 +30,7 @@ elif graph_file_name ==  'latticeData/70.json' or graph_file_name ==  'latticeDa
     sensor_range = [24, 24]
     pad_size = 32
     sensor_decay_coeff = 0.08/obs_resolution
-    sampled_step_size = 0.5
+    sampled_step_size = 0.4
 
 
 num_semantics = 4  # include background semantic
