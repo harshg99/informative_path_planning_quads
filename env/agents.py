@@ -12,7 +12,7 @@ from copy import deepcopy
 import os
 from env.sensors import *
 from env.SemanticMap import GPSemanticMap
-
+from collections import Counter
 class Agent():
     def __init__(self,ID,row,col,map_size,pad,world_size):
         self.ID = ID
@@ -195,7 +195,8 @@ class AgentSemantic :
                  ground_truth = None,
                  mp_object = None,
                  sensor_params = None,
-                 budget=None):
+                 budget=None,
+                 sampled_step = 0.1):
 
         self.ID = ID
         self.pos = np.array(pos)
@@ -211,6 +212,7 @@ class AgentSemantic :
         self.spatial_dim = mp_object.spatial_dim
         self.mp_cost_norm = mp_object.mp_cost_norm
         self.agent_budget = budget
+        self.sampled_step = sampled_step
 
         self.prev_action = 0
         self.pos_actual = self.pos.copy()
@@ -276,24 +278,24 @@ class AgentSemantic :
     def isValidMP(self,mp):
         is_valid = mp.is_valid
         mp.translate_start_position(self.pos_actual)
-        _, sp = mp.get_sampled_position()
+        _, sp = mp.get_sampled_position(step_size=self.sampled_step)
         # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
         #visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
         visited_states = np.round(sp).astype(np.int32)
         visited_states_ = []
         dict_ = {}
+
         for j in range(0,visited_states.shape[-1]):
-            if tuple(visited_states[:,j]) not in dict_.keys():
+            val = dict_.get(tuple(visited_states[:,j]),0)
+            if val==0:
                 visited_states_.append(visited_states[:,j])
                 dict_[tuple(visited_states[:,j])] = 1.0
 
-        visited_states = np.array(visited_states_).T
-        visited_states_ = [visited_states[:,0]]
-        for j in range(1,visited_states.shape[1]-1,1):
-            if j%self.measurement_step==0:
-                visited_states_.append(visited_states[:,j])
-        visited_states_.append(visited_states[:,-1])
-        visited_states = np.transpose(np.array(visited_states_))
+        visited_states_ = np.array(visited_states_).T
+        indices = [0] + np.arange(self.measurement_step,visited_states_.shape[1]-1,self.measurement_step).tolist() \
+                  + [visited_states_.shape[1]-1]
+
+        visited_states = np.transpose(np.array(visited_states_)[:,indices])
 
         #is_valid = is_valid and self.isValidPoses(visited_states)
         final_pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)

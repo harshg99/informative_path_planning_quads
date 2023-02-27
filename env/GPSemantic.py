@@ -158,7 +158,7 @@ class GPSemanticGym(gym.Env):
             self.seed = params_dict['seed']
         self.viewer = None
 
-        self.RANGE = int(self.args_dict['RANGE'] * self.params_dict['measurement_step']*\
+        self.RANGE = int(self.args_dict['RANGE'] * self.params_dict['obs_resolution']*\
                          self.params_dict['resolution']/self.args_dict['RESOLUTION'])
 
         if self.args_dict['OBSERVER'] == 'RANGE':
@@ -241,6 +241,7 @@ class GPSemanticGym(gym.Env):
 
         z = []
         costs = []
+        time = []
         for _ in self.mp_graph.edges:
             for edge in _:
                 if edge is not None:
@@ -249,6 +250,7 @@ class GPSemanticGym(gym.Env):
                     # print(np.linalg.norm(edge.end_state[0:2] - edge.start_state[0:2]))
                     z.append(np.linalg.norm(edge.end_state[0:2] - edge.start_state[0:2]))
                     costs.append(edge.cost)
+                    time.append(edge.traj_time)
         print(self.mp_graph.motion_primitive_type)
         print(np.mean(z))
         print([len([j for j in i if j != None]) for i in self.mp_graph.edges.T])
@@ -258,6 +260,9 @@ class GPSemanticGym(gym.Env):
         print(np.min(costs))
         print(np.max(costs))
         print(np.median(costs))
+
+        print(np.max(time))
+        print(np.min(time))
         self.mp_cost_norm = np.max(costs)
 
     def create_mp_graph_encodings(self,bits= True):
@@ -373,8 +378,8 @@ class GPSemanticGym(gym.Env):
 
 
     def get_obs_ranged(self,agentID):
-        fov_modified= [self.args_dict['RANGE']*self.params_dict['measurement_step'],
-                       self.args_dict['RANGE']*self.params_dict['measurement_step']]
+        fov_modified= [self.args_dict['RANGE']*self.params_dict['obs_resolution'],
+                       self.args_dict['RANGE']*self.params_dict['obs_resolution']]
         semantic_features,_ = self.belief_semantic_map.get_observations(pos =self.agents[agentID].pos,
                                                 fov = fov_modified,
                                                 scale = 1,
@@ -388,8 +393,8 @@ class GPSemanticGym(gym.Env):
 
 
     def get_obs_ranged_wobs(self,agentID):
-        fov_modified= [self.args_dict['RANGE']*self.params_dict['measurement_step'],
-                       self.args_dict['RANGE']*self.params_dict['measurement_step']]
+        fov_modified= [self.args_dict['RANGE']*self.params_dict['obs_resolution'],
+                       self.args_dict['RANGE']*self.params_dict['obs_resolution']]
 
         semantic_features,_ = self.belief_semantic_map.get_observations(pos =self.agents[agentID].pos,
                                                 fov=fov_modified,
@@ -407,8 +412,8 @@ class GPSemanticGym(gym.Env):
         return np.array(features)
 
     def get_obs_ranged_wobspenc(self,agentID):
-        fov_modified= [self.args_dict['RANGE']*self.params_dict['measurement_step'],
-                       self.args_dict['RANGE']*self.params_dict['measurement_step']]
+        fov_modified= [self.args_dict['RANGE']*self.params_dict['obs_resolution'],
+                       self.args_dict['RANGE']*self.params_dict['obs_resolution']]
 
         semantic_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
                                                               fov=fov_modified,
@@ -441,8 +446,8 @@ class GPSemanticGym(gym.Env):
 
 
     def get_obs_range_wobs_multi(self,agentID):
-        fov_modified= [self.args_dict['RANGE']*self.params_dict['measurement_step'],
-                       self.args_dict['RANGE']*self.params_dict['measurement_step']]
+        fov_modified= [self.args_dict['RANGE']*self.params_dict['obs_resolution'],
+                       self.args_dict['RANGE']*self.params_dict['obs_resolution']]
 
         for s in self.scale:
             semantic_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
@@ -475,8 +480,8 @@ class GPSemanticGym(gym.Env):
         return np.array(features)
 
     def get_obs_range_coverage_multifov(self,agentID):
-        fov_modified= [self.args_dict['RANGE']*self.params_dict['measurement_step'],
-                       self.args_dict['RANGE']*self.params_dict['measurement_step']]
+        fov_modified= [self.args_dict['RANGE']*self.params_dict['obs_resolution'],
+                       self.args_dict['RANGE']*self.params_dict['obs_resolution']]
 
         for s in self.scale:
             semantic_features, _ = self.belief_semantic_map.get_observations(pos=self.agents[agentID].pos,
@@ -621,15 +626,17 @@ class GPSemanticGym(gym.Env):
                         ground_truth= self.ground_truth_semantic_map,
                         mp_object = self.mp_object, \
                         sensor_params = self.sensor_params,
-                        budget = agent_budget) for j in range(self.numAgents)]
+                        budget = agent_budget,
+                        sampled_step = self.env_params['sampled_step_size']) for j in range(self.numAgents)]
         else:
             self.agents = [
-                AgentSemantic(ID = j, pos = [15*self.params_dict['measurement_step'],
-                                             15*self.params_dict['measurement_step']],
+                AgentSemantic(ID = j, pos = [15*self.params_dict['obs_resolution'],
+                                             15*self.params_dict['obs_resolution']],
                         ground_truth= self.ground_truth_semantic_map,
                         mp_object = self.mp_object, \
                         sensor_params = self.sensor_params,
-                        budget = agent_budget) for j in range(self.numAgents)]
+                        budget = agent_budget,
+                        sampled_step=self.env_params['sampled_step_size']) for j in range(self.numAgents)]
 
         # Initialising the semantic map for each agent
         for agent in self.agents:

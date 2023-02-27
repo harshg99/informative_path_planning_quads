@@ -15,19 +15,22 @@ if graph_file_name ==  'latticeData/faster20.json':
 
     measurement_step = 1 # how many measurements to discretize ber step
     resolution = 8 # m m to pixel conversion (map will be 200 by 200)
-
+    obs_resolution = 1 # m m to pixel conversion (map will be 200 by 200)
     sensor_range = [3, 3]
     pad_size = 4
     sensor_decay_coeff = 0.08
+    sampled_step_size = 0.1
 
 elif graph_file_name ==  'latticeData/70.json' or graph_file_name ==  'latticeData/20.json':
     rewardMapSize = 256  # m m size of the environment
     defaultMapChoice = 0
-    measurement_step = 8  # how many measurements to discretize ber step
+    measurement_step = 4  # how many measurements to discretize ber step
+    obs_resolution = 8  # m m to pixel conversion (map will be 200 by 200)
     resolution = 1   # m m to pixel conversion (map will be 200 by 200)
     sensor_range = [24, 24]
     pad_size = 32
-    sensor_decay_coeff = 0.08/measurement_step
+    sensor_decay_coeff = 0.08/obs_resolution
+    sampled_step_size = 0.5
 
 
 num_semantics = 4  # include background semantic

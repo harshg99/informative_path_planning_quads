@@ -61,6 +61,7 @@ class il_wrapper_semantic:
         env_params_dict['home_dir'] =home_dir
         self.env_params_dict = env_params_dict
         self.measurement_step = env_params_dict['measurement_step']
+        self.sampled_step = env_params_dict['sampled_step_size']
 
         import params as args
 
@@ -80,29 +81,29 @@ class il_wrapper_semantic:
     def isValidMP(self, pos, mp, agentID):
         is_valid = mp.is_valid
         mp.translate_start_position(pos)
-        _, sp = mp.get_sampled_position()
+        _, sp = mp.get_sampled_position(step_size=self.sampled_step)
         # visited_states = np.round(mp.end_state[:mp.num_dims]).astype(np.int32).reshape(mp.num_dims,1)
-        #visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
+        # visited_states = np.unique(np.round(sp).astype(np.int32), axis=1)
         visited_states = np.round(sp).astype(np.int32)
         visited_states_ = []
         dict_ = {}
-        for j in range(0,visited_states.shape[-1]):
-            if tuple(visited_states[:,j]) not in dict_.keys():
-                visited_states_.append(visited_states[:,j])
-                dict_[tuple(visited_states[:,j])] = 1.0
 
-        visited_states = np.array(visited_states_).T
-        visited_states_ = [visited_states[:,0]]
-        for j in range(1,visited_states.shape[1]-1,1):
-            if j%self.measurement_step==0:
-                visited_states_.append(visited_states[:,j])
-        visited_states_.append(visited_states[:,-1])
-        visited_states = np.transpose(np.array(visited_states_))
+        for j in range(0, visited_states.shape[-1]):
+            val = dict_.get(tuple(visited_states[:, j]), 0)
+            if val == 0:
+                visited_states_.append(visited_states[:, j])
+                dict_[tuple(visited_states[:, j])] = 1.0
 
-        #is_valid = is_valid and self.isValidPoses(visited_states)
-        final_pos = np.round(mp.end_state[:self.spatial_dim]).astype(int)
+        visited_states_ = np.array(visited_states_).T
+        indices = [0] + np.arange(self.measurement_step, visited_states_.shape[1] - 1, self.measurement_step).tolist() \
+                  + [visited_states_.shape[1] - 1]
+
+        visited_states = np.transpose(np.array(visited_states_)[:, indices])
+
+        # is_valid = is_valid and self.isValidPoses(visited_states)
         is_valid = is_valid and self.isValidFinalPose(visited_states, agentID)
         return is_valid,visited_states
+
 
     def isValidPoses(self, poses, agentID):
         is_valid = True
