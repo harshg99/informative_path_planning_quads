@@ -11,6 +11,7 @@ import functools
 from baselines.il_wrapper import il_wrapper_semantic
 from env.GPSemantic import *
 from env.SemanticMap import *
+import cProfile
 
 class CMAESSemantic(il_wrapper_semantic):
     def __init__(self,params_dict,home_dir="./"):
@@ -53,15 +54,13 @@ class CMAESSemantic(il_wrapper_semantic):
             cost, next_index, next_pos,valid = self.getmpcost(next_pos, next_index, int(action), agentID, worldMap)
             objective += cost
 
-        objective -= worldMap.get_entropy().mean()
-
         return objective
 
 
     def getExpectedEntropy(self, visited_states,world_map):
 
         world_map_init = deepcopy(world_map)
-
+        entropy_reduction = 0
         for state in visited_states.tolist():
 
             semantic_obs,_ = world_map.get_observations(state, fov=self.env.sensor_params['sensor_range'],
@@ -70,15 +69,16 @@ class CMAESSemantic(il_wrapper_semantic):
 
             projected_measurement = np.argmax(semantic_obs, axis=-1)
 
-            world_map.update_semantics(state, projected_measurement, self.env.sensor_params)
+            entropy_reduction += world_map.update_semantics(state, projected_measurement, self.env.sensor_params)
 
 
-        init_entropy = world_map_init.get_entropy()
-        final_entropy = world_map.get_entropy()
-        entropy_reduction = (init_entropy - final_entropy).sum()
+        # init_entropy = world_map_init.get_entropy()
+        # final_entropy = world_map.get_entropy()
+        # entropy_reduction = (init_entropy - final_entropy).sum()
+        #
+        # return entropy_reduction/(np.square(self.env.sensor_params['sensor_range'][0])*world_map.resolution**2)
+        return entropy_reduction
 
-        return entropy_reduction/(np.square(self.env.sensor_params['sensor_range'][0])*world_map.resolution**2)
-        #return entropy_reduction
 
     def getMean(self,visited_states,worldMap):
         entropy_reduction = 0
@@ -89,7 +89,7 @@ class CMAESSemantic(il_wrapper_semantic):
                                                        return_distance=False, resolution=None)
 
 
-            entropy_reduction += semantic_obs.mean(axis=-1).sum()
+            entropy_reduction += semantic_obs.sum()/semantic_obs.shape[-1]
 
         return entropy_reduction / (np.square(self.env.sensor_params['sensor_range'][0])*worldMap.resolution**2)
         #return entropy_reduction
@@ -217,6 +217,8 @@ class CMAESSemantic(il_wrapper_semantic):
                     frames += self.env.render(mode='rgb_array')
                 if done:
                     break
+            print("Step: {:d}, Reward: {:.2f},  BudgetRem{:.2f}"
+                  .format(int(episode_step),episode_rewards,self.env.agents[0].agent_budget/self.env.mp_cost_norm))
             if done:
                 break
 
@@ -237,4 +239,4 @@ if __name__=="__main__":
     import baseline_params.CMAESSemantic as parameters
     map_index = 20
     planner = CMAESSemantic(set_dict(parameters),home_dir='../')
-    print(planner.run_test(test_map_ID=0,test_ID=0))
+    cProfile.run('print(planner.run_test(test_map_ID=0,test_ID=0))')

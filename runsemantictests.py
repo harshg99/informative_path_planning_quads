@@ -9,6 +9,7 @@ import json
 from pdb import set_trace as T
 import pandas as pd
 from Utilities import set_dict
+import cProfile
 class Tests:
     def unit_tests(self,type,test_map):
 

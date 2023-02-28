@@ -10,6 +10,7 @@ from multiprocessing import Pool as pool
 import functools
 from baselines.il_wrapper import il_wrapper
 from baselines.coverage_planner_semantic import coverage_planner_semantic
+import cProfile
 
 class Node:
     def __init__(self,incoming,outgoing,state,map_state,current_cost,depth = None,cost_fn=None):
@@ -58,11 +59,10 @@ class prioritised_coverage_semantic(coverage_planner_semantic):
             world_map.update_semantics(state, projected_measurement, self.env.sensor_params)
 
 
-        init_coverage = (np.expand_dims(world_map_init.coverage_map,axis = -1)
-                         *world_map_init.semantic_map).mean(axis=-1).sum()
-        final_coverage = (np.expand_dims(world_map.coverage_map,axis = -1)
-                          *world_map.semantic_map).mean(axis=-1).sum()
-        coverage = (final_coverage - init_coverage).sum()
+        init_coverage = np.sum((np.expand_dims(world_map_init.coverage_map,axis = -1)
+                         *world_map_init.semantic_map) - (np.expand_dims(world_map.coverage_map,axis = -1)
+                          *world_map.semantic_map))
+        coverage = -1.0*init_coverage/semantic_obs.shape[-1]
 
         return coverage/(np.square(self.env.sensor_params['sensor_range'][0])*world_map.resolution**2)
         #return entropy_reduction
@@ -72,4 +72,4 @@ class prioritised_coverage_semantic(coverage_planner_semantic):
 if __name__=="__main__":
     import baseline_params.PriorCoverageSemantic as parameters
     planner = prioritised_coverage_semantic(set_dict(parameters),home_dir='../')
-    print(planner.run_test(test_map_ID=0,test_ID=0))
+    cProfile.run('print(planner.run_test(test_map_ID=0,test_ID=0))')

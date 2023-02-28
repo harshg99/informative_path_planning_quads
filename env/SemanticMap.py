@@ -369,9 +369,9 @@ class GPSemanticMap:
         '''
         Returns the total entropy at the desired locations
         '''
+        entropy = np.sum(self.semantic_map * np.log(np.clip(self.semantic_map, 1e-7, 1)) + \
+                    (1-self.semantic_map) * np.log(np.clip((1-self.semantic_map), 1e-7, 1)),axis = -1)
 
-        entropy = -np.sum(self.semantic_map * np.log(np.clip(self.semantic_map, 1e-7, 1)),axis = -1) + \
-                  -np.sum((1-self.semantic_map) * np.log(np.clip((1-self.semantic_map), 1e-7, 1)), axis=-1)
         return entropy
 
 
@@ -402,8 +402,8 @@ class GPSemanticMap:
 
         sensor_odds =  np.log(sensor_max_unc *(1-coeff*distances)/(1-sensor_max_unc *(1-coeff*distances)))
         sensor_neg_odds =  np.log((3 - ((sensor_max_unc) *(1-coeff*distances)))/(2 + sensor_max_unc *(1-coeff*distances)))
-        semantic_map_log_odds = np.log(self.semantic_map[min_x:max_x, min_y:max_y,:]\
-                                       / (1 - self.semantic_map[min_x:max_x,min_y:max_y,:])).reshape((-1,self.num_semantics))
+        semantic_map_log_odds = deepcopy(np.log(self.semantic_map[min_x:max_x, min_y:max_y,:]\
+                                       / (1 - self.semantic_map[min_x:max_x,min_y:max_y,:])).reshape((-1,self.num_semantics)))
 
         try:
             semantic_map_log_odds += np.expand_dims(np.array(sensor_neg_odds[min_x - (r - sensor_range_map[0]): max_x - (r - sensor_range_map[0])] \
@@ -441,12 +441,25 @@ class GPSemanticMap:
                                                min_y - (c - sensor_range_map[1]),  max_y - (c - sensor_range_map[1])))
             print("r1 r2 {} {}".format(sensor_range_map[0],sensor_range_map[1]))
 
-        self.semantic_map[min_x:max_x,min_y:max_y] =  1 / (np.exp(-semantic_map_log_odds) + 1)
+
+        semantic_map_new = 1 / (np.exp(-semantic_map_log_odds) + 1)
+        final_entropy = 0
+        init_entropy = 0
+        final_entropy = np.mean(semantic_map_new * np.log(np.clip(semantic_map_new,1e-10,1)) + \
+                                      (1 - semantic_map_new) * np.log(np.clip(1 - semantic_map_new,1e-10,1)))
+        init_entropy = np.mean(self.semantic_map[min_x:max_x,min_y:max_y,:] *\
+                              np.log(np.clip(self.semantic_map[min_x:max_x,min_y:max_y,:],1e-10,1)) +\
+                                (1 - self.semantic_map[min_x:max_x,min_y:max_y,:]) * \
+                              np.log(np.clip(1 - self.semantic_map[min_x:max_x, min_y:max_y, :], 1e-10, 1)))
+
+        self.semantic_map[min_x:max_x,min_y:max_y] =  semantic_map_new
 
         self.detected_semantic_map[min_x:max_x,min_y:max_y][np.max(self.semantic_map
                                 [min_x:max_x,min_y:max_y,:],axis=-1)>self.target_belief_thresh] = \
             np.argmax(self.semantic_map[min_x:max_x,min_y:max_y][np.max(
                       self.semantic_map[min_x:max_x,min_y:max_y,:],axis=-1)>self.target_belief_thresh],axis=-1)
+
+        return final_entropy - init_entropy
 
 
 # TODO: New gym environment with observation structure

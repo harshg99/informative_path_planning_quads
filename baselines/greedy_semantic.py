@@ -11,6 +11,7 @@ from multiprocessing import Pool as pool
 from baselines.il_wrapper import il_wrapper_semantic
 from env.GPSemantic import *
 from env.SemanticMap import *
+import cProfile
 
 class GreedySemantic(il_wrapper_semantic):
     def __init__(self,params_dict,home_dir="./"):
@@ -29,7 +30,7 @@ class GreedySemantic(il_wrapper_semantic):
     def getExpectedEntropy(self, visited_states,world_map):
 
         world_map_init = deepcopy(world_map)
-
+        entropy_reduction = 0
         for state in visited_states.tolist():
 
             semantic_obs,_ = world_map.get_observations(state, fov=self.env.sensor_params['sensor_range'],
@@ -38,15 +39,15 @@ class GreedySemantic(il_wrapper_semantic):
 
             projected_measurement = np.argmax(semantic_obs, axis=-1)
 
-            world_map.update_semantics(state, projected_measurement, self.env.sensor_params)
+            entropy_reduction += world_map.update_semantics(state, projected_measurement, self.env.sensor_params)
 
 
-        init_entropy = world_map_init.get_entropy()
-        final_entropy = world_map.get_entropy()
-        entropy_reduction = (init_entropy - final_entropy).sum()
-
-        return entropy_reduction/(np.square(self.env.sensor_params['sensor_range'][0])*world_map.resolution**2)
-        #return entropy_reduction
+        # init_entropy = world_map_init.get_entropy()
+        # final_entropy = world_map.get_entropy()
+        # entropy_reduction = (init_entropy - final_entropy).sum()
+        #
+        # return entropy_reduction/(np.square(self.env.sensor_params['sensor_range'][0])*world_map.resolution**2)
+        return entropy_reduction
 
     def getMean(self,visited_states,worldMap):
         entropy_reduction = 0
@@ -57,7 +58,7 @@ class GreedySemantic(il_wrapper_semantic):
                                                        return_distance=False, resolution=None)
 
 
-            entropy_reduction += semantic_obs.mean(axis=-1).sum()
+            entropy_reduction += semantic_obs.sum()/semantic_obs.shape[-1]
 
         return entropy_reduction / (np.square(self.env.sensor_params['sensor_range'][0])*worldMap.resolution**2)
         #return entropy_reduction
@@ -95,7 +96,7 @@ class GreedySemantic(il_wrapper_semantic):
 
     def plan_action(self,pos,index,agentID,current_depth=0,worldMap=None):
         if current_depth>=self.depth:
-            return -worldMap.get_entropy().mean()
+            return 0
         else:
             costs = []
             for j in range(self.env.action_size):
@@ -172,4 +173,4 @@ if __name__=="__main__":
     import baseline_params.GreedySemantic as parameters
     map_index = 20
     planner = GreedySemantic(set_dict(parameters),home_dir='../')
-    print(planner.run_test(test_map_ID=0,test_ID=0))
+    cProfile.run('print(planner.run_test(test_map_ID=0,test_ID=0))')

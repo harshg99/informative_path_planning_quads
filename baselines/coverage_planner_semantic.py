@@ -11,6 +11,7 @@ import functools
 from baselines.il_wrapper import il_wrapper_semantic
 from env.GPSemantic import *
 from env.SemanticMap import *
+import cProfile
 
 class Node:
     def __init__(self,incoming,outgoing,state,map_state,current_cost,depth = None,cost_fn=None):
@@ -75,9 +76,8 @@ class coverage_planner_semantic(il_wrapper_semantic):
             world_map.update_semantics(state, projected_measurement, self.env.sensor_params)
 
 
-        init_coverage = world_map_init.coverage_map.sum()
-        final_coverage = world_map.coverage_map.sum()
-        coverage = (final_coverage - init_coverage).sum()
+        init_coverage = np.sum(world_map_init.coverage_map - world_map.coverage_map)
+        coverage = -init_coverage
 
         return coverage/(np.square(self.env.sensor_params['sensor_range'][0])*world_map.resolution**2)
         #return entropy_reduction
@@ -131,7 +131,7 @@ class coverage_planner_semantic(il_wrapper_semantic):
                 best_cost = np.max(np.array(costs))
                 best_actions = np.argwhere(costs==best_cost)
                 best_action = np.random.choice(best_actions.flatten())
-                return best_action, np.array(costs)[best_actions]
+                return best_action, np.array(costs)[best_action]
             else:
                 return np.max(np.array(costs))
 
@@ -163,12 +163,14 @@ class coverage_planner_semantic(il_wrapper_semantic):
             rewards,done = self.env.step_all(action_dict)
             episode_rewards += np.array(rewards).sum()
             episode_step+=1
+            print("Step: {:d}, Reward: {:.2f}, Cost: {:.2f} BudgetRem{:.2f}"\
+                  .format(int(episode_step),episode_rewards,cost.item(),self.env.agents[0].agent_budget/self.env.mp_cost_norm))
+
             if self.gifs:
                 frames += self.env.render(mode='rgb_array')
             if done:
                 break
-            if episode_step==50:
-                print("pause")
+
 
         metrics = self.env.get_final_metrics()
         metrics['episode_reward'] = episode_rewards
@@ -187,5 +189,5 @@ class coverage_planner_semantic(il_wrapper_semantic):
 if __name__=="__main__":
     import baseline_params.CoverageSemantic as parameters
     planner = coverage_planner_semantic(set_dict(parameters),home_dir='../')
-    print(planner.run_test(test_map_ID=0,test_ID=0))
+    cProfile.run('print(planner.run_test(test_map_ID=0,test_ID=0))')
 
