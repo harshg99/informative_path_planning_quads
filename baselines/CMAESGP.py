@@ -59,8 +59,6 @@ class CMAESGP(il_wrapper):
             cost, next_index, next_pos = self.getmpcost(next_pos, next_index, int(action), agentID, worldMap)
             objective += cost
 
-        objective += self.env.getEntropy(worldMap.copy()).mean()
-
         return objective
 
     def isValidMP(self, pos, mp, agentID):

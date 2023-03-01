@@ -169,7 +169,7 @@ class GreedyGP(il_wrapper):
 
     def plan_action(self,pos,index,agentID,current_depth=0,worldMap=None):
         if current_depth>=self.depth:
-            return self.env.getEntropy(worldMap.copy()).mean()
+            return 0
         else:
             costs = []
             for j in range(self.env.action_size):
