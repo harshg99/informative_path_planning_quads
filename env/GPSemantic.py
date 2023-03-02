@@ -253,8 +253,8 @@ class GPSemanticGym(gym.Env):
                     time.append(edge.traj_time)
         print(self.mp_graph.motion_primitive_type)
         print(np.mean(z))
-        print([len([j for j in i if j != None]) for i in self.mp_graph.edges.T])
-        print(np.mean([len([j for j in i if j != None]) for i in self.mp_graph.edges.T]))
+        print([len([j for j in i if j != None]) for i in self.mp_graph.edges])
+        print(np.mean([len([j for j in i if j != None]) for i in self.mp_graph.edges]))
         print(self.mp_graph.max_state)
         print(np.mean(costs))
         print(np.min(costs))
@@ -763,7 +763,7 @@ class GPSemanticGym(gym.Env):
                                        background_image=map_image,
                                        quad_poses=positions,
                                        config_dict={"num_semantics":self.env_params['num_semantics'],
-                                            "alpha":0.4, "resolution": self.ground_truth_semantic_map.resolution}))
+                                            "alpha":0.6, "resolution": self.ground_truth_semantic_map.resolution}))
 
         self.buffer.clear_buffer()
 
@@ -784,8 +784,8 @@ class QuadRender:
         self.quad_image[:,:,:3] = resize(self.image,output_shape=(30,30))
 
         # Define an exhaustive list of semantic colours
-        self.SEMANTIC_PALLETE = np.stack([[1.0,0.3,0.3,1.0],[0.3,0.3,1.0,1.0],
-                                          [0.3,1.0,0.3,1.0],[1.0,1.0,0.3,1.0],
+        self.SEMANTIC_PALLETE = np.stack([[1.0,0.1,0.1,1.0],[0.4,1.0,0.4,1.0],
+                                          [0.7,0.3,0.2,1.0],[1.0,1.0,0.3,1.0],
                                           [1.0,0.3,1.0,1.0],[0.3,1.0,1.0,1.0]])
         self.NO_SEMANTIC = np.array([[0.1,0.1,0.1,1.0]])
         self.UNDETECTED_SEMANTIC = np.array([0.0,0.0,0.0,1.0])
@@ -842,28 +842,28 @@ class QuadRender:
         gt_image_frame = (1 - 0.5*config_dict['alpha']) * frame + 0.5*config_dict['alpha'] * gt_image_frame
 
 
-        # Add quadrotor image to the position
-        for quad_position in quad_poses:
-            quad_position = (int(quad_position[0]*config_dict['resolution'] ),int(quad_position[1]*config_dict['resolution']))
-            quad_shape = self.quad_image.shape
-
-            max_x = min(quad_position[0] + quad_shape[0] - int(quad_shape[0]/2),self.render_w)
-            max_y = min(quad_position[1] + quad_shape[1] - int(quad_shape[1]/2),self.render_h)
-            min_y = max(quad_position[1]-int(quad_shape[1]/2),0)
-            min_x = max(quad_position[0]-int(quad_shape[0]/2),0)
-
-
-            semantic_image_frame[min_x:max_x,min_y:max_y,:]= \
-                self.quad_image[min_x - (quad_position[0]-int(quad_shape[0]/2)):max_x - (quad_position[0]-int(quad_shape[0]/2))]\
-            [min_y - (quad_position[1] - int(quad_shape[1] / 2)): max_y - (quad_position[1] - int(quad_shape[1] / 2))]
-
-            entropy_image_frame[min_x:max_x,min_y:max_y,:] \
-                =    self.quad_image[min_x - (quad_position[0]-int(quad_shape[0]/2)):max_x - (quad_position[0]-int(quad_shape[0]/2))]\
-            [min_y - (quad_position[1] - int(quad_shape[1] / 2)): max_y - (quad_position[1] - int(quad_shape[1] / 2))]
-
-            gt_image_frame[min_x:max_x,min_y:max_y,:] \
-                =   self.quad_image[min_x - (quad_position[0]-int(quad_shape[0]/2)):max_x - (quad_position[0]-int(quad_shape[0]/2))]\
-            [min_y - (quad_position[1] - int(quad_shape[1] / 2)): max_y - (quad_position[1] - int(quad_shape[1] / 2))]
+        # # Add quadrotor image to the position
+        # for quad_position in quad_poses:
+        #     quad_position = (int(quad_position[0]*config_dict['resolution'] ),int(quad_position[1]*config_dict['resolution']))
+        #     quad_shape = self.quad_image.shape
+        #
+        #     max_x = min(quad_position[0] + quad_shape[0] - int(quad_shape[0]/2),self.render_w)
+        #     max_y = min(quad_position[1] + quad_shape[1] - int(quad_shape[1]/2),self.render_h)
+        #     min_y = max(quad_position[1]-int(quad_shape[1]/2),0)
+        #     min_x = max(quad_position[0]-int(quad_shape[0]/2),0)
+        #
+        #
+        #     semantic_image_frame[min_x:max_x,min_y:max_y,:]= \
+        #         self.quad_image[min_x - (quad_position[0]-int(quad_shape[0]/2)):max_x - (quad_position[0]-int(quad_shape[0]/2))]\
+        #     [min_y - (quad_position[1] - int(quad_shape[1] / 2)): max_y - (quad_position[1] - int(quad_shape[1] / 2))]
+        #
+        #     entropy_image_frame[min_x:max_x,min_y:max_y,:] \
+        #         =    self.quad_image[min_x - (quad_position[0]-int(quad_shape[0]/2)):max_x - (quad_position[0]-int(quad_shape[0]/2))]\
+        #     [min_y - (quad_position[1] - int(quad_shape[1] / 2)): max_y - (quad_position[1] - int(quad_shape[1] / 2))]
+        #
+        #     gt_image_frame[min_x:max_x,min_y:max_y,:] \
+        #         =   self.quad_image[min_x - (quad_position[0]-int(quad_shape[0]/2)):max_x - (quad_position[0]-int(quad_shape[0]/2))]\
+        #     [min_y - (quad_position[1] - int(quad_shape[1] / 2)): max_y - (quad_position[1] - int(quad_shape[1] / 2))]
 
         frame = np.concatenate((semantic_image_frame,entropy_image_frame,gt_image_frame),axis = 1)
 
