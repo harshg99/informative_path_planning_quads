@@ -127,10 +127,10 @@ class TrajectoryVisualisation:
         axs[1].set_ylabel('y (m)')
         axs[1].set_title('Prior on the semantic map')
 
-        axs[1].plot(agent_poses[0][1]*self.env.resolution,
-                    (self.env.world_map_size - agent_poses[0][0])*self.env.resolution, 'bo', markersize=4)
-        axs[1].plot(agent_poses[-1][1]*self.env.resolution,
-                    (self.env.world_map_size - agent_poses[-1][0])*self.env.resolution, 'ro', markersize=4)
+        # axs[1].plot(agent_poses[0][1]*self.env.resolution,
+        #             (self.env.world_map_size - agent_poses[0][0])*self.env.resolution, 'bo', markersize=4)
+        # axs[1].plot(agent_poses[-1][1]*self.env.resolution,
+        #             (self.env.world_map_size - agent_poses[-1][0])*self.env.resolution, 'ro', markersize=4)
 
         axs[2].imshow(gt_image_frame,
                    interpolation=None,
@@ -159,9 +159,12 @@ class TrajectoryVisualisation:
                 xs = state_sampling[2,:]
                 ys = self.env.world_map_size - state_sampling[1,:]
                 for i in range(3):
+                    if i==1 or i==2:
+                        continue
+
                     axs[i].plot(xs * self.env.belief_semantic_map.resolution,
                                 ys* self.env.belief_semantic_map.resolution, '.',
-                                color='black',alpha=0.5,markersize=1)
+                                color='black',alpha=0.5,markersize=0.10)
 
                     axs[i].plot(pose[1]*self.env.belief_semantic_map.resolution,
                                 (self.env.world_map_size - pose[0])*self.env.belief_semantic_map.resolution, 'y.')
@@ -177,7 +180,7 @@ class TrajectoryVisualisation:
         primitives = []
         frames = []
         hidden_in = None
-
+        episode_rewards = 0
         while ((not self.args_dict['FIXED_BUDGET'] and
                 episode_step < self.env.episode_length) \
                or (self.args_dict['FIXED_BUDGET'])):
@@ -189,7 +192,7 @@ class TrajectoryVisualisation:
             else:
                 action_dict, _ = self.plan_action(observation, hidden_in)
             rewards, done = self.env.step_all(action_dict)
-
+            episode_rewards += rewards[0]
 
             frame = self.env.render(mode='rgb_array')
             frames += frame
@@ -205,15 +208,16 @@ class TrajectoryVisualisation:
             if done:
                 break
 
-            frac = self.env.agents[0].agent_budget / (REWARD.MP.value * self.args_dict['BUDGET'])
+            frac = self.env.agents[0].agent_budget / (self.env.mp_cost_norm * self.args_dict['BUDGET'])
             # agent channel visualisations
-            #self.agent_obs_visualisation(frac)
+            # self.agent_obs_visualisation(frac)
 
-            if (frac <= 0.32 and frac >= 0.30) or (frac <= 0.72 and frac >= 0.70) or\
-                (frac <= 0.02 and frac >= 0.00) or  (frac <= 1.00 and frac >= 0.98) :
+            if (frac <= 0.31 and frac >= 0.30) or (frac <= 0.71 and frac >= 0.70) or\
+                (frac <= 0.01 and frac >= 0.00) or  (frac <= 1.00 and frac >= 0.99) :
                 self.plot_trajectory(frame[0], primitives, agent_poses)
 
         # pass
+        print("rewards :{}".format(episode_rewards))
         plt.show()
 
 
@@ -222,7 +226,7 @@ def parse_args():
 
     parser.add_argument("--index", type=int, default=0,
                         help="seed of the experiment")
-    parser.add_argument('--path', type=str, default="SemanticAC_ModelLSTM_Range6_v3",
+    parser.add_argument('--path', type=str, default="SemanticAC_ModelLSTM_Range6_vLong20_1_0.85",
                         help="path to the model")
     parser.add_argument('--gifs', type=bool, default=True,
                         help="outputting gifs")
