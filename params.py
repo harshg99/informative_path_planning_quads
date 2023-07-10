@@ -46,8 +46,8 @@ SPAWN_RANDOM_AGENTS = False
 SET_SEED = False # Sets seed to ensure similar form of training
 SAME_MAP = True  # Parameter that doesnt update seed in env, map would be spawned deterministically
 
-ENV_TYPE = 'Semantic' # MotionPrim or Discrete or SEMANTIC
-#ENV_TYPE = 'GPPrim'
+#ENV_TYPE = 'Semantic' # MotionPrim or Discrete or SEMANTIC
+ENV_TYPE = 'GPPrim'
 
 #Episode Parameters
 FIXED_BUDGET = True
@@ -133,10 +133,10 @@ TEST_GIFS = False
 TEST_GIFS_PATH = "data/test/{}/GIFS/"
 TEST_RESULTS_PATH= "data/test/{}/RESULTS/"
 
-NEPTUNE = True
+NEPTUNE = False
 NEPTUNE_RUN = None
 
-neptune_project = "harshg99/Search-Thesis",
+neptune_project = "harshg99/Search-Thesis"
 NEPTUNE_API_TOKEN = "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOTI4NjE0Yi00ZjNmLTQ5NjktOTdhNy04YTk3ZGQyZTg1MDIifQ=="
 
 
