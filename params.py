@@ -51,7 +51,7 @@ ENV_TYPE = 'Semantic' # MotionPrim or Discrete or SEMANTIC
 
 #Episode Parameters
 FIXED_BUDGET = True
-BUDGET = 20.0
+BUDGET = 10.0
 
 # Observation Type
 RANGE = 6           # m by m size
@@ -62,10 +62,10 @@ if ENV_TYPE =='Semantic':
     SCALE = [1,2,4]
 
 #MODEL TYPE
-CLASS_CONFIG = 'LSTM'  #Linear OR Transformer OR RSSM
+CLASS_CONFIG = 'Linear'  #Linear OR Transformer OR RSSM
 if CLASS_CONFIG =='Linear':
-    MODEL_TYPE = 'Model6'#Model1 Model2 etc
-    ALG_TYPE = 'AC' #AC or PPO or SAC
+    MODEL_TYPE = 'Model6Seg'#Model1 Model2 etc
+    ALG_TYPE = 'ACSeg' #AC or PPO or SAC
     QVALUE = True
     COMPUTE_VALIDS = True # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
     # Observation Type
@@ -94,8 +94,8 @@ elif CLASS_CONFIG == 'RSSM':
     BUDGET_LAYER = False
 
 elif CLASS_CONFIG == 'LSTM':
-    MODEL_TYPE = 'ModelMF4'  # Model1 Model2 etc
-    ALG_TYPE = 'ACLSTM'  # ACLSTM or PPOLSTM or SACLSTM
+    MODEL_TYPE = 'ModelMF4Seg'  # Only LSTM Models ModelMF4Seg etc
+    ALG_TYPE = 'ACLSTMSeg'  # ACLSTM or PPOLSTM or SACLSTM or ACLSTMSeg
     QVALUE = True
     COMPUTE_VALIDS = True  # Soft Loss on Valid actions (not supported for ActorCritic 1 or 2
     # Observation Type
@@ -136,9 +136,8 @@ TEST_RESULTS_PATH= "data/test/{}/RESULTS/"
 NEPTUNE = True
 NEPTUNE_RUN = None
 
-neptune_project        = "harshg99/SearchKR2" # USER-ID
-NEPTUNE_API_TOKEN      = "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOTI4NjE0Yi00ZjNmLTQ5NjktOTdhNy04YTk3ZGQyZTg1MDIifQ=="
-
+neptune_project = "harshg99/Search-Thesis",
+NEPTUNE_API_TOKEN = "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOTI4NjE0Yi00ZjNmLTQ5NjktOTdhNy04YTk3ZGQyZTg1MDIifQ=="
 
 
 # Test directory
