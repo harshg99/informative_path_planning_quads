@@ -9,6 +9,7 @@ from params import *
 import Utilities
 from env.render import *
 from models.model_setter import model_setter
+from copy import deepcopy
 
 class Worker:
     def __init__(self,id,model,env,args_dict,imitation_settings = None):
@@ -53,6 +54,7 @@ class Worker:
         train_buffer['valids'] = []
         train_buffer['dones'] = []
         train_buffer['policy'] = []
+        train_buffer['reward_dict'] = []
 
         if self.args_dict['LSTM']:
             train_buffer['hidden_in'] = []
@@ -79,16 +81,29 @@ class Worker:
                 policy, value = self.model.forward_step(observation)
 
             policy = policy.cpu().detach().numpy()
-            value = value.cpu().detach().numpy()
+
+            # check if value is type of dict or torch.tensor
+            if isinstance(value, dict):
+                for k in value.keys():
+                    value[k] = value[k].cpu().detach().numpy()[0]
+            else:
+                value = value.cpu().detach().numpy()[0]
 
             action_dict = Utilities.sample_actions(policy)
             train_buffer['actions'].append([action_dict[k] for k in action_dict.keys()])
-            train_buffer['values'].append(value[0])
+
+            train_buffer['values'].append(value)
             train_buffer['policy'].append(policy[0])
 
-            rewards,done = self.env.step_all(action_dict)
+            returns = self.env.step_all(action_dict)
+            if len(returns) == 3:
+                rewards, rewards_dict,done = returns
+                train_buffer['reward_dict'].append(rewards_dict)
+            else:
+                rewards, done = returns
 
             train_buffer['rewards'].append(rewards)
+
             train_buffer['dones'].append(int(done))
             train_buffer['valids'].append(observation['valids'])
 
@@ -112,7 +127,13 @@ class Worker:
             policy_, value_,_ = self.model.forward_step(observation,hidden_in)
         else:
             policy_, value_ = self.model.forward_step(observation)
-        train_buffer['bootstrap_value'] = value_.cpu().detach().numpy()[0]
+
+        if isinstance(value_, dict):
+            for k in value_.keys():
+                value_[k] = value_[k].cpu().detach().numpy()[0]
+        else:
+            value_ = value_.cpu().detach().numpy()[0]
+        train_buffer['bootstrap_value'] = deepcopy(value_)
 
         print('MetaAgent{} Episode {} Reward {} Control cost {} Length {}'.format(self.ID,episodeNum,episode_reward,control_cost,episode_step))
         return train_buffer,episode_reward,control_cost,episode_step
