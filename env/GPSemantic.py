@@ -645,12 +645,13 @@ class GPSemanticGym(gym.Env):
 
     def step_all(self, action_dict):
         rewards = []
-        reward_dict = []
+        reward_dict = {key: [] for key in self.reward_keys}
 
         for j in range(self.numAgents):
             r,r_d = self.step(agentID=j, action=action_dict[j])
             rewards.append(r)
-            reward_dict.append(r_d)
+            for k in r_d.keys():
+                reward_dict[k].append(r_d[k])
         done = False
 
         # TODO Change termination condition of finding all semantics

@@ -208,11 +208,14 @@ class GPEnvMP(SearchEnvMP):
 
     def step_all(self, action_dict):
         rewards = []
-        reward_dicts = []
+        reward_dict = {key: [] for key in self.reward_keys}
+
         for j in range(self.numAgents):
             r,r_d = self.step(agentID=j, action=action_dict[j])
             rewards.append(r)
-            reward_dicts.append(r_d)
+            for k in r_d.keys():
+                reward_dict[k].append(r_d[k])
+
         done = False
         if np.all(np.abs(self.worldMap[self.pad_size:self.pad_size + self.reward_map_size, \
                          self.pad_size:self.pad_size + self.reward_map_size]) < 0.1):
@@ -232,7 +235,7 @@ class GPEnvMP(SearchEnvMP):
         if self.args_dict['FIXED_BUDGET']:
             done = done or agentsDone
 
-        return rewards, reward_dicts, done
+        return rewards, reward_dict, done
 
     def get_final_metrics(self):
         return self.metrics.compute_metrics(self.worldBeliefMap,self.worldTargetMap)
