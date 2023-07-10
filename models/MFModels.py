@@ -585,7 +585,7 @@ class ModelMF4Seg(ModelMF4):
         policy = self.policy_net(input)
 
         values = dict()
-        for key in self.value_net.keys():
+        for key in self.env.reward_keys:
             values[key] = self.value_layers[key](input)
 
         return self.softmax(policy), values, self.sigmoid(policy), hidden_state

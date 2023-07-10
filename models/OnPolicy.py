@@ -324,6 +324,55 @@ class ACLSTMSeg(ACSeg):
     def forward_step(self,input,hidden_in=None):
         return self._model.forward_step(input,hidden_in)
 
+    def compute_forward_buffer(self,obs_buffer,hidden_in):
+        return self._model.forward_buffer(obs_buffer,hidden_in)
+
+    def compute_loss(self, train_buffer):
+        advantages = torch.zeros_like(torch.tensor(train_buffer['advantages'][self.env.reward_keys[0]],
+            dtype=torch.float32)).to(self.args_dict['DEVICE'])
+        for key in self.env.reward_keys:
+
+            advantages  += torch.tensor(train_buffer['advantages'][key],
+                                                           dtype=torch.float32).to(self.args_dict['DEVICE'])
+            train_buffer['discounted_rewards'][key] = torch.tensor(train_buffer['discounted_rewards'][key],
+                                                                   dtype=torch.float32).to(self.args_dict['DEVICE'])
+
+        a_batch = np.array(train_buffer['actions'])
+        dones = np.array(train_buffer['dones'])
+
+        policy, value, valids, valids_net = self.compute_forward_buffer(train_buffer['obs'],
+                                                                        train_buffer['hidden_in'])
+
+        a_batch = torch.tensor(a_batch, dtype=torch.int64).to(self.args_dict['DEVICE'])
+        responsible_outputs = policy.gather(-1, a_batch)
+        if self.args_dict['QVALUE']:
+            v_l = 0
+            for key in self.env.reward_keys:
+
+                v_l += self.params_dict['value_weight'] * torch.square((value[key].squeeze() * \
+                                                                   F.one_hot(a_batch,
+                                                                             self.env.action_size).squeeze()).sum(
+                dim=-1) - train_buffer['discounted_rewards'][key])
+        else:
+            v_l = 0
+            for key in self.env.reward_keys:
+                v_l += self.params_dict['value_weight'] * torch.square((value[key].squeeze() -
+                                                                        train_buffer['discounted_rewards'][key]))
+
+        e_l = -torch.sum(self.params_dict['entropy_weight'] * \
+                         (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))), dim=-1)
+
+        p_l = -self.params_dict['policy_weight'] * torch.log(
+            torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
+
+        valid_l1 = -self.params_dict['valids_weight1'] * torch.sum((1 - valids) * \
+                                                                   torch.log(torch.clip(1 - valids_net, 1e-7, 1)),
+                                                                   dim=-1)
+        valid_l2 = -self.params_dict['valids_weight2'] * torch.sum(valids * \
+                                                                   torch.log(torch.clip(valids_net, 1e-7, 1)), dim=-1)
+        valid_l = valid_l1 + valid_l2
+        return v_l, p_l, e_l, valid_l
+
 class PPOLSTM(AC):
     def __init__(self, env,params_dict, args_dict):
         super(PPOLSTM, self).__init__(env,params_dict,args_dict)

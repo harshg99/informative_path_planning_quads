@@ -54,7 +54,7 @@ class Worker:
         train_buffer['valids'] = []
         train_buffer['dones'] = []
         train_buffer['policy'] = []
-        train_buffer['reward_dict'] = []
+        train_buffer['rewards_dict'] = []
 
         if self.args_dict['LSTM']:
             train_buffer['hidden_in'] = []
@@ -98,7 +98,7 @@ class Worker:
             returns = self.env.step_all(action_dict)
             if len(returns) == 3:
                 rewards, rewards_dict,done = returns
-                train_buffer['reward_dict'].append(rewards_dict)
+                train_buffer['rewards_dict'].append(rewards_dict)
             else:
                 rewards, done = returns
 
