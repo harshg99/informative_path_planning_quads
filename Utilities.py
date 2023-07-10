@@ -92,7 +92,7 @@ def setup_neptune(args) :
                 raise RuntimeError('Please specify run to resume from in Neptune')
 
         project = args['neptune_project']
-        token = ['NEPTUNE_API_TOKEN']
+        token = args['NEPTUNE_API_TOKEN']
         run = neptune.init(project=project, api_token=token, run=NEPTUNE_RUN)
         run['params'] = args
 

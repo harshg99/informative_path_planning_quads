@@ -136,9 +136,8 @@ TEST_RESULTS_PATH= "data/test/{}/RESULTS/"
 NEPTUNE = False
 NEPTUNE_RUN = None
 
-neptune_project = "harshg99/Search-Thesis"
-NEPTUNE_API_TOKEN = "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOTI4NjE0Yi00ZjNmLTQ5NjktOTdhNy04YTk3ZGQyZTg1MDIifQ=="
-
+neptune_project = 'harshg99/Search-Thesis'
+NEPTUNE_API_TOKEN = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOTI4NjE0Yi00ZjNmLTQ5NjktOTdhNy04YTk3ZGQyZTg1MDIifQ=='
 
 # Test directory
 MAP_TEST_DIR = 'tests/maps/'
