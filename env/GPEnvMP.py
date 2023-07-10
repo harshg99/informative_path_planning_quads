@@ -45,7 +45,7 @@ class GPEnvMP(SearchEnvMP):
         self.metrics = Metrics()
 
 
-    def reset(self,rewardMap=None,targetMap = None,original_target_dismap =None):
+    def reset(self,rewardMap=None,targetMap = None,original_target_dismap =None,episode_num = None):
         self.createWorld(rewardMap,targetMap,original_target_dismap)
 
     def createWorld(self, rewardMap=None,targetMap = None,original_target_dismap =None):
@@ -194,7 +194,7 @@ class GPEnvMP(SearchEnvMP):
                         self.minimum_action_mp_graph,self.lookup_dictionary,\
                         self.spatial_dim,self.mp_graph.num_tiles,self.sensor_params,agentBudget) for j in range(self.numAgents)]
         else:
-            self.agents = [AgentGP(j,self.reward_map_size+int(j/(int(j/2))),self.reward_map_size+(j%(int(j/2))),\
+            self.agents = [AgentGP(j,self.reward_map_size+j+1,self.reward_map_size+j+1,\
                                  self.reward_map_size,self.pad_size,self.world_map_size,\
                         self.minimum_action_mp_graph,self.lookup_dictionary,self.spatial_dim,\
                                    self.mp_graph.num_tiles,self.sensor_params,agentBudget) for j in range(self.numAgents)]
@@ -420,4 +420,4 @@ class GPEnvMP(SearchEnvMP):
                 elif self.worldTargetMap[i, j] == 2:
                     self.viewer.add_onetime(rectangle(2*W + i * size_x, j * size_y, size_x, size_y, TARGET_FOUND, False))
 
-        return self.viewer.render(return_rgb_array=mode == 'rgb_array')
+        return [self.viewer.render(return_rgb_array=mode == 'rgb_array')]

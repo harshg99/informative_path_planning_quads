@@ -244,7 +244,9 @@ class SearchEnv(gym.Env):
                 Agent(j, row[j],col[j], \
                       self.reward_map_size, self.pad_size, self.world_map_size) for j in range(self.numAgents)]
         else:
-            self.agents = [Agent(j,self.reward_map_size+int(j/(int(j/2))),self.reward_map_size+(j%(int(j/2))),\
+
+            self.agents = [Agent(j,self.reward_map_size+j+1,
+                                 self.reward_map_size+j+1,\
                                  self.reward_map_size,self.pad_size,self.world_map_size) for j in range(self.numAgents)]
 
         # For rendering

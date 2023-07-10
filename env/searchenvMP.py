@@ -213,7 +213,7 @@ class SearchEnvMP(SearchEnv):
                         self.minimum_action_mp_graph,self.lookup_dictionary,\
                         self.spatial_dim,self.mp_graph.num_tiles,agentBudget) for j in range(self.numAgents)]
         else:
-            self.agents = [AgentMP(j,self.reward_map_size+int(j/(int(j/2))),self.reward_map_size+(j%(int(j/2))),\
+            self.agents = [AgentMP(j,self.reward_map_size+j+1,self.reward_map_size+j+1,\
                                  self.reward_map_size,self.pad_size,self.world_map_size,\
                         self.minimum_action_mp_graph,self.lookup_dictionary,\
                                    self.spatial_dim,self.mp_graph.num_tiles,agentBudget) for j in range(self.numAgents)]
