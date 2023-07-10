@@ -87,20 +87,12 @@ def setup_neptune(args) :
     global run
     run = None
     if int(NEPTUNE) :
-        if LOAD_MODEL :
+        if LOAD_MODEL  and NEPTUNE_RUN is None :
             if NEPTUNE_RUN is not None :
-                project = neptune_project
-                token = NEPTUNE_API_TOKEN
-                run = neptune.init(project=project, api_token=token,run=NEPTUNE_RUN )
-                return run
-            else :
-                project = neptune_project
-                token = NEPTUNE_API_TOKEN
-                run = neptune.init(project=project, api_token=token, run=NEPTUNE_RUN)
                 raise RuntimeError('Please specify run to resume from in Neptune')
 
-        project = neptune_project
-        token = NEPTUNE_API_TOKEN
+        project = args['neptune_project']
+        token = ['NEPTUNE_API_TOKEN']
         run = neptune.init(project=project, api_token=token, run=NEPTUNE_RUN)
         run['params'] = args
 
