@@ -4,11 +4,11 @@ GPU = False and torch.cuda.is_available()
 DEVICE = 'cuda:0' if GPU else 'cpu'
 NUM_DEVICES = torch.cuda.device_count()
 
-NUM_META_AGENTS = 1
-MAX_EPISODES = 40000
+NUM_META_AGENTS = 20
+MAX_EPISODES = 75000
 DISCOUNT = 0.98
 LR = 1e-3
-DECAY = 1/MAX_EPISODES
+DECAY = 1 - 1/MAX_EPISODES
 LAMBDA_RET = True
 LAMBDA = 0.9
 
@@ -54,8 +54,8 @@ FIXED_BUDGET = True
 BUDGET = 10.0
 
 # Observation Type
-RANGE = 6           # m by m size
-#RANGE = 8
+#RANGE = 6           # m by m size
+RANGE = 10
 SCALE = [1, 2, 4]
 if ENV_TYPE =='Semantic':
     RESOLUTION = 4
