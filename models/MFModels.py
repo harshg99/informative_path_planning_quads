@@ -510,3 +510,165 @@ class ModelMF4(Model6):
         valids = torch.tensor(valids, dtype=torch.float32).to(self.args_dict['DEVICE'])
         return policy.squeeze(), value.squeeze(), \
                valids.squeeze(), valids_net.squeeze()
+
+class ModelMF4Seg(Model6):
+    def __init__(self, env, params_dict, args_dict):
+        super().__init__(env,params_dict,args_dict)
+        self.lstm_encoder = self.lstm_block()
+
+        if self.args_dict['BUDGET_LAYER']:
+            self.policy_layers = mlp_block(self.params_dict['embed_size']+self.hidden_sizes[-1] + self.pos_layer_size[-1] +\
+                                           self.action_size + self.graph_layer_size[-1] + \
+                                           params_dict['budget_layer_size'][-1], \
+                                            self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+        else:
+            self.policy_layers = mlp_block(self.params_dict['embed_size']+self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+                                           self.action_size + self.graph_layer_size[-1], \
+                                           self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+
+        self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1], self.action_size)])
+        self.policy_net = nn.Sequential(*self.policy_layers)
+        self.policy_net.to(self.args_dict['DEVICE'])
+        self.valuenet = nn.ModuleDict()
+        for key in env.reward_keys:
+            if self.args_dict['BUDGET_LAYER']:
+                value_layers = mlp_block(self.params_dict['embed_size']+self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+                                              self.action_size + self.graph_layer_size[-1] + \
+                                              params_dict['budget_layer_size'][-1], \
+                                              self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+            else:
+                value_layers = mlp_block(self.params_dict['embed_size']+self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+                                              self.action_size + self.graph_layer_size[-1], \
+                                              self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+
+            value_layers.extend([nn.Linear(self.hidden_sizes[-1], self.action_size)])
+            value_net = nn.Sequential(*self.value_layers)
+            value_net.to(self.args_dict['DEVICE'])
+            self.value_net[key] = deepcopy(value_net)
+
+    def encoder_forward(self,input,hidden_in=None):
+        encoded_gru,hidden_state = self.LSTM(input,hidden_in.permute([1,0,2]))
+        return encoded_gru,hidden_state.permute([1,0,2])
+
+    def lstm_block(self):
+        # self.multi_head_input_size = int(len(self.env.scale) * self.conv_sizes[-1])
+        if self.args_dict['BUDGET_LAYER']:
+            self.multi_head_input_size = int(self.hidden_sizes[-1]) +  self.pos_layer_size[-1] + \
+                                              self.action_size + self.graph_layer_size[-1] + \
+                                              self.params_dict['budget_layer_size'][-1]
+        else:
+            self.multi_head_input_size = int(self.hidden_sizes[-1]) + self.pos_layer_size[-1] + \
+                                         self.action_size + self.graph_layer_size[-1]
+
+        # if self.args_dict['FIXED_BUDGET']:
+        #     self.lstminsize = self.multi_head_input_size + self.pos_layer_size[-1] + \
+        #                                        self.action_size + self.graph_layer_size[-1] + \
+        #                                        self.params_dict['budget_layer_size'][-1]
+        #
+        # else:
+        self.lstminsize = self.multi_head_input_size
+        self.LSTM = nn.GRU(input_size=self.lstminsize,
+                           hidden_size=self.params_dict['embed_size'],
+                           num_layers=self.params_dict['gru_layers'],
+                           batch_first=True
+                           )
+
+    def reset_hidden_state(self):
+        self.hidden_state = None
+
+    def set_hidden_state(self,hidden_in):
+        self.hidden_state = hidden_in
+
+    def forward_step(self, input,hidden_in=None):
+        observation = input['obs']
+        pos = input['position']
+        prev_a = input['previous_actions']
+        graph_nodes = input['node']
+        budget = None
+        # if self.args_dict['FIXED_BUDGET']:
+        #     budget = input['budget']
+
+        if hidden_in is None:
+            hidden_in = torch.zeros((1,len(self.env.agents),self.params_dict['embed_size']))\
+                .to(torch.float32)
+
+        observation = torch.tensor(np.array([observation]), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        pos = torch.tensor(np.array([pos]), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        prev_a = F.one_hot(torch.tensor(np.array([prev_a])),
+                           num_classes = self.action_size).to(self.args_dict['DEVICE'])
+        graph_nodes = F.one_hot(torch.tensor(np.array([graph_nodes])),
+                                num_classes = self.num_graph_nodes).to(self.args_dict['DEVICE'])
+        hidden_in = torch.tensor(hidden_in).to(torch.float32).to(self.args_dict['DEVICE'])
+        if self.args_dict['BUDGET_LAYER']:
+            budget = torch.tensor(np.array([budget]), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        policy,values,valids,hidden_state = self.forward(observation,pos,prev_a,graph_nodes,budget,hidden_in)
+
+        #Update hidden state, make sure hidden state is reset after every episode
+        self.hidden_state = hidden_state
+        return policy,values,hidden_state
+
+    def forward(self, input, pos, previous_actions, graph_node, budget=None, hidden_in=None):
+
+        pos = self.position_layer(pos)
+        input = self.layers(input)
+        if self.args_dict['BUDGET_LAYER']:
+            input = torch.concat([input, pos, previous_actions, graph_node, budget], dim=-1)
+        else:
+            input = torch.concat([input, pos, previous_actions, graph_node], dim=-1)
+        encoded_gru, hidden_state = self.encoder_forward(input, hidden_in)
+        if self.args_dict['BUDGET_LAYER']:
+            budget = self.budget_layers(budget)
+        graph_node = self.graph_node_layer(graph_node.to(torch.float32))
+        if self.args_dict['BUDGET_LAYER']:
+            input = torch.concat([input, encoded_gru], dim=-1)
+        else:
+            input = torch.concat([input, encoded_gru], dim=-1)
+        # input = torch.concat([input, pos, prev_a, graph_node], dim=-1)
+        policy = self.policy_net(input)
+
+        values = dict()
+        for key in self.value_net.keys():
+            values[key] = self.value_net[key](input)
+
+        return self.softmax(policy), values, self.sigmoid(policy), hidden_state
+
+    def forward_buffer(self, obs_buffer,hidden_in_buffer):
+        obs = []
+        valids = []
+        pos = []
+        prev_a = []
+        graph_nodes = []
+        budget = []
+        hidden_in = []
+
+        for j,hidden in zip(obs_buffer,hidden_in_buffer):
+            obs.append(j['obs'])
+            valids.append(j['valids'])
+            pos.append(j['position'])
+            prev_a.append(j['previous_actions'])
+            graph_nodes.append(j['node'])
+            if hidden is not None:
+                hidden_in.append(hidden[0])
+            else:
+                hidden_in.append(np.zeros((len(self.env.agents),
+                                                       self.params_dict['embed_size'])))
+
+            # if self.args_dict['FIXED_BUDGET']:
+            #     budget.append(j['budget'])
+        obs = torch.tensor(np.array(obs), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        pos = torch.tensor(np.array(pos), dtype=torch.float32).to(self.args_dict['DEVICE'])
+
+        hidden_in = torch.tensor(np.array(hidden_in),dtype=torch.float32).to(self.args_dict['DEVICE'])
+        prev_a = F.one_hot(torch.tensor(prev_a), \
+                           num_classes=self.action_size).to(self.args_dict['DEVICE'])
+        graph_nodes = F.one_hot(torch.tensor(np.array(graph_nodes)),
+                                num_classes=self.num_graph_nodes).to(self.args_dict['DEVICE'])
+        # if self.args_dict['FIXED_BUDGET']:
+        #     budget = torch.tensor(np.array(budget), dtype=torch.float32).to(self.args_dict['DEVICE'])
+
+        policy, value,valids_net,hout = self.forward(obs, pos, prev_a, graph_nodes,budget,hidden_in)
+        valids = torch.tensor(valids, dtype=torch.float32).to(self.args_dict['DEVICE'])
+        for k in value.keys():
+            value[k] = value[k].squeeze()
+        return policy.squeeze(), value, \
+               valids.squeeze(), valids_net.squeeze()
