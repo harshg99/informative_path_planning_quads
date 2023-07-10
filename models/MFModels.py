@@ -511,25 +511,13 @@ class ModelMF4(Model6):
         return policy.squeeze(), value.squeeze(), \
                valids.squeeze(), valids_net.squeeze()
 
-class ModelMF4Seg(Model6):
+class ModelMF4Seg(ModelMF4):
     def __init__(self, env, params_dict, args_dict):
         super().__init__(env,params_dict,args_dict)
+
         self.lstm_encoder = self.lstm_block()
 
-        if self.args_dict['BUDGET_LAYER']:
-            self.policy_layers = mlp_block(self.params_dict['embed_size']+self.hidden_sizes[-1] + self.pos_layer_size[-1] +\
-                                           self.action_size + self.graph_layer_size[-1] + \
-                                           params_dict['budget_layer_size'][-1], \
-                                            self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
-        else:
-            self.policy_layers = mlp_block(self.params_dict['embed_size']+self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
-                                           self.action_size + self.graph_layer_size[-1], \
-                                           self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
-
-        self.policy_layers.extend([nn.Linear(self.hidden_sizes[-1], self.action_size)])
-        self.policy_net = nn.Sequential(*self.policy_layers)
-        self.policy_net.to(self.args_dict['DEVICE'])
-        self.valuenet = nn.ModuleDict()
+        self.value_layers = nn.ModuleDict()
         for key in env.reward_keys:
             if self.args_dict['BUDGET_LAYER']:
                 value_layers = mlp_block(self.params_dict['embed_size']+self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
@@ -542,9 +530,9 @@ class ModelMF4Seg(Model6):
                                               self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
 
             value_layers.extend([nn.Linear(self.hidden_sizes[-1], self.action_size)])
-            value_net = nn.Sequential(*self.value_layers)
+            value_net = nn.Sequential(*value_layers)
             value_net.to(self.args_dict['DEVICE'])
-            self.value_net[key] = deepcopy(value_net)
+            self.value_layers[key] = deepcopy(value_net)
 
     def encoder_forward(self,input,hidden_in=None):
         encoded_gru,hidden_state = self.LSTM(input,hidden_in.permute([1,0,2]))
@@ -573,52 +561,22 @@ class ModelMF4Seg(Model6):
                            batch_first=True
                            )
 
-    def reset_hidden_state(self):
-        self.hidden_state = None
-
-    def set_hidden_state(self,hidden_in):
-        self.hidden_state = hidden_in
-
-    def forward_step(self, input,hidden_in=None):
-        observation = input['obs']
-        pos = input['position']
-        prev_a = input['previous_actions']
-        graph_nodes = input['node']
-        budget = None
-        # if self.args_dict['FIXED_BUDGET']:
-        #     budget = input['budget']
-
-        if hidden_in is None:
-            hidden_in = torch.zeros((1,len(self.env.agents),self.params_dict['embed_size']))\
-                .to(torch.float32)
-
-        observation = torch.tensor(np.array([observation]), dtype=torch.float32).to(self.args_dict['DEVICE'])
-        pos = torch.tensor(np.array([pos]), dtype=torch.float32).to(self.args_dict['DEVICE'])
-        prev_a = F.one_hot(torch.tensor(np.array([prev_a])),
-                           num_classes = self.action_size).to(self.args_dict['DEVICE'])
-        graph_nodes = F.one_hot(torch.tensor(np.array([graph_nodes])),
-                                num_classes = self.num_graph_nodes).to(self.args_dict['DEVICE'])
-        hidden_in = torch.tensor(hidden_in).to(torch.float32).to(self.args_dict['DEVICE'])
-        if self.args_dict['BUDGET_LAYER']:
-            budget = torch.tensor(np.array([budget]), dtype=torch.float32).to(self.args_dict['DEVICE'])
-        policy,values,valids,hidden_state = self.forward(observation,pos,prev_a,graph_nodes,budget,hidden_in)
-
-        #Update hidden state, make sure hidden state is reset after every episode
-        self.hidden_state = hidden_state
-        return policy,values,hidden_state
-
     def forward(self, input, pos, previous_actions, graph_node, budget=None, hidden_in=None):
 
         pos = self.position_layer(pos)
         input = self.layers(input)
+
+        if self.args_dict['BUDGET_LAYER']:
+            budget = self.budget_layers(budget)
+        graph_node = self.graph_node_layer(graph_node.to(torch.float32))
+
         if self.args_dict['BUDGET_LAYER']:
             input = torch.concat([input, pos, previous_actions, graph_node, budget], dim=-1)
         else:
             input = torch.concat([input, pos, previous_actions, graph_node], dim=-1)
+
         encoded_gru, hidden_state = self.encoder_forward(input, hidden_in)
-        if self.args_dict['BUDGET_LAYER']:
-            budget = self.budget_layers(budget)
-        graph_node = self.graph_node_layer(graph_node.to(torch.float32))
+
         if self.args_dict['BUDGET_LAYER']:
             input = torch.concat([input, encoded_gru], dim=-1)
         else:
@@ -628,7 +586,7 @@ class ModelMF4Seg(Model6):
 
         values = dict()
         for key in self.value_net.keys():
-            values[key] = self.value_net[key](input)
+            values[key] = self.value_layers[key](input)
 
         return self.softmax(policy), values, self.sigmoid(policy), hidden_state
 

@@ -8,6 +8,7 @@ from torch.optim.lr_scheduler import ExponentialLR
 from models.subnets import *
 from models.subnet_setter import subnet_setter
 import torch.nn.functional as F
+from copy import deepcopy
 
 class Model1(Vanilla):
     '''
@@ -488,3 +489,84 @@ class Model6(Model5):
         self.value_layers.extend([nn.Linear(self.hidden_sizes[-1], self.action_size)])
         self.value_net = nn.Sequential(*self.value_layers)
         self.value_net.to(self.args_dict['DEVICE'])
+
+
+class Model6Seg(Model6):
+    def __init__(self,env,params_dict,args_dict):
+        super(Model6, self).__init__(env, params_dict, args_dict)
+        self.value_layers = nn.ModuleDict()
+        for key in env.reward_keys:
+            if self.args_dict['BUDGET_LAYER']:
+                value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+                                              self.action_size + self.graph_layer_size[-1] + \
+                                              params_dict['budget_layer_size'][-1], \
+                                              self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+            else:
+                value_layers = mlp_block(self.hidden_sizes[-1] + self.pos_layer_size[-1] + \
+                                              self.action_size + self.graph_layer_size[-1], \
+                                              self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
+
+            value_layers.extend([nn.Linear(self.hidden_sizes[-1], self.action_size)])
+            value_net = nn.Sequential(*value_layers)
+            value_net.to(self.args_dict['DEVICE'])
+            self.value_layers[key] = deepcopy(value_net)
+
+    def forward(self, input, pos, previous_actions, graph_node, budget=None):
+
+        pos = self.position_layer(pos)
+        input = self.layers(input)
+
+        if self.args_dict['BUDGET_LAYER']:
+            budget = self.budget_layers(budget)
+        graph_node = self.graph_node_layer(graph_node.to(torch.float32))
+
+        if self.args_dict['BUDGET_LAYER']:
+            input = torch.concat([input, pos, previous_actions, graph_node, budget], dim=-1)
+        else:
+            input = torch.concat([input, pos, previous_actions, graph_node], dim=-1)
+
+
+        # input = torch.concat([input, pos, prev_a, graph_node], dim=-1)
+        policy = self.policy_net(input)
+
+        values = dict()
+        for key in self.env.reward_keys:
+            values[key] = self.value_layers[key](input)
+
+        return self.softmax(policy), values, self.sigmoid(policy)
+
+    def forward_buffer(self, obs_buffer):
+        obs = []
+        valids = []
+        pos = []
+        prev_a = []
+        graph_nodes = []
+        budget = []
+        hidden_in = []
+
+        for j in obs_buffer:
+            obs.append(j['obs'])
+            valids.append(j['valids'])
+            pos.append(j['position'])
+            prev_a.append(j['previous_actions'])
+            graph_nodes.append(j['node'])
+
+            # if self.args_dict['FIXED_BUDGET']:
+            #     budget.append(j['budget'])
+        obs = torch.tensor(np.array(obs), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        pos = torch.tensor(np.array(pos), dtype=torch.float32).to(self.args_dict['DEVICE'])
+
+        hidden_in = torch.tensor(np.array(hidden_in), dtype=torch.float32).to(self.args_dict['DEVICE'])
+        prev_a = F.one_hot(torch.tensor(prev_a), \
+                           num_classes=self.action_size).to(self.args_dict['DEVICE'])
+        graph_nodes = F.one_hot(torch.tensor(np.array(graph_nodes)),
+                                num_classes=self.num_graph_nodes).to(self.args_dict['DEVICE'])
+        # if self.args_dict['FIXED_BUDGET']:
+        #     budget = torch.tensor(np.array(budget), dtype=torch.float32).to(self.args_dict['DEVICE'])
+
+        policy, value, valids_net = self.forward(obs, pos, prev_a, graph_nodes, budget)
+        valids = torch.tensor(valids, dtype=torch.float32).to(self.args_dict['DEVICE'])
+        for k in value.keys():
+            value[k] = value[k].squeeze()
+        return policy.squeeze(), value, \
+               valids.squeeze(), valids_net.squeeze()

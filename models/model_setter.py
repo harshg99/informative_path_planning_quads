@@ -30,6 +30,10 @@ class model_setter:
             import model_params.Model5 as parameters
             model_params_dict = model_setter.set_dict(parameters)
             return Model6(env, model_params_dict,args_dict)
+        elif type == 'Model6Seg':
+            import model_params.Model5 as parameters
+            model_params_dict = model_setter.set_dict(parameters)
+            return Model6Seg(env, model_params_dict,args_dict)
         elif type == 'Transformer1':
             from models.Transformer import TransformerAC
             import model_params.Transformer as parameters
@@ -71,10 +75,10 @@ class model_setter:
             model_params_dict = model_setter.set_dict(parameters)
             return ModelMF4(env,model_params_dict,args_dict)
         elif type == 'ModelMF4Seg':
-            import model_params.MFModel5  as parameters
-            from models.MFModels import ModelMF5
+            import model_params.MFModel4Seg  as parameters
+            from models.MFModels import ModelMF4Seg
             model_params_dict = model_setter.set_dict(parameters)
-            return ModelMF5(env,model_params_dict,args_dict)
+            return ModelMF4Seg(env,model_params_dict,args_dict)
         elif type == 'DQN':
             import model_params.Transformer as parameters
             model_params_dict = model_setter.set_dict(parameters)

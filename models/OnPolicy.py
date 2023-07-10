@@ -136,20 +136,17 @@ class ACSeg(AC):
     '''
     Segmented per reward structure
     '''
-    def forward_step(self, input):
-        return self._model.forward_step(input)
-
-    def reset(self, episodeNum):
-        self.episodeNum = episodeNum
 
     def get_advantages(self, train_buffer):
 
-        keys = self.env.policy_keys
+        keys = self.env.reward_keys
         dones = np.array(train_buffer['dones'])
-
+        train_buffer['advantages'] = {}
+        train_buffer['discounted_rewards'] = {}
         for key in keys:
 
-            rewards_plus = np.stack([train_buffer['rewards'][i][key] for i in range(len(train_buffer['rewards']))]).tolist()
+            rewards_plus = np.stack([train_buffer['rewards_dict'][i][key]
+                                     for i in range(len(train_buffer['rewards_dict']))]).tolist()
 
             if self.args_dict['QVALUE']:
                 rewards_plus.append(((1 - dones[-1]) * np.max(train_buffer['bootstrap_value'][key], axis=-1)).tolist())
@@ -164,10 +161,11 @@ class ACSeg(AC):
                 values_plus = (values_plus * np.stack(train_buffer['policy'])).sum(axis=-1).tolist()
                 values_plus.append(((1 - dones[-1]) * np.max(train_buffer['bootstrap_value'][key], axis=-1)).tolist())
             else:
-                values_plus = np.stack([train_buffer['values'][i][key] for i in range(len(train_buffer['values']))]).tolist()
+                values_plus = np.stack([train_buffer['values'][i][key]
+                                        for i in range(len(train_buffer['values']))]).tolist()
                 values_plus.append((1 - dones[-1]) * train_buffer['bootstrap_value'][key])
             values_plus = np.array(values_plus).squeeze()
-            advantages = np.stack([train_buffer['rewards'][i][key] for i in range(len(train_buffer['rewards']))]).squeeze() + \
+            advantages = np.stack([train_buffer['rewards_dict'][i][key] for i in range(len(train_buffer['rewards_dict']))]).squeeze() + \
                          self.args_dict['DISCOUNT'] * values_plus[1:] - values_plus[:-1]
             advantages = Utilities.discount(advantages, self.args_dict['DISCOUNT'])
             train_buffer['advantages'][key] = advantages.copy()
@@ -181,8 +179,9 @@ class ACSeg(AC):
         return train_buffer
 
     def compute_loss(self, train_buffer):
-        advantages = torch.zeros_like(train_buffer['advantages'][self.env.policy_keys[0]]).to(self.args_dict['DEVICE'])
-        for key in self.env.policy_keys:
+        advantages = torch.zeros_like(torch.tensor(train_buffer['advantages'][self.env.reward_keys[0]],
+            dtype=torch.float32)).to(self.args_dict['DEVICE'])
+        for key in self.env.reward_keys:
 
             advantages  += torch.tensor(train_buffer['advantages'][key],
                                                            dtype=torch.float32).to(self.args_dict['DEVICE'])
@@ -198,15 +197,17 @@ class ACSeg(AC):
         responsible_outputs = policy.gather(-1, a_batch)
         if self.args_dict['QVALUE']:
             v_l = 0
-            for key in self.env.policy_keys:
+            for key in self.env.reward_keys:
 
                 v_l += self.params_dict['value_weight'] * torch.square((value[key].squeeze() * \
                                                                    F.one_hot(a_batch,
                                                                              self.env.action_size).squeeze()).sum(
                 dim=-1) - train_buffer['discounted_rewards'][key])
         else:
-            v_l = self.params_dict['value_weight'] * torch.square(value[key].squeeze() -
-                                                                  train_buffer['discounted_rewards'][key])
+            v_l = 0
+            for key in self.env.reward_keys:
+                v_l += self.params_dict['value_weight'] * torch.square((value[key].squeeze() -
+                                                                        train_buffer['discounted_rewards'][key]))
 
         e_l = -torch.sum(self.params_dict['entropy_weight'] * \
                          (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))), dim=-1)
@@ -222,43 +223,6 @@ class ACSeg(AC):
         valid_l = valid_l1 + valid_l2
         return v_l, p_l, e_l, valid_l
 
-    def backward(self, train_buffer):
-        self.optim.zero_grad()
-        v_l, p_l, e_l, valid_l = self.compute_loss(train_buffer)
-        loss = v_l.sum() + p_l.sum() - e_l.sum() + valid_l.sum()
-
-        self.optim.zero_grad()
-        with torch.autograd.detect_anomaly():
-            loss.sum().backward()
-        # self.optimizer.step()
-        norm = torch.nn.utils.clip_grad_norm_(self._model.parameters(), 50)
-        v_n = torch.linalg.norm(
-            torch.stack([torch.linalg.norm(p.detach()).to("cpu") \
-                         for p in self._model.parameters()])).detach().numpy().item()
-
-        gradient = []
-        for local_param in self._model.parameters():
-            gradient.append(local_param.grad)
-        g_n = norm.detach().cpu().numpy().item()
-        episode_length = train_buffer['episode_length']
-        train_metrics = {'Value Loss': v_l.sum().cpu().detach().numpy().item() / episode_length,
-                         'Policy Loss': p_l.sum().cpu().detach().numpy().item() / episode_length,
-                         'Entropy Loss': e_l.sum().cpu().detach().numpy().item() / episode_length,
-                         'Valid Loss': valid_l.sum().cpu().detach().numpy().item() / episode_length,
-                         'Grad Norm': g_n, 'Var Norm': v_n}
-        return train_metrics, gradient
-
-    def compute_forward_buffer(self, obs_buffer):
-        return self._model.forward_buffer(obs_buffer)
-
-    def state_dict(self):
-        return self._model.state_dict()
-
-    def share_memory(self):
-        self._model.share_memory()
-
-    def load_state_dict(self, weights):
-        self._model.load_state_dict(weights)
 
 class PPO(AC):
     def __init__(self, env,params_dict, args_dict):
@@ -353,6 +317,12 @@ class ACLSTM(AC):
     def compute_forward_buffer(self,obs_buffer,hidden_in):
         return self._model.forward_buffer(obs_buffer,hidden_in)
 
+class ACLSTMSeg(ACSeg):
+    def init__(self, env, params_dict, args_dict):
+        super(ACLSTMSeg, self).init__(env,params_dict,args_dict)
+
+    def forward_step(self,input,hidden_in=None):
+        return self._model.forward_step(input,hidden_in)
 
 class PPOLSTM(AC):
     def __init__(self, env,params_dict, args_dict):
