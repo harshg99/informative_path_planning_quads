@@ -14,6 +14,12 @@ from copy import deepcopy
 import os
 from env.agents import AgentMP
 
+class REWARD(Enum):
+    PMAP = 15.0
+    MAP  = 10.0
+    TARGET  = +35.0
+    COLLISION = -1.0
+    MP = 10000
 
 class SearchEnvMP(SearchEnv):
 
@@ -246,6 +252,7 @@ class SearchEnvMP(SearchEnv):
                                               and self.agents[agentID].agentBudget>0):
             valid,visited_states,cost = self.agents[agentID].updatePos(action)
             reward = 0
+
             if valid:
                 for state in visited_states.T:
                     reward += self.worldMap[state[0], state[1]]

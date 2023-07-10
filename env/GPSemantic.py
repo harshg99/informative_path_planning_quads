@@ -38,13 +38,11 @@ from typing import  *
 Reward Class
 '''
 class REWARD(Enum):
-    STEP        = -0.1
-    STEPDIAGONAL= -0.1*np.sqrt(2)
-    STAY      = -0.5
     PMAP = 15.0
     MAP  = 10.0
     TARGET  = +20.0
     COLLISION = -1.0
+    COST = 0.0
 
 '''
 Constant Envrionment Variables for rendering
@@ -219,6 +217,7 @@ class GPSemanticGym(gym.Env):
         self.test_map_indices = shuffled_indices[int(self.env_params['TOTAL_MAPS']*self.env_params['TRAIN_PROP']):]
 
         self.episode_num = 0.0
+        self.reward_keys = ['coverage', 'entropy', 'semantics', 'cost', 'collision']
 
     def load_graph(self):
         self.mp_graph = MotionPrimitiveLattice.load(self.mp_graph_file_name)
@@ -646,9 +645,12 @@ class GPSemanticGym(gym.Env):
 
     def step_all(self, action_dict):
         rewards = []
+        reward_dict = []
+
         for j in range(self.numAgents):
-            r = self.step(agentID=j, action=action_dict[j])
+            r,r_d = self.step(agentID=j, action=action_dict[j])
             rewards.append(r)
+            reward_dict.append(r_d)
         done = False
 
         # TODO Change termination condition of finding all semantics
@@ -673,7 +675,7 @@ class GPSemanticGym(gym.Env):
         if self.args_dict['FIXED_BUDGET']:
             done = done or agents_done
 
-        return rewards, done
+        return rewards, reward_dict, done
 
     def _coverage(self, initial_belief,final_belief):
         return (final_belief.coverage_map.sum() - initial_belief.coverage_map.sum())\
@@ -708,6 +710,7 @@ class GPSemanticGym(gym.Env):
         """
         valid, visited_states, cost = self.agents[agentID].updatePos(action)
         reward = 0
+        reward_dict = {}
         initial_belief = deepcopy(self.belief_semantic_map)
 
         if valid:
@@ -719,33 +722,41 @@ class GPSemanticGym(gym.Env):
                         self.episode_num % self.args_dict['RENDER_TRAINING_WINDOW'] == 0:
                     self.buffer.add_buffer(agentID,state,self.agents[agentID].belief_semantic_map)
 
-            reward_coverage = self._coverage(initial_belief,self.belief_semantic_map).item()
+            reward_dict['coverage'] = self._coverage(initial_belief,self.belief_semantic_map).item()
 
-            reward += self._get_reward(initial_belief, self.belief_semantic_map).item()
-            reward += reward_coverage
-
-            reward -= cost / self.mp_cost_norm
+            reward_dict['entropy']= self._get_reward(initial_belief, self.belief_semantic_map).item()
+            reward_dict['cost'] = cost / self.mp_cost_norm
 
             semantics_found = self._get_semantic_reward(self.belief_semantic_map,initial_belief)
             semantics_found_total = 0
             for j in semantics_found:
                 semantics_found_total+=semantics_found[j]
 
-            reward += semantics_found_total * REWARD.TARGET.value
-
+            reward_dict['semantics'] = semantics_found_total * REWARD.TARGET.value
+            reward_dict['collision'] = 0.0
         elif visited_states is not None:
             # reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
-            reward += REWARD.COLLISION.value
+            reward_dict['coverage'] = 0.0
+            reward_dict['entropy']= 0.0
+            reward_dict['cost'] = 0.0
+            reward_dict['semantics'] = 0.0
+            reward_dict['collision'] = REWARD.COLLISION.value
             if self.episode_num is not None and self.args_dict['RENDER_TRAINING'] and \
                     self.episode_num % self.args_dict['RENDER_TRAINING_WINDOW'] == 0:
                 self.buffer.add_buffer(agentID, self.agents[agentID].pos, self.agents[agentID].belief_semantic_map)
         else:
-            reward += REWARD.COLLISION.value * 1.5
+            reward_dict['coverage'] = 0.0
+            reward_dict['entropy']= 0.0
+            reward_dict['cost'] = 0.0
+            reward_dict['semantics'] = 0.0
+            reward_dict['collision'] = REWARD.COLLISION.value * 2.0
             if self.episode_num is not None and self.args_dict['RENDER_TRAINING'] and \
                     self.episode_num % self.args_dict['RENDER_TRAINING_WINDOW'] == 0:
                 self.buffer.add_buffer(agentID, self.agents[agentID].pos, self.agents[agentID].belief_semantic_map)
 
-        return reward
+        for k,v in reward_dict.items():
+            reward += v
+        return reward, reward_dict
 
     def render(self, mode='visualise', W=800, H=800):
         # TODO: Get rid of this crap, need to render via the GPU

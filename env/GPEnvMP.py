@@ -41,6 +41,7 @@ class GPEnvMP(SearchEnvMP):
         self.targetBeliefThresh = params_dict['targetBeliefThresh']
         self.noise_max_var = params_dict['noise_max_var']
         self.noise_min_var = params_dict['noise_min_var']
+        self.reward_keys = ['coverage', 'entropy', 'semantics', 'cost', 'collision']
         self.metrics = Metrics()
 
 
@@ -207,9 +208,11 @@ class GPEnvMP(SearchEnvMP):
 
     def step_all(self, action_dict):
         rewards = []
+        reward_dicts = []
         for j in range(self.numAgents):
-            r = self.step(agentID=j, action=action_dict[j])
+            r,r_d = self.step(agentID=j, action=action_dict[j])
             rewards.append(r)
+            reward_dicts.append(r_d)
         done = False
         if np.all(np.abs(self.worldMap[self.pad_size:self.pad_size + self.reward_map_size, \
                          self.pad_size:self.pad_size + self.reward_map_size]) < 0.1):
@@ -229,7 +232,7 @@ class GPEnvMP(SearchEnvMP):
         if self.args_dict['FIXED_BUDGET']:
             done = done or agentsDone
 
-        return rewards, done
+        return rewards, reward_dicts, done
 
     def get_final_metrics(self):
         return self.metrics.compute_metrics(self.worldBeliefMap,self.worldTargetMap)
@@ -242,28 +245,40 @@ class GPEnvMP(SearchEnvMP):
         reward = 0
         initialBeliefMap = self.worldBeliefMap.copy()
         initialTargetMap = self.worldTargetMap.copy()
+        reward_dict = {}
 
         if valid:
             measurements = self.agents[agentID].updateInfoTarget(visited_states.T,self.worldTargetMap,self.targetBeliefThresh)
-            reward_coverage = self.updateRewardTarget(visited_states.T,measurements,agentID)
-            reward += self.getReward(initialBeliefMap,self.worldBeliefMap)
-            reward += reward_coverage
-            reward -= cost / REWARD.MP.value
+            reward_dict['coverage'] = self.updateRewardTarget(visited_states.T,measurements,agentID)
+
+            reward_dict['entropy'] = self.getReward(initialBeliefMap,self.worldBeliefMap)
+
+            reward_dict['cost'] = cost / REWARD.MP.value
             targets_found = (self.worldTargetMap==2).sum() - (initialTargetMap==2).sum()
-            reward += targets_found*REWARD.TARGET.value/len(self.targetList)
+
+            reward_dict['semantics'] = targets_found*REWARD.TARGET.value/len(self.targetList)
+            reward_dict['collision'] = 0.0
 
         elif visited_states is not None:
             # reward += REWARD.COLLISION.value*(visited_states.shape[0]+1)
-            reward += REWARD.COLLISION.value
+            reward_dict['coverage'] = 0.0
+            reward_dict['entropy']= 0.0
+            reward_dict['cost'] = 0.0
+            reward_dict['semantics'] = 0.0
+            reward_dict['collision'] = REWARD.COLLISION.value
         else:
-            reward += REWARD.COLLISION.value * 1.5
+            reward_dict['coverage'] = 0.0
+            reward_dict['entropy']= 0.0
+            reward_dict['cost'] = 0.0
+            reward_dict['semantics'] = 0.0
+            reward_dict['collision'] = REWARD.COLLISION.value * 1.5
 
 
         #reward += self.worldMap[int(self.agents[agentID].pos[0]), int(self.agents[agentID].pos[1])]
         #self.worldMap[self.agents[agentID].pos[0], self.agents[agentID].pos[1]] = 0
         self.worldMap = self.worldBeliefMap.copy()
         #self.agents[agentID].updateMap(self.worldMap)
-        return reward
+        return reward, reward_dict
 
     def getEntropy(self,belief):
         entropy = belief*np.log(np.clip(belief,1e-7,1)) + (1-belief)*np.log(np.clip(1-belief,1e-7,1))
