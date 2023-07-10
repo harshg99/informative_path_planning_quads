@@ -70,6 +70,11 @@ class model_setter:
             from models.MFModels import ModelMF4
             model_params_dict = model_setter.set_dict(parameters)
             return ModelMF4(env,model_params_dict,args_dict)
+        elif type == 'ModelMF4Seg':
+            import model_params.MFModel5  as parameters
+            from models.MFModels import ModelMF5
+            model_params_dict = model_setter.set_dict(parameters)
+            return ModelMF5(env,model_params_dict,args_dict)
         elif type == 'DQN':
             import model_params.Transformer as parameters
             model_params_dict = model_setter.set_dict(parameters)

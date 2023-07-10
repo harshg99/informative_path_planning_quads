@@ -9,6 +9,7 @@ from models.subnets import *
 import torch.nn.functional as F
 from models.model_setter import model_setter
 
+
 class AC:
     def __init__(self,env,params_dict,args_dict):
         self.env = env
@@ -129,6 +130,134 @@ class AC:
         self._model.share_memory()
 
     def load_state_dict(self,weights):
+        self._model.load_state_dict(weights)
+
+class ACSeg(AC):
+    '''
+    Segmented per reward structure
+    '''
+    def forward_step(self, input):
+        return self._model.forward_step(input)
+
+    def reset(self, episodeNum):
+        self.episodeNum = episodeNum
+
+    def get_advantages(self, train_buffer):
+
+        keys = self.env.policy_keys
+        dones = np.array(train_buffer['dones'])
+
+        for key in keys:
+
+            rewards_plus = np.stack([train_buffer['rewards'][i][key] for i in range(len(train_buffer['rewards']))]).tolist()
+
+            if self.args_dict['QVALUE']:
+                rewards_plus.append(((1 - dones[-1]) * np.max(train_buffer['bootstrap_value'][key], axis=-1)).tolist())
+            else:
+                rewards_plus.append(((1 - dones[-1]) * train_buffer['bootstrap_value'][key][:, 0]).tolist())
+
+            rewards_plus = np.array(rewards_plus).squeeze()
+            discount_rewards = Utilities.discount(rewards_plus, self.args_dict['DISCOUNT'])[:-1]
+
+            if self.args_dict['QVALUE']:
+                values_plus = np.stack([train_buffer['values'][i][key] for i in range(len(train_buffer['values']))])
+                values_plus = (values_plus * np.stack(train_buffer['policy'])).sum(axis=-1).tolist()
+                values_plus.append(((1 - dones[-1]) * np.max(train_buffer['bootstrap_value'][key], axis=-1)).tolist())
+            else:
+                values_plus = np.stack([train_buffer['values'][i][key] for i in range(len(train_buffer['values']))]).tolist()
+                values_plus.append((1 - dones[-1]) * train_buffer['bootstrap_value'][key])
+            values_plus = np.array(values_plus).squeeze()
+            advantages = np.stack([train_buffer['rewards'][i][key] for i in range(len(train_buffer['rewards']))]).squeeze() + \
+                         self.args_dict['DISCOUNT'] * values_plus[1:] - values_plus[:-1]
+            advantages = Utilities.discount(advantages, self.args_dict['DISCOUNT'])
+            train_buffer['advantages'][key] = advantages.copy()
+            if self.args_dict['LAMBDA_RET']:
+                train_buffer['discounted_rewards'][key] = Utilities.lambda_return(rewards_plus[:-1], \
+                                                                             values_plus, self.args_dict['DISCOUNT'],
+                                                                             self.args_dict['LAMBDA'])
+            else:
+                train_buffer['discounted_rewards'][key] = np.copy(discount_rewards)
+
+        return train_buffer
+
+    def compute_loss(self, train_buffer):
+        advantages = torch.zeros_like(train_buffer['advantages'][self.env.policy_keys[0]]).to(self.args_dict['DEVICE'])
+        for key in self.env.policy_keys:
+
+            advantages  += torch.tensor(train_buffer['advantages'][key],
+                                                           dtype=torch.float32).to(self.args_dict['DEVICE'])
+            train_buffer['discounted_rewards'][key] = torch.tensor(train_buffer['discounted_rewards'][key],
+                                                                   dtype=torch.float32).to(self.args_dict['DEVICE'])
+
+        a_batch = np.array(train_buffer['actions'])
+        dones = np.array(train_buffer['dones'])
+
+        policy, value, valids, valids_net = self.compute_forward_buffer(train_buffer['obs'])
+
+        a_batch = torch.tensor(a_batch, dtype=torch.int64).to(self.args_dict['DEVICE'])
+        responsible_outputs = policy.gather(-1, a_batch)
+        if self.args_dict['QVALUE']:
+            v_l = 0
+            for key in self.env.policy_keys:
+
+                v_l += self.params_dict['value_weight'] * torch.square((value[key].squeeze() * \
+                                                                   F.one_hot(a_batch,
+                                                                             self.env.action_size).squeeze()).sum(
+                dim=-1) - train_buffer['discounted_rewards'][key])
+        else:
+            v_l = self.params_dict['value_weight'] * torch.square(value[key].squeeze() -
+                                                                  train_buffer['discounted_rewards'][key])
+
+        e_l = -torch.sum(self.params_dict['entropy_weight'] * \
+                         (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))), dim=-1)
+
+        p_l = -self.params_dict['policy_weight'] * torch.log(
+            torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
+
+        valid_l1 = -self.params_dict['valids_weight1'] * torch.sum((1 - valids) * \
+                                                                   torch.log(torch.clip(1 - valids_net, 1e-7, 1)),
+                                                                   dim=-1)
+        valid_l2 = -self.params_dict['valids_weight2'] * torch.sum(valids * \
+                                                                   torch.log(torch.clip(valids_net, 1e-7, 1)), dim=-1)
+        valid_l = valid_l1 + valid_l2
+        return v_l, p_l, e_l, valid_l
+
+    def backward(self, train_buffer):
+        self.optim.zero_grad()
+        v_l, p_l, e_l, valid_l = self.compute_loss(train_buffer)
+        loss = v_l.sum() + p_l.sum() - e_l.sum() + valid_l.sum()
+
+        self.optim.zero_grad()
+        with torch.autograd.detect_anomaly():
+            loss.sum().backward()
+        # self.optimizer.step()
+        norm = torch.nn.utils.clip_grad_norm_(self._model.parameters(), 50)
+        v_n = torch.linalg.norm(
+            torch.stack([torch.linalg.norm(p.detach()).to("cpu") \
+                         for p in self._model.parameters()])).detach().numpy().item()
+
+        gradient = []
+        for local_param in self._model.parameters():
+            gradient.append(local_param.grad)
+        g_n = norm.detach().cpu().numpy().item()
+        episode_length = train_buffer['episode_length']
+        train_metrics = {'Value Loss': v_l.sum().cpu().detach().numpy().item() / episode_length,
+                         'Policy Loss': p_l.sum().cpu().detach().numpy().item() / episode_length,
+                         'Entropy Loss': e_l.sum().cpu().detach().numpy().item() / episode_length,
+                         'Valid Loss': valid_l.sum().cpu().detach().numpy().item() / episode_length,
+                         'Grad Norm': g_n, 'Var Norm': v_n}
+        return train_metrics, gradient
+
+    def compute_forward_buffer(self, obs_buffer):
+        return self._model.forward_buffer(obs_buffer)
+
+    def state_dict(self):
+        return self._model.state_dict()
+
+    def share_memory(self):
+        self._model.share_memory()
+
+    def load_state_dict(self, weights):
         self._model.load_state_dict(weights)
 
 class PPO(AC):
