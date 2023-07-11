@@ -276,7 +276,8 @@ class GPEnvMP(SearchEnvMP):
             reward_dict['semantics'] = 0.0
             reward_dict['collision'] = REWARD.COLLISION.value * 1.5
 
-
+        for k in reward_dict.keys():
+            reward += reward_dict[k]
         #reward += self.worldMap[int(self.agents[agentID].pos[0]), int(self.agents[agentID].pos[1])]
         #self.worldMap[self.agents[agentID].pos[0], self.agents[agentID].pos[1]] = 0
         self.worldMap = self.worldBeliefMap.copy()
