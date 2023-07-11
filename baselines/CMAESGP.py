@@ -274,7 +274,12 @@ class CMAESGP(il_wrapper):
             for j in range(self.depth):
                 if self.gifs:
                     frames.append(self.env.render(mode='rgb_array'))
-                rewards,done = self.env.step_all(action_dicts[j])
+
+                returns = self.env.step_all(action_dicts[j])
+                if len(returns) == 3:
+                    rewards, rewards_dict, done = returns
+                else:
+                    rewards, done = returns
                 episode_rewards += np.array(rewards).sum()
                 episode_step+=1
                 if done:

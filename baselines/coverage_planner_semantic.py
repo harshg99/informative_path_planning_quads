@@ -160,7 +160,11 @@ class coverage_planner_semantic(il_wrapper_semantic):
             worldMap = deepcopy(self.env.belief_semantic_map)
             for j,agent in enumerate(self.env.agents):
                 action_dict[j],cost = self.plan_action(deepcopy(agent.pos),deepcopy(agent.index),j,worldMap=worldMap)
-            rewards,done = self.env.step_all(action_dict)
+            returns = self.env.step_all(action_dict)
+            if len(returns) == 3:
+                rewards, rewards_dict, done = returns
+            else:
+                rewards, done = returns
             episode_rewards += np.array(rewards).sum()
             episode_step+=1
             print("Step: {:d}, Reward: {:.2f}, Cost: {:.2f} BudgetRem{:.2f}"\

@@ -92,7 +92,12 @@ class prioritised_coverage_mp(coverage_planner_mp):
                                                         deepcopy(agent.index), j,
                                                         coverageMap=coverageMap)
 
-            rewards, done = self.env.step_all(action_dict)
+            returns = self.env.step_all(action_dict)
+            if len(returns) == 3:
+                rewards, rewards_dict, done = returns
+            else:
+                rewards, done = returns
+            episode_rewards += np.array(rewards).sum()
             coverageMap = deepcopy(self.env.worldMap)
 
             episode_rewards += np.array(rewards).sum()

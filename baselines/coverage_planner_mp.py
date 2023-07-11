@@ -178,7 +178,11 @@ class coverage_planner_mp(il_wrapper):
                                                         deepcopy(agent.index), j,
                                                         coverageMap=coverageMap)
 
-            rewards, done = self.env.step_all(action_dict)
+            returns = self.env.step_all(action_dict)
+            if len(returns) == 3:
+                rewards, rewards_dict, done = returns
+            else:
+                rewards, done = returns
             for j, agent in enumerate(self.env.agents):
                 for state in agent.visited_states.T.tolist():
                     r = state[0]

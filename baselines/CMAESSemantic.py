@@ -210,7 +210,11 @@ class CMAESSemantic(il_wrapper_semantic):
 
             for j in range(self.depth):
 
-                rewards,done = self.env.step_all(action_dicts[j])
+                returns = self.env.step_all(action_dicts[j])
+                if len(returns) == 3:
+                    rewards, rewards_dict, done = returns
+                else:
+                    rewards, done = returns
                 episode_rewards += np.array(rewards).sum()
                 episode_step+=1
                 if self.gifs:
