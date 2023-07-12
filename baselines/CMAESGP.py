@@ -273,7 +273,7 @@ class CMAESGP(il_wrapper):
 
             for j in range(self.depth):
                 if self.gifs:
-                    frames.append(self.env.render(mode='rgb_array'))
+                    frames += self.env.render(mode='rgb_array')
 
                 returns = self.env.step_all(action_dicts[j])
                 if len(returns) == 3:

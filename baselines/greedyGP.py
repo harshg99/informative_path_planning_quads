@@ -215,7 +215,7 @@ class GreedyGP(il_wrapper):
         while ((not self.args_dict['FIXED_BUDGET'] and episode_step < self.env.episode_length) \
                or (self.args_dict['FIXED_BUDGET'])):
             if self.gifs:
-                frames.append(self.env.render(mode='rgb_array'))
+                frames += self.env.render(mode='rgb_array')
             action_dict = {}
             worldMap = deepcopy(self.env.worldMap)
             worldMap[self.env.worldTargetMap == 2] = 0

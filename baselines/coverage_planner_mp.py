@@ -171,7 +171,7 @@ class coverage_planner_mp(il_wrapper):
         while ((not self.args_dict['FIXED_BUDGET'] and episode_step < self.env.episode_length) \
                or (self.args_dict['FIXED_BUDGET'])):
             if self.gifs:
-                frames.append(self.env.render(mode='rgb_array'))
+                frames += self.env.render(mode='rgb_array')
             action_dict = {}
             for j, agent in enumerate(self.env.agents):
                 action_dict[j], cost = self.plan_action(deepcopy(agent.pos),
