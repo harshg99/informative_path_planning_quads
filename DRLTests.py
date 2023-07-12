@@ -27,7 +27,7 @@ class DRLTest:
 
         print('Loading Model')
         model_path = 'data/models/' + model_path
-        checkpoint = torch.load(model_path + "/checkpoint.pkl",map_location = self.args_dict['DEVICE'])
+        checkpoint = torch.load(model_path + "/checkpoint{}.pkl".format(args_dict['LOAD_BEST_MODEL']),map_location = self.args_dict['DEVICE'])
         self.model.load_state_dict(checkpoint['model_state_dict'])
         #self.model.optim.load_state_dict(checkpoint['optimizer_state_dict'])
         curr_episode = checkpoint['epoch']
@@ -76,7 +76,11 @@ class DRLTest:
             else:
                 action_dict,_ = self.plan_action(observation,hidden_in)
 
-            rewards,done = self.env.step_all(action_dict)
+            returns = self.env.step_all(action_dict)
+            if len(returns) == 3:
+                rewards, rewards_dict, done = returns
+            else:
+                rewards, done = returns
             episode_rewards += np.array(rewards).sum()
             observation = self.env.get_obs_all()
 
