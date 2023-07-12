@@ -142,7 +142,7 @@ class GreedyGP(il_wrapper):
             is_valid, visited_states = self.isValidMP(pos,mp,agentID)
             reward  = 0
             if is_valid:
-                reward -= mp.cost/ mp.subclass_specific
+                reward -= mp.cost/ mp.subclass_specific_data.get('rho', 1) / 10 / 10000
                 next_index = self.lookup[index, action]
                 next_index = int(np.floor(next_index / self.num_tiles))
                 next_pos =  np.round(mp.end_state[:self.spatial_dim]).astype(int)
