@@ -194,7 +194,8 @@ class GPEnvMP(SearchEnvMP):
                         self.minimum_action_mp_graph,self.lookup_dictionary,\
                         self.spatial_dim,self.mp_graph.num_tiles,self.sensor_params,agentBudget) for j in range(self.numAgents)]
         else:
-            self.agents = [AgentGP(j,self.reward_map_size+j+1,self.reward_map_size+j+1,\
+            self.agents = [AgentGP(j,int(self.reward_map_size/2)+self.pad_size+j+1,
+                                   int(self.reward_map_size/2)+self.pad_size+j+1,\
                                  self.reward_map_size,self.pad_size,self.world_map_size,\
                         self.minimum_action_mp_graph,self.lookup_dictionary,self.spatial_dim,\
                                    self.mp_graph.num_tiles,self.sensor_params,agentBudget) for j in range(self.numAgents)]
