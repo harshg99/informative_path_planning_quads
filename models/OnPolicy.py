@@ -80,8 +80,11 @@ class AC:
                                                 F.one_hot(a_batch,self.env.action_size).squeeze()).sum(dim=-1)- target_v)
         else:
             v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
+
+        # Entropy over valid actions
         e_l = -torch.sum(self.params_dict['entropy_weight'] * \
-                                   (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))),dim=-1)
+                                   (policy*valids * torch.log(torch.clamp(policy*valids, min=1e-10, max=1.0))),dim=-1)
+
         p_l = -self.params_dict['policy_weight'] * torch.log(
         torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
 
@@ -210,7 +213,7 @@ class ACSeg(AC):
                                                                         train_buffer['discounted_rewards'][key]))
 
         e_l = -torch.sum(self.params_dict['entropy_weight'] * \
-                         (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))), dim=-1)
+                         (policy * valids * torch.log(torch.clamp(policy * valids, min=1e-10, max=1.0))), dim=-1)
 
         p_l = -self.params_dict['policy_weight'] * torch.log(
             torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
@@ -251,8 +254,8 @@ class PPO(AC):
         dones = torch.tensor(np.array(dones), dtype=torch.float32).to(self.args_dict['DEVICE'])
 
         v_l = (1-dones)*self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
-        e_l = -(1 - dones) * torch.sum(self.params_dict['entropy_weight'] * \
-                                       (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))), dim=-1)
+        e_l = -torch.sum(self.params_dict['entropy_weight'] * \
+                         (policy * valids * torch.log(torch.clamp(policy * valids, min=1e-10, max=1.0))), dim=-1)
 
         p_l = -(1-dones)*self.params_dict['policy_weight'] * torch.minimum(
         ratio.squeeze() * advantages.squeeze(),
@@ -302,7 +305,8 @@ class ACLSTM(AC):
         else:
             v_l = self.params_dict['value_weight'] * torch.square(value.squeeze() - target_v)
         e_l = -torch.sum(self.params_dict['entropy_weight'] * \
-                         (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))), dim=-1)
+                         (policy * valids * torch.log(torch.clamp(policy * valids, min=1e-10, max=1.0))), dim=-1)
+
         p_l = -self.params_dict['policy_weight'] * torch.log(
             torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
 
@@ -360,7 +364,7 @@ class ACLSTMSeg(ACSeg):
                                                                         train_buffer['discounted_rewards'][key]))
 
         e_l = -torch.sum(self.params_dict['entropy_weight'] * \
-                         (policy * torch.log(torch.clamp(policy, min=1e-10, max=1.0))), dim=-1)
+                         (policy * valids * torch.log(torch.clamp(policy * valids, min=1e-10, max=1.0))), dim=-1)
 
         p_l = -self.params_dict['policy_weight'] * torch.log(
             torch.clamp(responsible_outputs.squeeze(), min=1e-15, max=1.0)) * advantages.squeeze()
