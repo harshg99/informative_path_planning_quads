@@ -529,7 +529,10 @@ class ModelMF4Seg(ModelMF4):
                                               self.action_size + self.graph_layer_size[-1], \
                                               self.hidden_sizes[-1], dropout=False, activation=nn.LeakyReLU)
 
-            value_layers.extend([nn.Linear(self.hidden_sizes[-1], self.action_size)])
+            if self.args_dict['QVALUE']:
+                value_layers.extend([nn.Linear(self.hidden_sizes[-1], self.action_size)])
+            else:
+                value_layers.extend([nn.Linear(self.hidden_sizes[-1], 1)])
             value_net = nn.Sequential(*value_layers)
             value_net.to(self.args_dict['DEVICE'])
             self.value_layers[key] = deepcopy(value_net)
