@@ -90,7 +90,11 @@ class DRLTest:
             else:
                 action_dict,_ = self.plan_action(observation,hidden_in)
 
-            rewards,done = self.env.step_all(action_dict)
+            returns = self.env.step_all(action_dict)
+            if len(returns) == 3:
+                rewards, rewards_dict, done = returns
+            else:
+                rewards, done = returns
             episode_rewards += np.array(rewards).sum()
             observation = self.env.get_obs_all()
 
