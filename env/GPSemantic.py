@@ -39,7 +39,7 @@ Reward Class
 '''
 class REWARD(Enum):
     PMAP = 15.0
-    MAP  = 10.0
+    MAP  = 50.0
     TARGET  = +20.0
     COLLISION = -1.0
     COST = 0.0
